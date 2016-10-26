@@ -35,3 +35,14 @@ product.save(function(err) {
 	if (err) throw err;
 });
 ```
+
+### Get products
+
+```javascript
+const	productLib	= require('larvitproduct'),
+	products	= new productLib.Products();
+
+products.get(function(err, productList) {
+	// productList being an object with productUuid as key
+});
+```
