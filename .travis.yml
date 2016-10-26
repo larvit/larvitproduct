@@ -34,7 +34,6 @@ addons:
     - ubuntu-toolchain-r-test
     packages:
     - g++-4.8
-    - mysql-client
 
 before_script:
   - mysql -e "create database IF NOT EXISTS test;" -uroot
