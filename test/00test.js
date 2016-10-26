@@ -15,7 +15,7 @@ let	productLib;
 // Set up winston
 log.remove(log.transports.Console);
 /**/log.add(log.transports.Console, {
-	'level':	'debug',
+	'level':	'warn',
 	'colorize':	true,
 	'timestamp':	true,
 	'json':	false
