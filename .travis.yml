@@ -22,6 +22,7 @@ before_install:
 install:
   - if [[ $TRAVIS_OS_NAME == "linux" ]]; then export CXX=g++-4.8; fi
   - npm i
+  - sudo apt-get install -qq --no-install-recommends mariadb-client
 
 services:
   - rabbitmq
@@ -36,6 +37,6 @@ addons:
     - mysql-client
 
 before_script:
-  - mysql -e 'CREATE DATABASE test'
+  - mysql -e "create database IF NOT EXISTS test;" -uroot
 
 script: DBCONFFILE=db_travis.json INTCONFFILE=amqp_travis.json npm test
