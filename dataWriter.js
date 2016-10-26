@@ -96,7 +96,7 @@ function writeProduct(params, deliveryTag, msgUuid) {
 	});
 }
 
-function writeProductAttribute(params, deliveryTag, msgUuid) {
+function writeAttribute(params, deliveryTag, msgUuid) {
 	const	uuid	= params.uuid,
 		name	= params.name;
 
@@ -109,7 +109,7 @@ exports.emitter	= new EventEmitter();
 exports.exchangeName	= 'larvitproduct';
 exports.rmProduct	= rmProduct;
 exports.writeProduct	= writeProduct;
-exports.writeProductAttribute	= writeProductAttribute;
+exports.writeAttribute	= writeAttribute;
 
 intercom.subscribe({'exchange': exports.exchangeName}, function(message, ack, deliveryTag) {
 	ack(); // Ack first, if something goes wrong we log it and handle it manually
