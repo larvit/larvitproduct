@@ -538,6 +538,26 @@ describe('Products', function() {
 	});
 });
 
+describe('Helpers', function() {
+	it('should get attribute values', function(done) {
+		productLib.helpers.getAttributeValues('foo', function(err, result) {
+			if (err) throw err;
+
+			assert.deepEqual(result,	['bar', 'baz']);
+			done();
+		});
+	});
+
+	it('should get empty array on non existing attribute name', function(done) {
+		productLib.helpers.getAttributeValues('trams', function(err, result) {
+			if (err) throw err;
+
+			assert.deepEqual(result,	[]);
+			done();
+		});
+	});
+});
+
 after(function(done) {
 	db.removeAllTables(done);
 });
