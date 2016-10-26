@@ -538,6 +538,16 @@ describe('Helpers', function() {
 			done();
 		});
 	});
+
+	it('should get empty array on non existing attribute', function(done) {
+		productLib.helpers.getAttributeValues('trams', function(err, result) {
+			if (err) throw err;
+
+			assert.deepEqual(result,	[]);
+
+			done();
+		});
+	});
 });
 
 after(function(done) {
