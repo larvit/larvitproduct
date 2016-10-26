@@ -1,6 +1,6 @@
 CREATE TABLE `product_products` (
   `uuid` binary(16) NOT NULL,
-  `created` datetime NOT NULL DEFAULT NOW(),
+  `created` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`uuid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=ascii COLLATE=ascii_bin;
 
