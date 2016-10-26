@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/larvit/larvitproduct.svg?branch=master)](https://travis-ci.org/larvit/larvitproduct) [![Dependencies](https://david-dm.org/larvit/larvitproduct.svg)](https://david-dm.org/larvit/larvitproduct.svg)
+
 # larvitproduct
 
 Generic product module for nodejs.
