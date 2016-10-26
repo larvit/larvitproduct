@@ -528,6 +528,18 @@ describe('Products', function() {
 	});
 });
 
+describe('Helpers', function() {
+	it('should get attribue values', function(done) {
+		productLib.helpers.getAttributeValues('foo', function(err, result) {
+			if (err) throw err;
+
+			assert.deepEqual(result,	['bar', 'baz']);
+
+			done();
+		});
+	});
+});
+
 after(function(done) {
 	db.removeAllTables(done);
 });
