@@ -1,0 +1,4 @@
+config/amqp_test.json
+config/db_test.json
+node_modules
+npm-debug.log*
