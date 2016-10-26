@@ -49,7 +49,8 @@ Products.prototype.get = function(cb) {
 	const	tasks	= [],
 		that	= this;
 
-	let products = {};
+	let	productsCount	= 0,
+		products	= {};
 
 	// Make sure database is ready
 	tasks.push(ready);
@@ -58,7 +59,8 @@ Products.prototype.get = function(cb) {
 	tasks.push(function(cb) {
 		const dbFields = [];
 
-		let sql = 'SELECT * FROM product_products products WHERE 1';
+		let	countSql	= 'SELECT COUNT(*) AS products',
+			sql	= ' FROM product_products products WHERE 1';
 
 		if (that.uuids !== undefined) {
 			if ( ! (that.uuids instanceof Array)) {
@@ -100,6 +102,9 @@ Products.prototype.get = function(cb) {
 			}
 		}
 
+		countSql	+= sql;
+		sql	= 'SELECT *' + sql;
+
 		sql += '	ORDER BY created DESC';
 
 		if (that.limit) {
@@ -110,20 +115,35 @@ Products.prototype.get = function(cb) {
 		}
 
 		ready(function() {
-			db.query(sql, dbFields, function(err, rows) {
-				if (err) { cb(err); return; }
+			const	tasks	= [];
 
-				for (let i = 0; rows[i] !== undefined; i ++) {
-					const	row	= rows[i],
-						productUuid	= lUtils.formatUuid(row.uuid);
+			tasks.push(function(cb) {
+				db.query(sql, dbFields, function(err, rows) {
+					if (err) { cb(err); return; }
 
-					products[productUuid]	= {};
-					products[productUuid].uuid	= productUuid;
-					products[productUuid].created	= row.created;
-				}
+					for (let i = 0; rows[i] !== undefined; i ++) {
+						const	row	= rows[i],
+							productUuid	= lUtils.formatUuid(row.uuid);
 
-				cb();
+						products[productUuid]	= {};
+						products[productUuid].uuid	= productUuid;
+						products[productUuid].created	= row.created;
+					}
+
+					cb();
+				});
 			});
+
+			tasks.push(function(cb) {
+				db.query(countSql, dbFields, function(err, rows) {
+					if (err) { cb(err); return; }
+
+					productsCount = rows[0].products;
+					cb();
+				});
+			});
+
+			async.parallel(tasks, cb);
 		});
 	});
 
@@ -187,7 +207,7 @@ Products.prototype.get = function(cb) {
 	async.series(tasks, function(err) {
 		if (err) { cb(err); return; }
 
-		cb(null, products);
+		cb(null, products, productsCount);
 	});
 
 };

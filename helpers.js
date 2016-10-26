@@ -72,26 +72,6 @@ function getAttributeUuids(attributeNames, cb) {
 	});
 };
 
-function getAttributeValues(attributeName, cb) {
-	const	dbFields	=	[attributeName],
-		sql	=	'SELECT DISTINCT `data`\n' +
-				'FROM product_product_attributes\n' +
-				'WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?)\n' +
-				'ORDER BY `data`';
-
-	db.query(sql, dbFields, function(err, rows) {
-		const	values	= [];
-
-		if (err) { cb(err); return; }
-
-		for (let i = 0; rows[i] !== undefined; i ++) {
-			values.push(rows[i].data);
-		}
-
-		cb(null, values);
-	});
-}
-
 function loadAttributesToCache(cb) {
 	db.query('SELECT * FROM product_attributes ORDER BY name;', function(err, rows) {
 		if (err) {
@@ -114,5 +94,4 @@ function loadAttributesToCache(cb) {
 exports.attributes	= [];
 exports.getAttributeUuid	= getAttributeUuid;
 exports.getAttributeUuids	= getAttributeUuids;
-exports.getAttributeValues	= getAttributeValues;
 exports.loadAttributesToCache	= loadAttributesToCache;

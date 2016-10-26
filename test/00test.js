@@ -356,10 +356,11 @@ describe('Products', function() {
 	it('should get a list of products', function(done) {
 		const products = new productLib.Products();
 
-		products.get(function(err, productList) {
+		products.get(function(err, productList, productsCount) {
 			if (err) throw err;
 			assert.deepEqual(typeof productList,	'object');
 			assert.deepEqual(Object.keys(productList).length,	3);
+			assert.deepEqual(productsCount,	3);
 
 			for (const uuid of Object.keys(productList)) {
 				assert.deepEqual(uuidValidate(productList[uuid].uuid, 1),	true);
@@ -377,10 +378,11 @@ describe('Products', function() {
 		tasks.push(function(cb) {
 			const products = new productLib.Products();
 
-			products.get(function(err, productList) {
+			products.get(function(err, productList, productsCount) {
 				if (err) throw err;
 
 				dbUuids = Object.keys(productList);
+				assert.deepEqual(dbUuids.length,	productsCount);
 
 				cb();
 			});
@@ -392,10 +394,11 @@ describe('Products', function() {
 
 			products.uuids = dbUuids[0];
 
-			products.get(function(err, productList) {
+			products.get(function(err, productList, productsCount) {
 				if (err) throw err;
 				assert.deepEqual(typeof productList,	'object');
 				assert.deepEqual(Object.keys(productList).length,	1);
+				assert.deepEqual(productsCount,	1);
 				assert.deepEqual(uuidValidate(productList[dbUuids[0]].uuid, 1),	true);
 				assert.deepEqual(productList[dbUuids[0]].uuid,	dbUuids[0]);
 				assert.deepEqual(toString.call(productList[dbUuids[0]].created),	'[object Date]');
@@ -410,10 +413,11 @@ describe('Products', function() {
 
 			products.uuids = uuidLib.v1();
 
-			products.get(function(err, productList) {
+			products.get(function(err, productList, productsCount) {
 				if (err) throw err;
 				assert.deepEqual(typeof productList,	'object');
 				assert.deepEqual(Object.keys(productList).length,	0);
+				assert.deepEqual(productsCount,	0);
 
 				cb();
 			});
@@ -425,10 +429,11 @@ describe('Products', function() {
 
 			products.uuids = [];
 
-			products.get(function(err, productList) {
+			products.get(function(err, productList, productsCount) {
 				if (err) throw err;
 				assert.deepEqual(typeof productList,	'object');
 				assert.deepEqual(Object.keys(productList).length,	0);
+				assert.deepEqual(productsCount,	0);
 
 				cb();
 			});
@@ -440,10 +445,11 @@ describe('Products', function() {
 
 			products.uuids = [dbUuids[0], dbUuids[2]];
 
-			products.get(function(err, productList) {
+			products.get(function(err, productList, productsCount) {
 				if (err) throw err;
 				assert.deepEqual(typeof productList,	'object');
 				assert.deepEqual(Object.keys(productList).length,	2);
+				assert.deepEqual(productsCount,	2);
 
 				assert.deepEqual(uuidValidate(productList[dbUuids[0]].uuid, 1),	true);
 				assert.deepEqual(productList[dbUuids[0]].uuid,	dbUuids[0]);
@@ -465,10 +471,11 @@ describe('Products', function() {
 
 		products.limit = 2;
 
-		products.get(function(err, productList) {
+		products.get(function(err, productList, productsCount) {
 			if (err) throw err;
 			assert.deepEqual(typeof productList,	'object');
 			assert.deepEqual(Object.keys(productList).length,	2);
+			assert.deepEqual(productsCount,	3);
 
 			done();
 		});
@@ -480,12 +487,13 @@ describe('Products', function() {
 		products.limit	= 2;
 		products.offset	= 2;
 
-		products.get(function(err, productList) {
+		products.get(function(err, productList, productsCount) {
 			if (err) throw err;
 			assert.deepEqual(typeof productList,	'object');
 
 			// Since there are only 3 rows in the database, a single row should be returned
 			assert.deepEqual(Object.keys(productList).length,	1);
+			assert.deepEqual(productsCount,	3);
 
 			done();
 		});
@@ -500,10 +508,11 @@ describe('Products', function() {
 				'nisse':	'nej'
 			};
 
-			products.get(function(err, productList) {
+			products.get(function(err, productList, productsCount) {
 				if (err) throw err;
 
 				assert.deepEqual(Object.keys(productList).length,	1);
+				assert.deepEqual(productsCount,	1);
 
 				done();
 			});
@@ -517,35 +526,14 @@ describe('Products', function() {
 				'nisse':	undefined
 			};
 
-			products.get(function(err, productList) {
+			products.get(function(err, productList, productsCount) {
 				if (err) throw err;
 
 				assert.deepEqual(Object.keys(productList).length,	2);
+				assert.deepEqual(productsCount,	2);
 
 				done();
 			});
-		});
-	});
-});
-
-describe('Helpers', function() {
-	it('should get attribue values', function(done) {
-		productLib.helpers.getAttributeValues('foo', function(err, result) {
-			if (err) throw err;
-
-			assert.deepEqual(result,	['bar', 'baz']);
-
-			done();
-		});
-	});
-
-	it('should get empty array on non existing attribute', function(done) {
-		productLib.helpers.getAttributeValues('trams', function(err, result) {
-			if (err) throw err;
-
-			assert.deepEqual(result,	[]);
-
-			done();
 		});
 	});
 });
