@@ -1,0 +1,41 @@
+<%= _.render('inc/head', obj) %>
+<%= _.render('inc/pageTop', obj) %>
+<form method="get">
+	<div class="row">
+		<div class="three columns">
+			<label for="filterStatus">Filter by status</label>
+			<select class="u-full-width" name="filterStatus">
+				<option style="font-style: italic;" value="">No filter</option>
+				<% _.forEach(obj.statuses, function(status) { %>
+					<option value="<%= status %>"<% if (status === obj.global.urlParsed.query.filterStatus) { print(' selected="selected"'); } %>><%= status %></option>
+				<% }); %>
+			</select>
+		</div>
+
+		<div class="three columns">
+			<button class="button inv">Filter</button>
+		</div>
+	</div>
+</form>
+
+<table>
+	<thead>
+		<tr>
+			<th>UUID</th>
+			<th>Created</th>
+			<th>Name</th>
+			<th>Status</th>
+		</tr>
+	</thead>
+	<tbody>
+		<% _.forEach(obj.products, function(product, productUuid) { %>
+			<tr>
+				<td><a href="/products/edit?uuid=<%= productUuid %>"><%= productUuid %></a></td>
+				<td><%= product.created %></td>
+				<td><%= product.attributes !== undefined ? product.attributes.status : '<em>undefined</em>' %></td>
+			</tr>
+		<% }); %>
+	</tbody>
+</table>
+<%= _.render('inc/pagination', obj.pagination) %>
+<%= _.render('inc/pageBottom', obj) %>
