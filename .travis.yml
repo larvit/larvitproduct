@@ -23,9 +23,6 @@ install:
   - if [[ $TRAVIS_OS_NAME == "linux" ]]; then export CXX=g++-4.8; fi
   - npm i
 
-before_script:
-  - mysql -e 'CREATE DATABASE test'
-
 services:
   - rabbitmq
 
@@ -36,5 +33,9 @@ addons:
     - ubuntu-toolchain-r-test
     packages:
     - g++-4.8
+    - mysql-client
+
+before_script:
+  - mysql -e 'CREATE DATABASE test'
 
 script: DBCONFFILE=db_travis.json INTCONFFILE=amqp_travis.json npm test
