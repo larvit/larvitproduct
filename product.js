@@ -57,18 +57,19 @@ function Product(options) {
 	if (typeof options === 'string') {
 		this.uuid	= options;
 		options	= {};
+	} else if (options.uuid !== undefined) {
+		this.uuid	= options.uuid;
 	} else {
 		this.uuid	= uuidLib.v1();
 		log.verbose('larvitproduct: product.js: Product() - New Product - Creating Product with uuid: ' + this.uuid);
 	}
 
-	this.created	= new Date();
+	this.created	= options.created;
 	this.attributes	= options.attributes;
 	this.ready	= ready; // To expose to the outside world
 
-	if (this.attributes === undefined) {
-		this.attributes = {};
-	}
+	if (this.attributes	=== undefined) { this.attributes	= {};	}
+	if (this.created	=== undefined) { this.created	= new Date();	}
 }
 
 Product.prototype.loadFromDb = function(cb) {

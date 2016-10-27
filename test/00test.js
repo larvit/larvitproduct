@@ -136,7 +136,7 @@ describe('Product', function() {
 		done();
 	});
 
-	it('should instantiate a new plain product object, with object as option', function(done) {
+	it('should instantiate a new plain product object, with empty object as option', function(done) {
 		const product = new productLib.Product({});
 
 		assert.deepEqual(toString.call(product),	'[object Object]');
@@ -158,6 +158,38 @@ describe('Product', function() {
 			assert.deepEqual(uuidValidate(product.uuid, 1),	true);
 			assert.deepEqual(product.uuid,	'6a7c9adc-9b73-11e6-9f33-a24fc0d9649c');
 			assert.deepEqual(toString.call(product.created),	'[object Date]');
+
+			done();
+		});
+	});
+
+	it('should instantiate a new plain product object, with custom uuid as explicit option', function(done) {
+		const product = new productLib.Product({'uuid': '6a7c9adc-9b73-11e6-9f33-a24fc0d9649c'});
+
+		product.loadFromDb(function(err) {
+			if (err) throw err;
+
+			assert.deepEqual(toString.call(product),	'[object Object]');
+			assert.deepEqual(toString.call(product.attributes),	'[object Object]');
+			assert.deepEqual(uuidValidate(product.uuid, 1),	true);
+			assert.deepEqual(product.uuid,	'6a7c9adc-9b73-11e6-9f33-a24fc0d9649c');
+			assert.deepEqual(toString.call(product.created),	'[object Date]');
+
+			done();
+		});
+	});
+
+	it('should instantiate a new plain product object, with custom created', function(done) {
+		const	manCreated	= new Date(),
+			product	= new productLib.Product({'created': manCreated});
+
+		product.loadFromDb(function(err) {
+			if (err) throw err;
+
+			assert.deepEqual(toString.call(product),	'[object Object]');
+			assert.deepEqual(toString.call(product.attributes),	'[object Object]');
+			assert.deepEqual(uuidValidate(product.uuid, 1),	true);
+			assert.deepEqual(product.created,	manCreated);
 
 			done();
 		});
