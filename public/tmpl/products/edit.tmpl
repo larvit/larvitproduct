@@ -1,0 +1,54 @@
+<%= _.render('inc/head', obj) %>
+<%= _.render('inc/pageTop', obj) %>
+<form method="post">
+
+	<div class="row">
+		<div class="six columns">
+			<label for="uuid">Uuid</label>
+			<input class="u-full-width" type="text" name="uuid" placeholder="auto generated" readonly="readonly" value="<%= obj.global.urlParsed.query.uuid %>" />
+		</div>
+
+		<div class="six columns">
+			<label for="created">Created</label>
+			<input class="u-full-width" type="text" name="uuid" placeholder="auto generated" readonly="readonly" value="<%= obj.product.created %>" />
+		</div>
+	</div>
+
+	<h2>Attributes</h2>
+	<% _.forEach(obj.product.attributes, function(attributeValues, attributeName) { %>
+		<% for (var i = 0; attributeValues[i] !== undefined; i ++) { %>
+			<div class="row">
+				<div class="six columns">
+					<label for="attributeName[]">Field Name</label>
+					<input class="u-full-width" type="text" name="attributeName[]" value="<%= attributeName %>" />
+				</div>
+
+				<div class="six columns">
+					<label for="attributeValue[]">Field Value</label>
+					<input class="u-full-width" type="text" name="attributeValue[]" value="<%= attributeValues[i] %>" />
+				</div>
+			</div>
+		<% } %>
+	<% }); %>
+
+	<div class="row">
+		<div class="six columns">
+			<label for="attributeName[]">Field Name</label>
+			<input class="u-full-width" type="text" name="attributeName[]" value="" />
+		</div>
+
+		<div class="six columns">
+			<label for="attributeValue[]">Field Value</label>
+			<input class="u-full-width" type="text" name="attributeValue[]" value="" />
+		</div>
+	</div>
+
+	<div class="controls clearfix">
+		<button type="submit" name="save" class="button right inv">Save</button>
+		<a class="button left" href="/products/list">Cancel</a>
+		<% if (global.urlParsed.query.uuid) { %>
+			<button type="submit" name="rmProduct" class="button left warning" value="true">Delete product</button>
+		<% } %>
+	</div>
+</form>
+<%= _.render('inc/pageBottom', obj) %>

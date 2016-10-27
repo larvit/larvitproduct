@@ -173,9 +173,9 @@ Products.prototype.get = function(cb) {
 		if (that.returnAllAttributes !== true) {
 			sql += '	AND name IN (';
 
-			for (let i = 0; that.returnFields[i] !== undefined; i ++) {
+			for (let i = 0; that.returnAttributes[i] !== undefined; i ++) {
 				sql += '?,';
-				dbFields.push(that.returnFields[i]);
+				dbFields.push(that.returnAttributes[i]);
 			}
 
 			sql = sql.substring(0, sql.length - 1) + ')\n';

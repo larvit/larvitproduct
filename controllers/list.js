@@ -14,29 +14,19 @@ exports.run = function(req, res, cb) {
 		return;
 	}
 
-	data.global.menuControllerName	= 'products';
-	data.pagination	= {};
-	data.pagination.urlParsed	= data.global.urlParsed;
-	data.pagination.elementsPerPage	= 100;
+	data.global.menuControllerName = 'products';
 
 	tasks.push(function(cb) {
-		const	products	= new productLib.Products();
+		const	products	= new productLib.Orders();
 
-		products.returnAttributes	= ['name', 'status'];
-		products.limit	= data.pagination.elementsPerPage;
-		products.offset	= parseInt(data.global.urlParsed.query.offset)	|| 0;
-
-		if (isNaN(products.offset) || products.offset < 0) {
-			products.offset = 0;
-		}
+		products.returnFields = ['name', 'status'];
 
 		if (data.global.urlParsed.query.filterStatus) {
-			products.matchAllFields = {'status': data.global.urlParsed.query.filterStatus};
+			products.matchAllAttributes = {'status': data.global.urlParsed.query.filterStatus};
 		}
 
-		products.get(function(err, result, totalElements) {
+		products.get(function(err, result) {
 			data.products	= result;
-			data.pagination.totalElements	= totalElements;
 			cb(err);
 		});
 	});

@@ -536,6 +536,87 @@ describe('Products', function() {
 			});
 		});
 	});
+
+	describe('should get products and their attributes', function() {
+
+		// Get all products and all attributes
+		it('should get a list of products and all their attributes', function(done) {
+			const products = new productLib.Products();
+
+			products.returnAllAttributes = true;
+
+			products.get(function(err, productList, productsCount) {
+				if (err) throw err;
+
+				assert.deepEqual(typeof productList,	'object');
+				assert.deepEqual(Object.keys(productList).length,	3);
+				assert.deepEqual(productsCount,	3);
+
+				for (const uuid of Object.keys(productList)) {
+					const	product	= productList[uuid];
+
+					assert.deepEqual(uuidValidate(product.uuid, 1),	true);
+					assert.deepEqual(toString.call(product.created),	'[object Date]');
+					assert.deepEqual(typeof product.attributes,	'object');
+					assert.deepEqual(product.attributes.active,	['true']);
+
+					if (JSON.stringify(product.attributes.nisse) === JSON.stringify(['mm'])) {
+						assert.deepEqual(product.attributes.foo,	['bar']);
+						assert.deepEqual(Object.keys(product.attributes).length,	3);
+					} else if (JSON.stringify(product.attributes.nisse) === JSON.stringify(['nej'])) {
+						assert.deepEqual(product.attributes.foo,	['baz']);
+						assert.deepEqual(Object.keys(product.attributes).length,	3);
+					} else {
+						assert.deepEqual(product.attributes.foo,	['bar']);
+						assert.deepEqual(Object.keys(product.attributes).length,	2);
+					}
+
+				}
+
+				done();
+			});
+		});
+
+		// Get all products and foo and active attributes
+		it('should get a list of products and the foo and active attributes', function(done) {
+			const products = new productLib.Products();
+
+			products.returnAttributes = ['foo', 'active'];
+
+			products.get(function(err, productList, productsCount) {
+				let	bar	= 0,
+					baz	= 0;
+
+				if (err) throw err;
+
+				assert.deepEqual(typeof productList,	'object');
+				assert.deepEqual(Object.keys(productList).length,	3);
+				assert.deepEqual(productsCount,	3);
+
+				for (const uuid of Object.keys(productList)) {
+					const	product	= productList[uuid];
+
+					assert.deepEqual(uuidValidate(product.uuid, 1),	true);
+					assert.deepEqual(toString.call(product.created),	'[object Date]');
+					assert.deepEqual(typeof product.attributes,	'object');
+					assert.deepEqual(product.attributes.active,	['true']);
+					assert.deepEqual(Object.keys(product.attributes).length,	2);
+
+					if (JSON.stringify(product.attributes.foo) === JSON.stringify(['baz'])) {
+						baz ++;
+					} else if (JSON.stringify(product.attributes.foo) === JSON.stringify(['bar'])) {
+						bar ++;
+					}
+				}
+
+				assert.deepEqual(baz,	1);
+				assert.deepEqual(bar, 2);
+
+				done();
+			});
+		});
+
+	});
 });
 
 describe('Helpers', function() {

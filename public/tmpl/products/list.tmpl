@@ -32,7 +32,8 @@
 			<tr>
 				<td><a href="/products/edit?uuid=<%= productUuid %>"><%= productUuid %></a></td>
 				<td><%= product.created %></td>
-				<td><%= product.attributes !== undefined ? product.attributes.status : '<em>undefined</em>' %></td>
+				<td><%= (product.attributes !== undefined && product.attributes.name	!== undefined) ? product.attributes.name	: '<em>undefined</em>' %></td>
+				<td><%= (product.attributes !== undefined && product.attributes.status	!== undefined) ? product.attributes.status	: '<em>undefined</em>' %></td>
 			</tr>
 		<% }); %>
 	</tbody>
