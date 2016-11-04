@@ -5,6 +5,7 @@ const	EventEmitter	= require('events').EventEmitter,
 	dbmigration	= require('larvitdbmigration')({'tableName': 'product_db_version', 'migrationScriptsPath': __dirname + '/dbmigration'}),
 	lUtils	= require('larvitutils'),
 	async	= require('async'),
+	log	= require('winston'),
 	db	= require('larvitdb');
 
 let	readyInProgress	= false,
@@ -98,7 +99,6 @@ Products.prototype.get = function(cb) {
 				}
 
 				sql += ')';
-
 			}
 		}
 
