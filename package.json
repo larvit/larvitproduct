@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "async": "^2.1.2",
+    "csv-parse": "^1.1.7",
     "larvitamintercom": "^0.1.2",
     "larvitdb": "^1.2.5",
     "larvitdbmigration": "^1.3.3",
