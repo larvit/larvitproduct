@@ -100,8 +100,8 @@ Product.prototype.loadFromDb = function(cb) {
 	async.series(tasks, cb);
 };
 
-Product.prototype.getAttributeUuid	= helpers.getAttributeUuid;
-Product.prototype.getAttributeUuids	= helpers.getAttributeUuids;
+Product.prototype.getAttributeUuidBuffer	= helpers.getAttributeUuidBuffer;
+Product.prototype.getAttributeUuidBuffers	= helpers.getAttributeUuidBuffers;
 
 Product.prototype.rm = function(cb) {
 	const	options	= {'exchange': dataWriter.exchangeName},

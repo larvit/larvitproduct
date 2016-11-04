@@ -60,7 +60,7 @@ function writeProduct(params, deliveryTag, msgUuid) {
 
 	// Get all attribute uuids
 	tasks.push(function(cb) {
-		helpers.getAttributeUuids(Object.keys(productAttributes), function(err, result) {
+		helpers.getAttributeUuidBuffers(Object.keys(productAttributes), function(err, result) {
 			attributeUuidsByName = result;
 			cb(err);
 		});
@@ -100,7 +100,7 @@ function writeAttribute(params, deliveryTag, msgUuid) {
 	const	uuid	= params.uuid,
 		name	= params.name;
 
-	db.query('INSERT IGNORE INTO product_attributes (uuid, name) VALUES(?,?)', [uuid, name], function(err) {
+	db.query('INSERT IGNORE INTO product_attributes (uuid, name) VALUES(?,?)', [lUtils.uuidToBuffer(uuid), name], function(err) {
 		exports.emitter.emit(msgUuid, err);
 	});
 }

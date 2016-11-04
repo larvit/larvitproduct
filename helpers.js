@@ -7,7 +7,7 @@ const	dataWriter	= require(__dirname + '/dataWriter.js'),
 	log	= require('winston'),
 	db	= require('larvitdb');
 
-function getAttributeUuid(attributeName, cb) {
+function getAttributeUuidBuffer(attributeName, cb) {
 	for (let i = 0; exports.attributes[i] !== undefined; i ++) {
 		if (exports.attributes[i].name === attributeName) {
 			cb(null, exports.attributes[i].uuid);
@@ -35,7 +35,7 @@ function getAttributeUuid(attributeName, cb) {
 				loadAttributesToCache(function(err) {
 					if (err) { cb(err); return; }
 
-					getAttributeUuid(attributeName, cb);
+					getAttributeUuidBuffer(attributeName, cb);
 				});
 			});
 		});
@@ -48,7 +48,7 @@ function getAttributeUuid(attributeName, cb) {
  * @param arr	attributeNames array of strings
  * @param func	cb(err, object with names as key and uuids as values)
  */
-function getAttributeUuids(attributeNames, cb) {
+function getAttributeUuidBuffers(attributeNames, cb) {
 	const	fieldUuidsByName	= {},
 		tasks	= [];
 
@@ -56,7 +56,7 @@ function getAttributeUuids(attributeNames, cb) {
 		const	attributeName = attributeNames[i];
 
 		tasks.push(function(cb) {
-			getAttributeUuid(attributeName, function(err, fieldUuid) {
+			getAttributeUuidBuffer(attributeName, function(err, fieldUuid) {
 				if (err) { cb(err); return; }
 
 				fieldUuidsByName[attributeName] = fieldUuid;
@@ -111,7 +111,7 @@ function loadAttributesToCache(cb) {
 }
 
 exports.attributes	= [];
-exports.getAttributeUuid	= getAttributeUuid;
-exports.getAttributeUuids	= getAttributeUuids;
+exports.getAttributeUuidBuffer	= getAttributeUuidBuffer;
+exports.getAttributeUuidBuffers	= getAttributeUuidBuffers;
 exports.getAttributeValues	= getAttributeValues;
 exports.loadAttributesToCache	= loadAttributesToCache;

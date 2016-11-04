@@ -195,7 +195,7 @@ describe('Product', function() {
 		});
 	});
 
-	it('should save an product', function(done) {
+	it('should save a product', function(done) {
 		function createProduct(cb) {
 			const product = new productLib.Product();
 
@@ -666,6 +666,28 @@ describe('Helpers', function() {
 			if (err) throw err;
 
 			assert.deepEqual(result,	[]);
+			done();
+		});
+	});
+
+	it('should get an attribute uuid', function(done) {
+		productLib.helpers.getAttributeUuidBuffer('foo', function(err, uuid) {
+			if (err) throw err;
+
+			assert.deepEqual(uuidValidate(lUtils.formatUuid(uuid), 1), true);
+
+			done();
+		});
+	});
+
+	it('should not create duplicate attribute names', function(done) {
+		productLib.helpers.getAttributeUuidBuffers(['lurt', 'flams', 'lurt', 'annat', 'lurt'], function(err, uuids) {
+			if (err) throw err;
+
+			for (const attributeName of Object.keys(uuids)) {
+				assert.deepEqual(uuidValidate(lUtils.formatUuid(uuids[attributeName]), 1), true);
+			}
+
 			done();
 		});
 	});
