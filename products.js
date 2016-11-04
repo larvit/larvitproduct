@@ -5,7 +5,6 @@ const	EventEmitter	= require('events').EventEmitter,
 	dbmigration	= require('larvitdbmigration')({'tableName': 'product_db_version', 'migrationScriptsPath': __dirname + '/dbmigration'}),
 	lUtils	= require('larvitutils'),
 	async	= require('async'),
-	log	= require('winston'),
 	db	= require('larvitdb');
 
 let	readyInProgress	= false,
@@ -99,7 +98,17 @@ Products.prototype.get = function(cb) {
 				}
 
 				sql += ')';
+
 			}
+		}
+
+		if (that.searchString !== undefined && that.searchString !== '') {
+			sql += '	AND products.uuid IN (\n';
+			sql += '		SELECT DISTINCT productUuid\n';
+			sql += '		FROM product_product_attributes\n';
+			sql += ' WHERE data LIKE ?)\n';
+
+			dbFields.push('%' + that.searchString.trim() + '%');
 		}
 
 		countSql	+= sql;
@@ -211,5 +220,6 @@ Products.prototype.get = function(cb) {
 	});
 
 };
+
 
 exports = module.exports = Products;

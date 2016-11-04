@@ -649,6 +649,45 @@ describe('Products', function() {
 		});
 
 	});
+
+	describe('should be able to search', function() {
+		it('should be able to search for a product', function(done) {
+			const attributes = {
+				'name':	'Searchable product #1',
+				'price':	959,
+				'weight':	111214
+			};
+
+			// Create a product to search for.
+			function createProduct(cb) {
+				const product = new productLib.Product();
+				product.attributes = attributes;
+				product.save(cb);
+			}
+
+			// Search for product.
+			function searchProduct(cb) {
+				const products = new productLib.Products();
+
+				products.searchString = 'searchable';
+				products.returnAttributes = ['name', 'price', 'weight'];
+
+				products.get(function(err, result) {
+					for (const uuid of Object.keys(result)) {
+						assert.deepEqual(attributes.name, result[uuid].attributes.name[0]);
+						assert.deepEqual(attributes.price, result[uuid].attributes.price[0]);
+						assert.deepEqual(attributes.weight, result[uuid].attributes.weight[0]);
+					};
+					cb();
+				});
+			}
+
+			async.series([createProduct, searchProduct], function(err) {
+				if (err) throw err;
+				done();
+			});
+		});
+	});
 });
 
 describe('Helpers', function() {
