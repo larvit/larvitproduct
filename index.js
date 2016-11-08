@@ -10,6 +10,7 @@ if ( ! (intercom instanceof require('larvitamintercom'))) {
 	throw err;
 }
 
+exports.helpers	= require('./helpers.js');
+exports.importer	= require('./importer.js');
 exports.Product	= require('./product.js');
 exports.Products	= require('./products.js');
-exports.helpers	= require('./helpers.js');

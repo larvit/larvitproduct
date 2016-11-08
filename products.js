@@ -221,5 +221,4 @@ Products.prototype.get = function(cb) {
 
 };
 
-
 exports = module.exports = Products;
