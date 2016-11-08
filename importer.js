@@ -4,6 +4,7 @@ const	csvParse	= require('csv-parse'),
 	Products	= require(__dirname + '/products.js'),
 	Product	= require(__dirname + '/product.js'),
 	async	= require('async'),
+	utf8	= require('to-utf-8'),
 	log	= require('winston'),
 	fs	= require('fs');
 
@@ -22,8 +23,13 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 		options	= {};
 	}
 
+	if (options.renameFields === undefined) {
+		options.renameFields = {};
+	}
+
 	fs.createReadStream(filePath)
-		.pipe(csvParse())
+		.pipe(utf8())
+		.pipe(csvParse(options.csvOptions))
 		.on('data', function(csvRow) {
 			tasks.push(function(cb) {
 				const	attributes	= {},
@@ -33,7 +39,13 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 				if (colHeads.length === 0) {
 					for (let i = 0; csvRow[i] !== undefined; i ++) {
-						colHeads.push(csvRow[i]);
+						let	colName	= csvRow[i];
+
+						if (options.renameFields[colName] !== undefined) {
+							colName = options.renameFields[colName];
+						}
+
+						colHeads.push(colName);
 					}
 
 					return;
