@@ -23,6 +23,10 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 		options	= {};
 	}
 
+	if (typeof cb !== 'function') {
+		cb = function(){};
+	}
+
 	if (options.renameFields === undefined) {
 		options.renameFields = {};
 	}
@@ -52,7 +56,13 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 				}
 
 				for (let i = 0; csvRow[i] !== undefined; i ++) {
-					attributes[colHeads[i]] = csvRow[i];
+					let	fieldVal	= csvRow[i];
+
+					if (typeof options.formatFields[colHeads[i]] === 'function' && fieldVal !== undefined) {
+						fieldVal = options.formatFields[colHeads[i]](fieldVal);
+					}
+
+					attributes[colHeads[i]] = fieldVal;
 				}
 
 				// Check if we already have a product in the database
