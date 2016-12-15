@@ -520,6 +520,7 @@ describe('Products', function() {
 		products.offset	= 2;
 
 		products.get(function(err, productList, productsCount) {
+
 			if (err) throw err;
 			assert.deepEqual(typeof productList,	'object');
 

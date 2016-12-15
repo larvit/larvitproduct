@@ -61,17 +61,16 @@ Products.prototype.get = function(cb) {
 			sql	= 'SELECT * FROM product_products products WHERE 1';
 
 		that.generateWhere(function(where, dbFields) {
-			where += ' ORDER BY created DESC';
-
-			if (that.limit) {
-				where += ' LIMIT ' + parseInt(that.limit);
-				if (that.offset) {
-					where += ' OFFSET ' + parseInt(that.offset);
-				}
-			}
-
+			where	+= ' ORDER BY created DESC';
 			countSql	+= where;
 			sql 	+= where;
+
+			if (that.limit) {
+				sql += ' LIMIT ' + parseInt(that.limit);
+				if (that.offset) {
+					sql += ' OFFSET ' + parseInt(that.offset);
+				}
+			}
 
 			ready(function() {
 				const	tasks	= [];
@@ -181,7 +180,8 @@ Products.prototype.getUniqeAttributes = function(filters, cb) {
 	tasks.push(function(cb) {
 		let	sql;
 		sql	=	'SELECT DISTINCT product_attributes.name, product_product_attributes.data\n';
-		sql	+=	'FROM product_product_attributes\n';
+		sql	+=	'FROM product_products as products\n';
+		sql	+=	'JOIN product_product_attributes ON products.uuid = product_product_attributes.productUuid\n';
 		sql	+=	'JOIN product_attributes ON product_product_attributes.attributeUuid = product_attributes.uuid WHERE 1\n';
 
 		that.generateWhere(function(where, dbFields) {
