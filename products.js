@@ -188,12 +188,13 @@ Products.prototype.getUniqeAttributes = function(filters, cb) {
 			sql 	+= where;
 
 			if (filters.length > 0) {
-				sql += ' AND';
+				sql += ' AND (';
 				for (let i = 0; filters[i] !== undefined; i ++) {
 					sql += ' product_attributes.name = ? OR';
 					dbFields.push(filters[i]);
 				}
 				sql = sql.substring(0, sql.length - 3);
+				sql += ')';
 			}
 
 			ready(function() {
@@ -246,19 +247,42 @@ Products.prototype.generateWhere = function(cb) {
 		for (const attributeName of Object.keys(that.matchAllAttributes)) {
 			const	attributeValue	= that.matchAllAttributes[attributeName];
 
-			sql += '	AND products.uuid IN (\n';
-			sql += '		SELECT DISTINCT productUuid\n';
-			sql += '		FROM product_product_attributes\n';
+			if (Array.isArray(attributeValue)) {
+				for (let i = 0; attributeValue[i] !== undefined; i ++) {
+					if (i === 0) {
+						sql += '	AND ( products.uuid IN (\n';
+					} else {
+						sql += '	OR products.uuid IN (\n';
+					}
 
-			dbFields.push(attributeName);
-			if (attributeValue === undefined) {
-				sql += '		WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?)\n';
+					sql += '		SELECT DISTINCT productUuid\n';
+					sql += '		FROM product_product_attributes\n';
+
+					dbFields.push(attributeName);
+					if (attributeValue[i] === undefined) {
+						sql += '		WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?)\n';
+					} else {
+						sql += '		WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?) AND `data` = ?\n';
+						dbFields.push(attributeValue[i]);
+					}
+					sql += ')';
+				}
+				sql += ')';
 			} else {
-				sql += '		WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?) AND `data` = ?\n';
-				dbFields.push(attributeValue);
+				sql += '	AND products.uuid IN (\n';
+				sql += '		SELECT DISTINCT productUuid\n';
+				sql += '		FROM product_product_attributes\n';
+
+				dbFields.push(attributeName);
+				if (attributeValue === undefined) {
+					sql += '		WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?)\n';
+				} else {
+					sql += '		WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?) AND `data` = ?\n';
+					dbFields.push(attributeValue);
+				}
+				sql += ')';
 			}
 
-			sql += ')';
 
 		}
 	}
