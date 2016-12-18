@@ -48,3 +48,45 @@ products.get(function(err, productList) {
 	// productList being an object with productUuid as key
 });
 ```
+
+### Highjack datawriter to fill up database before getting data from the queue
+
+```javascript
+const	EventEmitter	= require('events').EventEmitter,
+	eventEmitter	= new EventEmitter(),
+	productLib	= require('larvitproduct'),
+	oldReady	= productLib.dataWriter.ready,
+	async	= require('async'); // npm i --save async
+
+let	readyInProgress	= false,
+	isReady	= false;
+
+productLib.dataWriter.ready = function(cb) {
+	const	tasks	= [];
+
+	if (isReady === true) { cb(); return; }
+
+	if (readyInProgress === true) {
+		eventEmitter.on('ready', cb);
+		return;
+	}
+
+	readyInProgress = true;
+
+	// Do async stuff here that have to happend before the first message
+	// from the queue is written to the database
+	tasks.push(function(cb) {
+		// do stuff
+		cb();
+	});
+
+	// Run the original ready function
+	tasks.push(oldReady);
+
+	async.series(tasks, function() {
+		isReady	= true;
+		eventEmitter.emit('ready');
+		cb();
+	});
+}
+```

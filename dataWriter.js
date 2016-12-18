@@ -1,12 +1,41 @@
 'use strict';
 
 const	EventEmitter	= require('events').EventEmitter,
+	eventEmitter	= new EventEmitter(),
+	dbmigration	= require('larvitdbmigration')({'tableName': 'product_db_version', 'migrationScriptsPath': __dirname + '/dbmigration'}),
 	intercom	= require('larvitutils').instances.intercom,
 	helpers	= require(__dirname + '/helpers.js'),
 	lUtils	= require('larvitutils'),
 	async	= require('async'),
 	log	= require('winston'),
 	db	= require('larvitdb');
+
+let	readyInProgress	= false,
+	isReady	= false;
+
+// This is ran before each incoming message on the queue is handeled
+function ready(cb) {
+	if (isReady === true) { cb(); return; }
+
+	if (readyInProgress === true) {
+		eventEmitter.on('ready', cb);
+		return;
+	}
+
+	readyInProgress = true;
+
+	// Migrate database
+	dbmigration(function(err) {
+		if (err) {
+			log.error('larvitproduct: dataWriter.js: Database error: ' + err.message);
+			return;
+		}
+
+		isReady	= true;
+		eventEmitter.emit('ready');
+		cb();
+	});
+}
 
 function rmProduct(params, deliveryTag, msgUuid) {
 	const	productUuid	= params.uuid,
@@ -107,21 +136,29 @@ function writeAttribute(params, deliveryTag, msgUuid) {
 
 exports.emitter	= new EventEmitter();
 exports.exchangeName	= 'larvitproduct';
+exports.ready	= ready;
 exports.rmProduct	= rmProduct;
 exports.writeProduct	= writeProduct;
 exports.writeAttribute	= writeAttribute;
 
 intercom.subscribe({'exchange': exports.exchangeName}, function(message, ack, deliveryTag) {
-	ack(); // Ack first, if something goes wrong we log it and handle it manually
+	exports.ready(function(err) {
+		ack(err); // Ack first, if something goes wrong we log it and handle it manually
 
-	if (typeof message !== 'object') {
-		log.error('larvitproduct: dataWriter.js - intercom.subscribe() - Invalid message received, is not an object! deliveryTag: "' + deliveryTag + '"');
-		return;
-	}
+		if (err) {
+			log.error('larvitproduct: dataWriter.js - intercom.subscribe() - exports.ready() returned err: ' + err.message);
+			return;
+		}
 
-	if (typeof exports[message.action] === 'function') {
-		exports[message.action](message.params, deliveryTag, message.uuid);
-	} else {
-		log.warn('larvitproduct: dataWriter.js - intercom.subscribe() - Unknown message.action received: "' + message.action + '"');
-	}
+		if (typeof message !== 'object') {
+			log.error('larvitproduct: dataWriter.js - intercom.subscribe() - Invalid message received, is not an object! deliveryTag: "' + deliveryTag + '"');
+			return;
+		}
+
+		if (typeof exports[message.action] === 'function') {
+			exports[message.action](message.params, deliveryTag, message.uuid);
+		} else {
+			log.warn('larvitproduct: dataWriter.js - intercom.subscribe() - Unknown message.action received: "' + message.action + '"');
+		}
+	});
 });
