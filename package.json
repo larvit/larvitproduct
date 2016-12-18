@@ -31,8 +31,8 @@
     "larvitdb": "^1.2.5",
     "larvitdbmigration": "^1.3.3",
     "larvitutils": "^1.0.4",
-    "node-uuid": "^1.4.7",
     "to-utf-8": "^1.2.0",
+    "uuid": "^3.0.1",
     "winston": "^2.2.0"
   }
 }
