@@ -13,8 +13,32 @@ const	EventEmitter	= require('events').EventEmitter,
 let	readyInProgress	= false,
 	isReady	= false;
 
+function loadDataDump(cb) {
+	let	msgUuid;
+
+	intercom.subscribe({'exchange': exports.exchangeName + '_dataDump'}, function(message, ack, deliveryTag) {
+		ack();
+
+		// Ignore all messages not for us
+		if (message.dataDumpForUuid === msgUuid) {
+
+		}
+	}, function(err) {
+		if ( ! err) {
+			const	message	= {'gief': 'data'},
+				options	= {'exchange': exports.exchangeName + '_dataDump'};
+
+			intercom.send(message, options, function(err, result) {
+				msgUuid = result;
+			});
+		}
+	});
+}
+
 // This is ran before each incoming message on the queue is handeled
 function ready(cb) {
+	const	tasks	= [];
+
 	if (isReady === true) { cb(); return; }
 
 	if (readyInProgress === true) {
@@ -24,10 +48,23 @@ function ready(cb) {
 
 	readyInProgress = true;
 
+	if (exports.mode === 'both' || exports.mode === 'receiver') {
+		tasks.push(loadDataDump);
+	}
+
 	// Migrate database
-	dbmigration(function(err) {
+	tasks.push(function(cb) {
+		dbmigration(function(err) {
+			if (err) {
+				log.error('larvitproduct: dataWriter.js: Database error: ' + err.message);
+			}
+
+			cb(err);
+		});
+	});
+
+	async.series(tasks, function(err) {
 		if (err) {
-			log.error('larvitproduct: dataWriter.js: Database error: ' + err.message);
 			return;
 		}
 
@@ -136,10 +173,11 @@ function writeAttribute(params, deliveryTag, msgUuid) {
 
 exports.emitter	= new EventEmitter();
 exports.exchangeName	= 'larvitproduct';
+exports.mode	= 'both'; // Other options being "receiver" and "source"
 exports.ready	= ready;
 exports.rmProduct	= rmProduct;
-exports.writeProduct	= writeProduct;
 exports.writeAttribute	= writeAttribute;
+exports.writeProduct	= writeProduct;
 
 intercom.subscribe({'exchange': exports.exchangeName}, function(message, ack, deliveryTag) {
 	exports.ready(function(err) {
