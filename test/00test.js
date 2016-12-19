@@ -110,6 +110,7 @@ before(function(done) {
 		const	tasks	= [];
 
 		productLib	= require(__dirname + '/../index.js');
+		productLib.dataWriter.mode	= 'master';
 
 		tasks.push(function(cb) {
 			const	product	= new productLib.Product();

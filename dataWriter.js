@@ -14,24 +14,55 @@ let	readyInProgress	= false,
 	isReady	= false;
 
 function loadDataDump(cb) {
-	let	msgUuid;
+	let	dumpReceived	= false,
+		retries	= 0,
+		msgUuid;
+
+	function requestDataDump() {
+		const	message	= {'gief': 'data'},
+			options	= {'exchange': exports.exchangeName + '_dataDump'};
+
+		log.verbose('larvitproduct: dataWriter.js - requestDataDump() - Running');
+
+		intercom.send(message, options, function(err, result) {
+			msgUuid = result;
+		});
+
+		setTimeout(function() {
+			if (dumpReceived === false && retries < 5) {
+				log.verbose('larvitproduct: dataWriter.js - requestDataDump() - No dump received, retrying retrynr: ' + (retries + 1));
+				retries ++;
+				requestDataDump();
+			} else if (dumpReceived === false && exports.mode === 'slave') {
+				const	err	= new Error('No dump received and retries exhausted, failing to start since exports.mode: "' + exports.mode + '"');
+
+				log.error('larvitproduct: dataWriter.js - requestDataDump() - ' + err.message);
+				throw err;
+			} else if (dumpReceived === false) {
+				log.verbose('larvitproduct: dataWriter.js - requestDataDump() - No dump received and retries exhausted, starting anyway since exports.mode: "' + exports.mode + '"');
+				cb();
+			}
+		}, 5000);
+	}
 
 	intercom.subscribe({'exchange': exports.exchangeName + '_dataDump'}, function(message, ack) {
 		ack();
+
+		// Ignore all incoming messages if dump have already been received
+		if (dumpReceived === true) {
+			return;
+		}
 
 		// Ignore all messages not for us
 		if (message.dataDumpForUuid !== msgUuid) {
 			return;
 		}
 
-
+		dumpReceived = true;
 	}, function(err) {
 		if (err) { cb(err); return; }
 
-		requestDataDump(function(err, result) {
-			msgUuid = result;
-			cb(err);
-		});
+		requestDataDump();
 	});
 }
 
@@ -48,8 +79,8 @@ function ready(cb) {
 
 	readyInProgress = true;
 
-	if (exports.mode === 'both' || exports.mode === 'receiver') {
-		log.verbose('larvitproduct: dataWriter.js: exports.mode: "' + exports.mode + '", so read')
+	if (exports.mode === 'both' || exports.mode === 'slave') {
+		log.verbose('larvitproduct: dataWriter.js: exports.mode: "' + exports.mode + '", so read');
 		tasks.push(loadDataDump);
 	}
 
@@ -72,16 +103,6 @@ function ready(cb) {
 		isReady	= true;
 		eventEmitter.emit('ready');
 		cb();
-	});
-}
-
-function requestDataDump(cb) {
-	const	message	= {'gief': 'data'},
-		options	= {'exchange': exports.exchangeName + '_dataDump'};
-
-	intercom.send(message, options, function(err, result) {
-		msgUuid = result;
-		cb(err);
 	});
 }
 
@@ -184,7 +205,7 @@ function writeAttribute(params, deliveryTag, msgUuid) {
 
 exports.emitter	= new EventEmitter();
 exports.exchangeName	= 'larvitproduct';
-exports.mode	= 'both'; // Other options being "receiver" and "source"
+exports.mode	= 'both'; // Other options being "slave" and "master"
 exports.ready	= ready;
 exports.rmProduct	= rmProduct;
 exports.writeAttribute	= writeAttribute;
