@@ -27,9 +27,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 		cb = function(){};
 	}
 
-	if (options.renameFields === undefined) {
-		options.renameFields = {};
-	}
+	if (options.renameFields === undefined) options.renameFields = {};
 
 	fs.createReadStream(filePath)
 		.pipe(utf8())
@@ -55,11 +53,14 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 					return;
 				}
 
+				console.log(options);
 				for (let i = 0; csvRow[i] !== undefined; i ++) {
 					let	fieldVal	= csvRow[i];
 
-					if (typeof options.formatFields[colHeads[i]] === 'function' && fieldVal !== undefined) {
-						fieldVal = options.formatFields[colHeads[i]](fieldVal);
+					if (options.formatFields !==  undefined) {
+						if (typeof options.formatFields[colHeads[i]] === 'function' && fieldVal !== undefined) {
+							fieldVal = options.formatFields[colHeads[i]](fieldVal);
+						}
 					}
 
 					attributes[colHeads[i]] = fieldVal;
