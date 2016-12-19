@@ -16,22 +16,22 @@ let	readyInProgress	= false,
 function loadDataDump(cb) {
 	let	msgUuid;
 
-	intercom.subscribe({'exchange': exports.exchangeName + '_dataDump'}, function(message, ack, deliveryTag) {
+	intercom.subscribe({'exchange': exports.exchangeName + '_dataDump'}, function(message, ack) {
 		ack();
 
 		// Ignore all messages not for us
-		if (message.dataDumpForUuid === msgUuid) {
-
+		if (message.dataDumpForUuid !== msgUuid) {
+			return;
 		}
+
+
 	}, function(err) {
-		if ( ! err) {
-			const	message	= {'gief': 'data'},
-				options	= {'exchange': exports.exchangeName + '_dataDump'};
+		if (err) { cb(err); return; }
 
-			intercom.send(message, options, function(err, result) {
-				msgUuid = result;
-			});
-		}
+		requestDataDump(function(err, result) {
+			msgUuid = result;
+			cb(err);
+		});
 	});
 }
 
@@ -49,6 +49,7 @@ function ready(cb) {
 	readyInProgress = true;
 
 	if (exports.mode === 'both' || exports.mode === 'receiver') {
+		log.verbose('larvitproduct: dataWriter.js: exports.mode: "' + exports.mode + '", so read')
 		tasks.push(loadDataDump);
 	}
 
@@ -71,6 +72,16 @@ function ready(cb) {
 		isReady	= true;
 		eventEmitter.emit('ready');
 		cb();
+	});
+}
+
+function requestDataDump(cb) {
+	const	message	= {'gief': 'data'},
+		options	= {'exchange': exports.exchangeName + '_dataDump'};
+
+	intercom.send(message, options, function(err, result) {
+		msgUuid = result;
+		cb(err);
 	});
 }
 
