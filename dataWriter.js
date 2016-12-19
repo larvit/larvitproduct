@@ -59,6 +59,11 @@ function loadDataDump(cb) {
 		}
 
 		dumpReceived = true;
+
+
+// Handle dump here
+
+
 	}, function(err) {
 		if (err) { cb(err); return; }
 
