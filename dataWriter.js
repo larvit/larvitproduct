@@ -7,6 +7,7 @@ const	EventEmitter	= require('events').EventEmitter,
 	helpers	= require(__dirname + '/helpers.js'),
 	lUtils	= require('larvitutils'),
 	async	= require('async'),
+	http	= require('http'),
 	log	= require('winston'),
 	db	= require('larvitdb');
 
@@ -107,6 +108,11 @@ function ready(cb) {
 
 		isReady	= true;
 		eventEmitter.emit('ready');
+
+		if (exports.mode === 'both' || exports.mode === 'master') {
+			runDumpServer();
+		}
+
 		cb();
 	});
 }
@@ -128,6 +134,31 @@ function rmProduct(params, deliveryTag, msgUuid) {
 
 	async.series(tasks, function(err) {
 		exports.emitter.emit(msgUuid, err);
+	});
+}
+
+function runDumpServer() {
+	intercom.subscribe({'exchange': exports.exchangeName + '_dataDump'}, function(message, ack) {
+		let	server;
+
+		ack();
+
+		server	= http.createServer(handleReq);
+		server.listen(0);
+
+		server.on('listening', function() {
+
+			console.log('Server is running on: '+IPv4+':'+ server.address().port);
+		});
+
+const server = http.createServer((req, res) => {
+  res.end();
+});
+server.on('clientError', (err, socket) => {
+  socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
+});
+server.listen(8000);
+
 	});
 }
 
