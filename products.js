@@ -2,7 +2,7 @@
 
 const	EventEmitter	= require('events').EventEmitter,
 	eventEmitter	= new EventEmitter(),
-	dbmigration	= require('larvitdbmigration')({'tableName': 'product_db_version', 'migrationScriptsPath': __dirname + '/dbmigration'}),
+	dbMigration	= require('larvitdbmigration')({'tableName': 'product_db_version', 'migrationScriptsPath': __dirname + '/dbmigration'}),
 	lUtils	= require('larvitutils'),
 	async	= require('async'),
 	db	= require('larvitdb');
@@ -24,7 +24,7 @@ function ready(cb) {
 
 	// Migrate database
 	tasks.push(function(cb) {
-		dbmigration(function(err) {
+		dbMigration(function(err) {
 			if (err) {
 				log.error('larvitproduct: products.js: Database error: ' + err.message);
 				return;
