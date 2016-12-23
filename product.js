@@ -2,7 +2,6 @@
 
 const	EventEmitter	= require('events').EventEmitter,
 	eventEmitter	= new EventEmitter(),
-	dbMigration	= require('larvitdbmigration')({'tableName': 'product_db_version', 'migrationScriptsPath': __dirname + '/dbmigration'}),
 	dataWriter	= require(__dirname + '/dataWriter.js'),
 	intercom	= require('larvitutils').instances.intercom,
 	Products	= require(__dirname + '/products.js'),
@@ -26,16 +25,16 @@ function ready(cb) {
 
 	readyInProgress = true;
 
-	// Migrate database
-	tasks.push(function(cb) {
-		dbMigration(function(err) {
-			if (err) {
-				log.error('larvitproduct: product.js: Database error: ' + err.message);
-				return;
-			}
+	// We are strictly in need of the intercom!
+	if ( ! (intercom instanceof require('larvitamintercom'))) {
+		const	err	= new Error('larvitutils.instances.intercom is not an instance of Intercom!');
+		log.error('larvitproduct: product.js - ' + err.message);
+		throw err;
+	}
 
-			cb();
-		});
+	// dataWriter handes database migrations etc, make sure its run first
+	tasks.push(function(cb) {
+		dataWriter.ready(cb);
 	});
 
 	// Load attributes

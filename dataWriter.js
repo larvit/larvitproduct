@@ -6,71 +6,13 @@ const	EventEmitter	= require('events').EventEmitter,
 	intercom	= require('larvitutils').instances.intercom,
 	helpers	= require(__dirname + '/helpers.js'),
 	lUtils	= require('larvitutils'),
+	amsync	= require('larvitamsync'),
 	async	= require('async'),
-	http	= require('http'),
 	log	= require('winston'),
 	db	= require('larvitdb');
 
 let	readyInProgress	= false,
 	isReady	= false;
-
-function loadDataDump(cb) {
-	let	dumpReceived	= false,
-		retries	= 0,
-		msgUuid;
-
-	function requestDataDump() {
-		const	message	= {'gief': 'data'},
-			options	= {'exchange': exports.exchangeName + '_dataDump'};
-
-		log.verbose('larvitproduct: dataWriter.js - requestDataDump() - Running');
-
-		intercom.send(message, options, function(err, result) {
-			msgUuid = result;
-		});
-
-		setTimeout(function() {
-			if (dumpReceived === false && retries < 5) {
-				log.verbose('larvitproduct: dataWriter.js - requestDataDump() - No dump received, retrying retrynr: ' + (retries + 1));
-				retries ++;
-				requestDataDump();
-			} else if (dumpReceived === false && exports.mode === 'slave') {
-				const	err	= new Error('No dump received and retries exhausted, failing to start since exports.mode: "' + exports.mode + '"');
-
-				log.error('larvitproduct: dataWriter.js - requestDataDump() - ' + err.message);
-				throw err;
-			} else if (dumpReceived === false) {
-				log.verbose('larvitproduct: dataWriter.js - requestDataDump() - No dump received and retries exhausted, starting anyway since exports.mode: "' + exports.mode + '"');
-				cb();
-			}
-		}, 5000);
-	}
-
-	intercom.subscribe({'exchange': exports.exchangeName + '_dataDump'}, function(message, ack) {
-		ack();
-
-		// Ignore all incoming messages if dump have already been received
-		if (dumpReceived === true) {
-			return;
-		}
-
-		// Ignore all messages not for us
-		if (message.dataDumpForUuid !== msgUuid) {
-			return;
-		}
-
-		dumpReceived = true;
-
-
-// Handle dump here
-
-
-	}, function(err) {
-		if (err) { cb(err); return; }
-
-		requestDataDump();
-	});
-}
 
 // This is ran before each incoming message on the queue is handeled
 function ready(cb) {
@@ -85,9 +27,19 @@ function ready(cb) {
 
 	readyInProgress = true;
 
+	// We are strictly in need of the intercom!
+	if ( ! (intercom instanceof require('larvitamintercom'))) {
+		const	err	= new Error('larvitutils.instances.intercom is not an instance of Intercom!');
+		log.error('larvitproduct: dataWriter.js - ' + err.message);
+		throw err;
+	}
+
 	if (exports.mode === 'both' || exports.mode === 'slave') {
 		log.verbose('larvitproduct: dataWriter.js: exports.mode: "' + exports.mode + '", so read');
-		tasks.push(loadDataDump);
+
+		tasks.push(function(cb) {
+			amsync.mariadb({'exchange': exports.exchangeName + '_dataDump'}, cb);
+		});
 	}
 
 	// Migrate database
@@ -110,10 +62,10 @@ function ready(cb) {
 		eventEmitter.emit('ready');
 
 		if (exports.mode === 'both' || exports.mode === 'master') {
-			runDumpServer();
+			runDumpServer(cb);
+		} else {
+			cb();
 		}
-
-		cb();
 	});
 }
 
@@ -137,29 +89,39 @@ function rmProduct(params, deliveryTag, msgUuid) {
 	});
 }
 
-function runDumpServer() {
-	intercom.subscribe({'exchange': exports.exchangeName + '_dataDump'}, function(message, ack) {
-		let	server;
+function runDumpServer(cb) {
+	const	options	= {'exchange': exports.exchangeName + '_dataDump'},
+		args	= [];
 
-		ack();
+	if (db.conf.host) {
+		args.push('-h');
+		args.push(db.conf.host);
+	}
 
-		server	= http.createServer(handleReq);
-		server.listen(0);
+	args.push('-u');
+	args.push(db.conf.user);
 
-		server.on('listening', function() {
+	if (db.conf.password) {
+		args.push('-p' + db.conf.password);
+	}
 
-			console.log('Server is running on: '+IPv4+':'+ server.address().port);
-		});
+	args.push('--single-transaction');
+	args.push(db.conf.database);
 
-const server = http.createServer((req, res) => {
-  res.end();
-});
-server.on('clientError', (err, socket) => {
-  socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
-});
-server.listen(8000);
+	// Tables
+	args.push('product_attributes');
+	args.push('product_db_version');
+	args.push('product_products');
+	args.push('product_product_attributes');
 
-	});
+	options.dataDumpCmd = {
+		'command':	'mysqldump',
+		'args':	args
+	};
+
+	options['Content-Type'] = 'application/sql';
+
+	new amsync.SyncServer(options, cb);
 }
 
 function writeProduct(params, deliveryTag, msgUuid) {

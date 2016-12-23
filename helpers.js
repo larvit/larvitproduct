@@ -20,6 +20,13 @@ function getAttributeUuidBuffer(attributeName, cb) {
 		const	options	= {'exchange': dataWriter.exchangeName},
 			message	= {};
 
+		// We are strictly in need of the intercom!
+		if ( ! (intercom instanceof require('larvitamintercom'))) {
+			const	err	= new Error('larvitutils.instances.intercom is not an instance of Intercom!');
+			log.error('larvitproduct: helpers.js - ' + err.message);
+			throw err;
+		}
+
 		message.action	= 'writeAttribute';
 		message.params	= {};
 
