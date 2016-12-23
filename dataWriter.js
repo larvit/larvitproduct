@@ -19,6 +19,10 @@ function listenToQueue(cb) {
 
 	let	listenMethod;
 
+	if (typeof cb !== 'function') {
+		cb = function(){};
+	}
+
 	if (exports.mode === 'master') {
 		listenMethod	= 'consume';
 		options.exclusive	= true;	// It is important no other client tries to sneak
@@ -65,6 +69,10 @@ setImmediate(listenToQueue);
 // This is ran before each incoming message on the queue is handeled
 function ready(cb) {
 	const	tasks	= [];
+
+	if (typeof cb !== 'function') {
+		cb = function(){};
+	}
 
 	if (isReady === true) { cb(); return; }
 
