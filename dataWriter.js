@@ -14,6 +14,54 @@ const	EventEmitter	= require('events').EventEmitter,
 let	readyInProgress	= false,
 	isReady	= false;
 
+function listenToQueue(cb) {
+	const	options	= {'exchange': exports.exchangeName};
+
+	let	listenMethod;
+
+	if (exports.mode === 'master') {
+		listenMethod	= 'consume';
+		options.exclusive	= true;	// It is important no other client tries to sneak
+				// out messages from us, and we want "consume"
+				// since we want the queue to persist even if this
+				// minion goes offline.
+	} else if (exports.mode === 'slave') {
+		listenMethod = 'subscribe';
+	} else {
+		const	err	= new Error('Invalid exports.mode. Must be either "master" or "slave"');
+		log.error('larvitproduct: dataWriter.js - listenToQueue() - ' + err.message);
+		cb(err);
+		return;
+	}
+
+	log.info('larvitproduct: dataWriter.js - listenToQueue() - listenMethod: ' + listenMethod);
+
+	intercom[listenMethod](options, function(message, ack, deliveryTag) {
+		exports.ready(function(err) {
+			ack(err); // Ack first, if something goes wrong we log it and handle it manually
+
+			if (err) {
+				log.error('larvitproduct: dataWriter.js - listenToQueue() - intercom.' + listenMethod + '() - exports.ready() returned err: ' + err.message);
+				return;
+			}
+
+			if (typeof message !== 'object') {
+				log.error('larvitproduct: dataWriter.js - listenToQueue() - intercom.' + listenMethod + '() - Invalid message received, is not an object! deliveryTag: "' + deliveryTag + '"');
+				return;
+			}
+
+			if (typeof exports[message.action] === 'function') {
+				exports[message.action](message.params, deliveryTag, message.uuid);
+			} else {
+				log.warn('larvitproduct: dataWriter.js - listenToQueue() - intercom.' + listenMethod + '() - Unknown message.action received: "' + message.action + '"');
+			}
+		});
+	}, cb);
+}
+// Run listenToQueue as soon as all I/O is done, this makes sure the exports.mode can be set
+// by the application before listening commences
+setImmediate(listenToQueue);
+
 // This is ran before each incoming message on the queue is handeled
 function ready(cb) {
 	const	tasks	= [];
@@ -203,30 +251,9 @@ function writeAttribute(params, deliveryTag, msgUuid) {
 
 exports.emitter	= new EventEmitter();
 exports.exchangeName	= 'larvitproduct';
-exports.mode	= 'both'; // Other options being "slave" and "master"
+exports.listenToQueue	= listenToQueue;
+exports.mode	= 'slave'; // or "master"
 exports.ready	= ready;
 exports.rmProduct	= rmProduct;
 exports.writeAttribute	= writeAttribute;
 exports.writeProduct	= writeProduct;
-
-intercom.subscribe({'exchange': exports.exchangeName}, function(message, ack, deliveryTag) {
-	exports.ready(function(err) {
-		ack(err); // Ack first, if something goes wrong we log it and handle it manually
-
-		if (err) {
-			log.error('larvitproduct: dataWriter.js - intercom.subscribe() - exports.ready() returned err: ' + err.message);
-			return;
-		}
-
-		if (typeof message !== 'object') {
-			log.error('larvitproduct: dataWriter.js - intercom.subscribe() - Invalid message received, is not an object! deliveryTag: "' + deliveryTag + '"');
-			return;
-		}
-
-		if (typeof exports[message.action] === 'function') {
-			exports[message.action](message.params, deliveryTag, message.uuid);
-		} else {
-			log.warn('larvitproduct: dataWriter.js - intercom.subscribe() - Unknown message.action received: "' + message.action + '"');
-		}
-	});
-});
