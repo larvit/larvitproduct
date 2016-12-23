@@ -162,6 +162,7 @@ function runDumpServer(cb) {
 	}
 
 	args.push('--single-transaction');
+	args.push('--hex-blob');
 	args.push(db.conf.database);
 
 	// Tables
