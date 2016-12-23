@@ -56,7 +56,7 @@ function listenToQueue(cb) {
 				log.warn('larvitproduct: dataWriter.js - listenToQueue() - intercom.' + listenMethod + '() - Unknown message.action received: "' + message.action + '"');
 			}
 		});
-	}, cb);
+	}, ready);
 }
 // Run listenToQueue as soon as all I/O is done, this makes sure the exports.mode can be set
 // by the application before listening commences
