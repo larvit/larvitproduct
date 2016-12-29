@@ -26,14 +26,13 @@
   },
   "dependencies": {
     "async": "^2.1.2",
-    "csv-parse": "^1.1.7",
+    "fast-csv": "^2.3.0",
     "larvitamintercom": "^0.1.2",
     "larvitamsync": "^0.1.1",
     "larvitdb": "^1.2.5",
     "larvitdbmigration": "^1.3.3",
     "larvitutils": "^1.0.4",
     "lodash": "^4.17.2",
-    "to-utf-8": "^1.2.0",
     "uuid": "^3.0.1",
     "winston": "^2.2.0"
   }
