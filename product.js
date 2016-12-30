@@ -107,10 +107,10 @@ Product.prototype.rm = function(cb) {
 		message	= {},
 		that	= this;
 
-	message.action	= 'rmProduct';
+	message.action	= 'rmProducts';
 	message.params	= {};
 
-	message.params.uuid	= that.uuid;
+	message.params.uuids	= [that.uuid];
 
 	intercom.send(message, options, function(err, msgUuid) {
 		if (err) { cb(err); return; }

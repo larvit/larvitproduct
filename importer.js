@@ -7,12 +7,31 @@ const	Products	= require(__dirname + '/products.js'),
 	log	= require('winston'),
 	fs	= require('fs');
 
+/**
+ * Import from file
+ *
+ * @param str filePath
+ * @param obj options	{
+ *		'formatCols':	{'colName': function},	// Will be applied to all values of selected column
+ *		'ignoreCols':	['colName1', 'colName2'],	// Will not write these cols to database
+ *		'ignoreTopRows':	0,	// Number of top rows to ignore before treating it as the top row
+ *		'renameCols':	{'oldName': 'newName'},	// Rename columns, using first row as names
+ *		'replaceByCols':	['col1', 'col2'],	// With erase all previous product data where BOTH these attributes/columns matches
+ *		'staticColHeads':	{'4': 'foo', '7': 'bar'},	// Manually set the column names for 4 to "foo" and 7 to "bar". Counting starts at 0
+ *		'staticCols':	{'colName': colValues, 'colName2': colValues ...}	// Will extend the columns with this
+ *		'updateByCols':	['col1', 'col2'],	// With update product data where BOTH these attributes/columns matches
+ *	}
+ * @param func cb(err, [productUuid1, productUuid2]) the second array is a list of all added/altered products
+ */
 exports.fromFile = function fromFile(filePath, options, cb) {
-	const	fileStream	= fs.createReadStream(filePath),
+	const	alteredProductUuids	= [],
+		fileStream	= fs.createReadStream(filePath),
 		csvStream	= fastCsv(),
 		products	= new Products(),
 		colHeads	= [],
 		tasks	= [];
+
+	let	currentRowNr;
 
 	if (options === undefined) {
 		options	= {};
@@ -28,8 +47,27 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 		cb = function(){};
 	}
 
-	if (options.renameFields === undefined) {
-		options.renameFields = {};
+	if (options.ignoreCols	=== undefined) { options.ignoreCols	= [];	}
+	if (options.ignoreTopRows	=== undefined) { options.ignoreTopRows	= 0;	}
+	if (options.renameCols	=== undefined) { options.renameCols	= {};	}
+	if (options.staticColHeads	=== undefined) { options.staticColHeads	= {};	}
+
+	if ( ! (options.ignoreCols instanceof Array)) {
+		options.ignoreCols = [options.ignoreCols];
+	}
+
+	if (options.replaceByCols) {
+		if ( ! (options.replaceByCols instanceof Array)) {
+			options.replaceByCols = [options.replaceByCols];
+		}
+		options.findByCols	= options.replaceByCols;
+	}
+
+	if (options.updateByCols) {
+		if ( ! (options.updateByCols instanceof Array)) {
+			options.updateByCols = [options.updateByCols];
+		}
+		options.findByCols	= options.updateByCols;
 	}
 
 	fileStream.pipe(csvStream);
@@ -40,44 +78,80 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 			let	product;
 
-			if (colHeads.length === 0) {
+			if (currentRowNr === undefined) {
+				currentRowNr = 0;
+			} else {
+				currentRowNr ++;
+			}
+
+			// Set colHeads and rename cols if applicable
+			if (currentRowNr === options.ignoreTopRows) {
 				for (let i = 0; csvRow[i] !== undefined; i ++) {
 					let	colName	= csvRow[i];
 
-					if (options.renameFields[colName] !== undefined) {
-						colName = options.renameFields[colName];
+					if (options.staticColHeads[i] !== undefined) {
+						colName = options.staticColHeads[i];
+					} else if (options.renameCols[colName] !== undefined) {
+						colName = options.renameCols[colName];
 					}
 
 					colHeads.push(colName);
 				}
 
-				return;
-			}
-
-			for (let i = 0; csvRow[i] !== undefined; i ++) {
-				let	fieldVal	= csvRow[i];
-
-				if (options.formatFields !==  undefined) {
-					if (typeof options.formatFields[colHeads[i]] === 'function' && fieldVal !== undefined) {
-						fieldVal = options.formatFields[colHeads[i]](fieldVal);
+				// Manually add the static column heads
+				if (options.staticCols) {
+					for (const colName of Object.keys(options.staticCols)) {
+						colHeads.push(colName);
 					}
 				}
 
-				attributes[colHeads[i]] = fieldVal;
+				return;
+			} else if (currentRowNr < options.ignoreTopRows) {
+				return;
+			}
+
+			// Manually add the static column values
+			if (options.staticCols) {
+				for (const colName of Object.keys(options.staticCols)) {
+					csvRow.push(options.staticCols[colName]);
+				}
+			}
+
+			// Format cols
+			for (let i = 0; csvRow[i] !== undefined; i ++) {
+				let	colVal	= csvRow[i];
+
+				if (options.formatCols !== undefined) {
+					if (typeof options.formatCols[colHeads[i]] === 'function' && colVal !== undefined) {
+						colVal = options.formatCols[colHeads[i]](colVal, csvRow);
+					}
+				}
+
+				if (options.ignoreCols.indexOf(colHeads[i]) === - 1) {
+					attributes[colHeads[i]] = colVal;
+				}
 			}
 
 			// Check if we already have a product in the database
 			tasks.push(function(cb) {
-				if (options.replaceByField) {
-					if ( ! attributes[options.replaceByField]) {
-						const	err	= new Error('replaceByField: "' + options.replaceByField + '" is entered, but product does not have this field');
-						log.warn('larvitproduct: ./importer.js - fromFile() - Ignoring product since replaceByField "' + options.replaceByField + '" is missing');
-						cb(err);
-						return;
+				if (options.findByCols) {
+					for (let i = 0; options.findByCols[i] !== undefined; i ++) {
+						const	col	= options.findByCols[i];
+
+						if ( ! attributes[col]) {
+							const	err	= new Error('replaceByCol: "' + col + '" is entered, but product does not have this col');
+							log.warn('larvitproduct: ./importer.js - fromFile() - Ignoring product since replaceByCol "' + col + '" is missing on rowNr: ' + currentRowNr);
+							cb(err);
+							return;
+						}
 					}
 
 					products.matchAllAttributes	= {};
-					products.matchAllAttributes[options.replaceByField]	= attributes[options.replaceByField];
+					for (let i = 0; options.findByCols[i] !== undefined; i ++) {
+						const	col	= options.findByCols[i];
+
+						products.matchAllAttributes[col]	= attributes[col];
+					}
 
 					products.limit	= 1;
 					products.get(function(err, productList, matchedProducts) {
@@ -88,7 +162,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 						}
 
 						if (matchedProducts > 1) {
-							log.warn('larvitproduct: ./importer.js - fromFile() - Multiple products matched "' + options.replaceByField + '" = "' + attributes[options.replaceByField] + '"');
+							log.warn('larvitproduct: ./importer.js - fromFile() - Multiple products matched "' + JSON.stringify(options.findByCols) + '"');
 						}
 
 						if ( ! productList) {
@@ -107,12 +181,25 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 				}
 			});
 
+			// Assign product attributes and save
 			tasks.push(function(cb) {
-				product.attributes = attributes;
+				if (options.updateByCols) {
+					if ( ! product.attributes) {
+						product.attributes = {};
+					}
+
+					for (const colName of Object.keys(attributes)) {
+						product.attributes[colName] = attributes[colName];
+					}
+				} else {
+					product.attributes = attributes;
+				}
 
 				product.save(function(err) {
 					if (err) {
 						log.warn('larvitproduct: ./importer.js - fromFile() - Could not save product: ' + err.message);
+					} else {
+						alteredProductUuids.push(product.uuid);
 					}
 
 					cb(err);
@@ -136,7 +223,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 					log.warn('larvitproduct: ./importer.js - fromFile() - fs.unlink() - err: ' + err.message);
 				}
 
-				cb(err);
+				cb(err, alteredProductUuids);
 			});
 		});
 	});

@@ -107,17 +107,9 @@ before(function(done) {
 	// Preload caches etc
 	// We do this so the timing of the rest of the tests gets more correct
 	tasks.push(function(cb) {
-		const	tasks	= [];
-
 		productLib	= require(__dirname + '/../index.js');
 		productLib.dataWriter.mode	= 'master';
-
-		tasks.push(function(cb) {
-			const	product	= new productLib.Product();
-			product.ready(cb);
-		});
-
-		async.parallel(tasks, cb);
+		productLib.ready(cb);
 	});
 
 	async.series(tasks, done);
@@ -688,6 +680,74 @@ describe('Products', function() {
 				if (err) throw err;
 				done();
 			});
+		});
+	});
+
+	describe('alter multpiple products', function() {
+		it('should set attribute on multiple products', function(done) {
+			const	tasks	= [];
+
+			// Set attributes
+			tasks.push(function(cb) {
+				const	products	= new productLib.Products();
+
+				products.matchAllAttributes = {'foo': 'bar'};
+
+				products.setAttribute('womp', 'wapp', function(err, matches) {
+					if (err) throw err;
+
+					assert.deepEqual(matches, 2);
+					cb();
+				});
+			});
+
+			// Check the result
+			tasks.push(function(cb) {
+				const	testProducts	= new productLib.Products(),
+					expectedAttributes	= [
+						'foo___bar',
+						'nisse___mm',
+						'active___true',
+						'womp___wapp',
+						'foo___baz',
+						'nisse___nej',
+						'active___true',
+						'foo___bar',
+						'active___true',
+						'womp___wapp',
+						'name___Searchable product #1',
+						'price___959',
+						'weight___111214'
+					];
+
+				testProducts.returnAllAttributes = true;
+
+				testProducts.get(function(err, result) {
+					if (err) throw err;
+
+					assert.deepEqual(Object.keys(result).length, 4);
+
+					for (const productUuid of Object.keys(result)) {
+						const	product	= result[productUuid];
+
+						for (const attributeName of Object.keys(product.attributes)) {
+							const	attributeValues	= product.attributes[attributeName];
+
+							for (let i = 0; attributeValues[i] !== undefined; i ++) {
+								const	attributeValue	= attributeValues[i];
+
+								expectedAttributes.splice(expectedAttributes.indexOf(attributeName + '___' + attributeValue), 1);
+							}
+						}
+					}
+
+					assert.deepEqual(expectedAttributes.length, 0);
+
+					cb();
+				});
+			});
+
+			async.series(tasks, done);
 		});
 	});
 });

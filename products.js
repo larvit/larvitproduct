@@ -3,6 +3,7 @@
 const	EventEmitter	= require('events').EventEmitter,
 	eventEmitter	= new EventEmitter(),
 	dataWriter	= require(__dirname + '/dataWriter.js'),
+	intercom	= require('larvitutils').instances.intercom,
 	lUtils	= require('larvitutils'),
 	async	= require('async'),
 	db	= require('larvitdb');
@@ -38,6 +39,87 @@ function Products() {
 	this.ready	= ready;
 }
 
+Products.prototype.generateWhere = function(cb) {
+	const	dbFields	= [],
+		that	= this;
+
+	let sql = '';
+
+	if (that.uuids !== undefined) {
+		if ( ! (that.uuids instanceof Array)) {
+			that.uuids = [that.uuids];
+		}
+
+		if (that.uuids.length === 0) {
+			sql += '	AND 0';
+		} else {
+			sql += '	AND products.uuid IN (';
+
+			for (let i = 0; that.uuids[i] !== undefined; i ++) {
+				sql += '?,';
+				dbFields.push(lUtils.uuidToBuffer(that.uuids[i]));
+			}
+
+			sql = sql.substring(0, sql.length - 1) + ')';
+		}
+	}
+
+	if (that.matchAllAttributes !== undefined) {
+		for (const attributeName of Object.keys(that.matchAllAttributes)) {
+			const	attributeValue	= that.matchAllAttributes[attributeName];
+
+			if (Array.isArray(attributeValue)) {
+				for (let i = 0; attributeValue[i] !== undefined; i ++) {
+					if (i === 0) {
+						sql += '	AND ( products.uuid IN (\n';
+					} else {
+						sql += '	OR products.uuid IN (\n';
+					}
+
+					sql += '		SELECT DISTINCT productUuid\n';
+					sql += '		FROM product_product_attributes\n';
+
+					dbFields.push(attributeName);
+					if (attributeValue[i] === undefined) {
+						sql += '		WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?)\n';
+					} else {
+						sql += '		WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?) AND `data` = ?\n';
+						dbFields.push(attributeValue[i]);
+					}
+					sql += ')';
+				}
+				sql += ')';
+			} else {
+				sql += '	AND products.uuid IN (\n';
+				sql += '		SELECT DISTINCT productUuid\n';
+				sql += '		FROM product_product_attributes\n';
+
+				dbFields.push(attributeName);
+				if (attributeValue === undefined) {
+					sql += '		WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?)\n';
+				} else {
+					sql += '		WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?) AND `data` = ?\n';
+					dbFields.push(attributeValue);
+				}
+				sql += ')';
+			}
+
+
+		}
+	}
+
+	if (that.searchString !== undefined && that.searchString !== '') {
+		sql += '	AND products.uuid IN (\n';
+		sql += '		SELECT DISTINCT productUuid\n';
+		sql += '		FROM product_product_attributes\n';
+		sql += ' WHERE data LIKE ?)\n';
+
+		dbFields.push('%' + that.searchString.trim() + '%');
+	}
+
+	cb(sql, dbFields);
+};
+
 Products.prototype.get = function(cb) {
 	const	tasks	= [],
 		that	= this;
@@ -54,6 +136,8 @@ Products.prototype.get = function(cb) {
 			sql	= 'SELECT * FROM product_products products WHERE 1';
 
 		that.generateWhere(function(where, dbFields) {
+			const	tasks	= [];
+
 			where	+= ' ORDER BY created DESC';
 			countSql	+= where;
 			sql 	+= where;
@@ -65,37 +149,33 @@ Products.prototype.get = function(cb) {
 				}
 			}
 
-			ready(function() {
-				const	tasks	= [];
+			tasks.push(function(cb) {
+				db.query(sql, dbFields, function(err, rows) {
+					if (err) { cb(err); return; }
 
-				tasks.push(function(cb) {
-					db.query(sql, dbFields, function(err, rows) {
-						if (err) { cb(err); return; }
+					for (let i = 0; rows[i] !== undefined; i ++) {
+						const	row	= rows[i],
+							productUuid	= lUtils.formatUuid(row.uuid);
 
-						for (let i = 0; rows[i] !== undefined; i ++) {
-							const	row	= rows[i],
-								productUuid	= lUtils.formatUuid(row.uuid);
+						products[productUuid]	= {};
+						products[productUuid].uuid	= productUuid;
+						products[productUuid].created	= row.created;
+					}
 
-							products[productUuid]	= {};
-							products[productUuid].uuid	= productUuid;
-							products[productUuid].created	= row.created;
-						}
-
-						cb();
-					});
+					cb();
 				});
-
-				tasks.push(function(cb) {
-					db.query(countSql, dbFields, function(err, rows) {
-						if (err) { cb(err); return; }
-
-						productsCount = rows[0].products;
-						cb();
-					});
-				});
-
-				async.parallel(tasks, cb);
 			});
+
+			tasks.push(function(cb) {
+				db.query(countSql, dbFields, function(err, rows) {
+					if (err) { cb(err); return; }
+
+					productsCount = rows[0].products;
+					cb();
+				});
+			});
+
+			async.parallel(tasks, cb);
 		});
 	});
 
@@ -211,85 +291,113 @@ Products.prototype.getUniqeAttributes = function(filters, cb) {
 	});
 };
 
-Products.prototype.generateWhere = function(cb) {
-	const	dbFields	= [],
+Products.prototype.getUuids = function(cb) {
+	const	tasks	= [],
+		uuids	= [],
 		that	= this;
 
-	let sql = '';
+	// Make sure database is ready
+	tasks.push(ready);
 
-	if (that.uuids !== undefined) {
-		if ( ! (that.uuids instanceof Array)) {
-			that.uuids = [that.uuids];
-		}
+	// Get uuids
+	tasks.push(function(cb) {
+		let	sql	= 'SELECT uuid FROM product_products products WHERE 1';
 
-		if (that.uuids.length === 0) {
-			sql += '	AND 0';
-		} else {
-			sql += '	AND products.uuid IN (';
+		that.generateWhere(function(where, dbFields) {
+			sql 	+= where;
 
-			for (let i = 0; that.uuids[i] !== undefined; i ++) {
-				sql += '?,';
-				dbFields.push(lUtils.uuidToBuffer(that.uuids[i]));
-			}
+			db.query(sql, dbFields, function(err, rows) {
+				if (err) { cb(err); return; }
 
-			sql = sql.substring(0, sql.length - 1) + ')';
-		}
-	}
-
-	if (that.matchAllAttributes !== undefined) {
-		for (const attributeName of Object.keys(that.matchAllAttributes)) {
-			const	attributeValue	= that.matchAllAttributes[attributeName];
-
-			if (Array.isArray(attributeValue)) {
-				for (let i = 0; attributeValue[i] !== undefined; i ++) {
-					if (i === 0) {
-						sql += '	AND ( products.uuid IN (\n';
-					} else {
-						sql += '	OR products.uuid IN (\n';
-					}
-
-					sql += '		SELECT DISTINCT productUuid\n';
-					sql += '		FROM product_product_attributes\n';
-
-					dbFields.push(attributeName);
-					if (attributeValue[i] === undefined) {
-						sql += '		WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?)\n';
-					} else {
-						sql += '		WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?) AND `data` = ?\n';
-						dbFields.push(attributeValue[i]);
-					}
-					sql += ')';
+				for (let i = 0; rows[i] !== undefined; i ++) {
+					uuids.push(lUtils.formatUuid(rows[i].uuid));
 				}
-				sql += ')';
-			} else {
-				sql += '	AND products.uuid IN (\n';
-				sql += '		SELECT DISTINCT productUuid\n';
-				sql += '		FROM product_product_attributes\n';
 
-				dbFields.push(attributeName);
-				if (attributeValue === undefined) {
-					sql += '		WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?)\n';
-				} else {
-					sql += '		WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?) AND `data` = ?\n';
-					dbFields.push(attributeValue);
-				}
-				sql += ')';
-			}
+				cb();
+			});
+		});
+	});
 
+	async.series(tasks, function(err) {
+		if (err) { cb(err); return; }
 
-		}
-	}
+		cb(err, uuids);
+	});
+};
 
-	if (that.searchString !== undefined && that.searchString !== '') {
-		sql += '	AND products.uuid IN (\n';
-		sql += '		SELECT DISTINCT productUuid\n';
-		sql += '		FROM product_product_attributes\n';
-		sql += ' WHERE data LIKE ?)\n';
+Products.prototype.rm = function(cb) {
+	const	tasks	= [],
+		that	= this;
 
-		dbFields.push('%' + that.searchString.trim() + '%');
-	}
+	let	uuids;
 
-	cb(sql, dbFields);
+	// Get uuids
+	tasks.push(function(cb) {
+		that.getUuids(function(err, result) {
+			uuids = result;
+			cb(err);
+		});
+	});
+
+	// Send the message to the queue
+	tasks.push(function(cb) {
+		const	options	= {'exchange': dataWriter.exchangeName},
+			message	= {};
+
+		message.action	= 'rmProducts';
+		message.params	= {'uuids': uuids};
+
+		intercom.send(message, options, function(err, msgUuid) {
+			if (err) { cb(err); return; }
+
+			dataWriter.emitter.once(msgUuid, cb);
+		});
+	});
+
+	async.series(tasks, function(err) {
+		if (err) { cb(err); return; }
+
+		cb(null, uuids.length);
+	});
+};
+
+Products.prototype.setAttribute = function(name, value, cb) {
+	const	tasks	= [],
+		that	= this;
+
+	let	uuids;
+
+	// Get uuids
+	tasks.push(function(cb) {
+		that.getUuids(function(err, result) {
+			uuids = result;
+			cb(err);
+		});
+	});
+
+	// Send the message to the queue
+	tasks.push(function(cb) {
+		const	options	= {'exchange': dataWriter.exchangeName},
+			message	= {};
+
+		message.action	= 'setAttribute';
+		message.params	= {};
+		message.params.productUuids	= uuids;
+		message.params.attributeName	= name;
+		message.params.attributeValue	= value;
+
+		intercom.send(message, options, function(err, msgUuid) {
+			if (err) { cb(err); return; }
+
+			dataWriter.emitter.once(msgUuid, cb);
+		});
+	});
+
+	async.series(tasks, function(err) {
+		if (err) { cb(err); return; }
+
+		cb(null, uuids.length);
+	});
 };
 
 exports = module.exports = Products;

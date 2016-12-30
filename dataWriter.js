@@ -14,6 +14,8 @@ const	EventEmitter	= require('events').EventEmitter,
 let	readyInProgress	= false,
 	isReady	= false;
 
+eventEmitter.setMaxListeners(30);
+
 function listenToQueue(cb) {
 	const	options	= {'exchange': exports.exchangeName};
 
@@ -125,19 +127,44 @@ function ready(cb) {
 	});
 }
 
-function rmProduct(params, deliveryTag, msgUuid) {
-	const	productUuid	= params.uuid,
-		productUuidBuf	= lUtils.uuidToBuffer(productUuid),
+function rmProducts(params, deliveryTag, msgUuid) {
+	const	productUuids	= params.uuids,
+		productUuidBufs	= [],
 		tasks	= [];
+
+	for (let i = 0; productUuids[i] !== undefined; i ++) {
+		productUuidBufs.push(lUtils.uuidToBuffer(productUuids[i]));
+	}
+
+	if (productUuids.length === 0) {
+		exports.emitter.emit(msgUuid, null);
+		return;
+	}
 
 	// Delete attributes
 	tasks.push(function(cb) {
-		db.query('DELETE FROM product_product_attributes WHERE productUuid = ?;', [productUuidBuf], cb);
+		let	sql	= 'DELETE FROM product_product_attributes WHERE productUuid IN (';
+
+		for (let i = 0; productUuidBufs[i] !== undefined; i ++) {
+			sql += '?,';
+		}
+
+		sql = sql.substring(0, sql.length - 1) + ');';
+
+		db.query(sql, productUuidBufs, cb);
 	});
 
 	// Delete product
 	tasks.push(function(cb) {
-		db.query('DELETE FROM product_products WHERE uuid = ?;', [productUuidBuf], cb);
+		let	sql	= 'DELETE FROM product_products WHERE uuid IN (';
+
+		for (let i = 0; productUuidBufs[i] !== undefined; i ++) {
+			sql += '?,';
+		}
+
+		sql = sql.substring(0, sql.length - 1) + ');';
+
+		db.query(sql, productUuidBufs, cb);
 	});
 
 	async.series(tasks, function(err) {
@@ -179,6 +206,58 @@ function runDumpServer(cb) {
 	options['Content-Type'] = 'application/sql';
 
 	new amsync.SyncServer(options, cb);
+}
+
+function setAttribute(params, deliveryTag, msgUuid) {
+	const	tasks	= [];
+
+	if (params.productUuids.length === 0) {
+		exports.emitter.emit(msgUuid, null);
+		return;
+	}
+
+	// Remove this attribute from the given products
+	tasks.push(function(cb) {
+		const	dbFields	= [params.attributeName];
+
+		let	sql	= 'DELETE FROM product_product_attributes WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?) AND productUuid IN (';
+
+		for (let i = 0; params.productUuids[i] !== undefined; i ++) {
+			sql += '?,';
+			dbFields.push(lUtils.uuidToBuffer(params.productUuids[i]));
+		}
+
+		sql = sql.substring(0, sql.length - 1) + ');';
+
+		db.query(sql, dbFields, cb);
+	});
+
+	// Make sure the new attribute exists
+	tasks.push(function(cb) {
+		helpers.getAttributeUuidBuffers([params.attributeName], cb);
+	});
+
+	// Set the new attribute value
+	tasks.push(function(cb) {
+		const	dbFields	= [params.attributeName, params.attributeValue];
+
+		let	sql	= 'INSERT INTO product_product_attributes (productUuid, attributeUuid, data) ';
+
+		sql += 'SELECT uuid, (SELECT uuid FROM product_attributes WHERE name = ?), ? FROM product_products WHERE uuid IN (';
+
+		for (let i = 0; params.productUuids[i] !== undefined; i ++) {
+			sql += '?,';
+			dbFields.push(lUtils.uuidToBuffer(params.productUuids[i]));
+		}
+
+		sql = sql.substring(0, sql.length - 1) + ');';
+
+		db.query(sql, dbFields, cb);
+	});
+
+	async.series(tasks, function(err) {
+		exports.emitter.emit(msgUuid, err);
+	});
 }
 
 function writeProduct(params, deliveryTag, msgUuid) {
@@ -263,6 +342,7 @@ exports.exchangeName	= 'larvitproduct';
 exports.listenToQueue	= listenToQueue;
 exports.mode	= 'slave'; // or "master"
 exports.ready	= ready;
-exports.rmProduct	= rmProduct;
+exports.rmProducts	= rmProducts;
+exports.setAttribute	= setAttribute;
 exports.writeAttribute	= writeAttribute;
 exports.writeProduct	= writeProduct;
