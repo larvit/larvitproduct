@@ -73,6 +73,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 	fileStream.pipe(csvStream);
 	csvStream.on('data', function(csvRow) {
+
 		tasks.push(function(cb) {
 			const	attributes	= {},
 				tasks	= [];
@@ -94,6 +95,8 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 						colName = options.staticColHeads[i];
 					} else if (options.renameCols[colName] !== undefined) {
 						colName = options.renameCols[colName];
+					} else if (options.colHeadToLowerCase === true) {
+						colName = colName.toLowerCase();
 					}
 
 					colHeads.push(colName);
