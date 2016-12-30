@@ -122,6 +122,13 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 			for (let i = 0; csvRow[i] !== undefined; i ++) {
 				let	colVal	= csvRow[i];
 
+				if (colHeads[i] === '' && colVal === '') {
+					continue;
+				} else if (colHeads[i] === '') {
+					log.warn('larvitproduct: ./importer.js - fromFile() - Ignoring column ' + i + ' on rowNr: ' + currentRowNr + ' since no column header was found');
+					continue;
+				}
+
 				if (options.formatCols !== undefined) {
 					if (typeof options.formatCols[colHeads[i]] === 'function' && colVal !== undefined) {
 						colVal = options.formatCols[colHeads[i]](colVal, csvRow);
@@ -132,6 +139,21 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 					attributes[colHeads[i]] = colVal;
 				}
 			}
+
+			// Check if we should ignore this row
+			tasks.push(function(cb) {
+				for (let i = 0; options.findByCols[i] !== undefined; i ++) {
+					if ( ! attributes[options.findByCols[i]]) {
+						const err = new Error('Missing attribute value for "' + options.findByCols[i] + '" rowNr: ' + currentRowNr);
+
+						log.verbose('larvitproduct: ./importer.js - fromFile() - ' + err.message);
+						cb(err);
+						return;
+					}
+				}
+
+				cb();
+			});
 
 			// Check if we already have a product in the database
 			tasks.push(function(cb) {
