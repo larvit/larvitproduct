@@ -49,6 +49,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 	if (options.ignoreCols	=== undefined) { options.ignoreCols	= [];	}
 	if (options.ignoreTopRows	=== undefined) { options.ignoreTopRows	= 0;	}
+	if (options.dbMethod	=== undefined) { options.dbMethod	= 'update';	}
 	if (options.renameCols	=== undefined) { options.renameCols	= {};	}
 	if (options.staticColHeads	=== undefined) { options.staticColHeads	= {};	}
 
