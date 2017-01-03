@@ -3,7 +3,6 @@
 const	EventEmitter	= require('events').EventEmitter,
 	eventEmitter	= new EventEmitter(),
 	dbmigration	= require('larvitdbmigration')({'tableName': 'product_db_version', 'migrationScriptsPath': __dirname + '/dbmigration'}),
-	intercom	= require('larvitutils').instances.intercom,
 	helpers	= require(__dirname + '/helpers.js'),
 	lUtils	= require('larvitutils'),
 	amsync	= require('larvitamsync'),
@@ -12,17 +11,27 @@ const	EventEmitter	= require('events').EventEmitter,
 	db	= require('larvitdb');
 
 let	readyInProgress	= false,
-	isReady	= false;
+	isReady	= false,
+	intercom;
 
 eventEmitter.setMaxListeners(30);
 
-function listenToQueue(cb) {
+function listenToQueue(retries, cb) {
 	const	options	= {'exchange': exports.exchangeName};
 
 	let	listenMethod;
 
+	if (typeof retries === 'function') {
+		cb	= retries;
+		retries	= 0;
+	}
+
 	if (typeof cb !== 'function') {
 		cb = function(){};
+	}
+
+	if (retries === undefined) {
+		retries = 0;
 	}
 
 	if (exports.mode === 'master') {
@@ -37,6 +46,19 @@ function listenToQueue(cb) {
 		const	err	= new Error('Invalid exports.mode. Must be either "master" or "slave"');
 		log.error('larvitproduct: dataWriter.js - listenToQueue() - ' + err.message);
 		cb(err);
+		return;
+	}
+
+	intercom	= require('larvitutils').instances.intercom;
+
+	if ( ! (intercom instanceof require('larvitamintercom')) && retries < 10) {
+		retries ++;
+		setTimeout(function() {
+			listenToQueue(retries, cb);
+		}, 50);
+		return;
+	} else if ( ! (intercom instanceof require('larvitamintercom'))) {
+		log.error('larvitproduct: dataWriter.js - listenToQueue() - Intercom is not set!');
 		return;
 	}
 
@@ -69,11 +91,20 @@ function listenToQueue(cb) {
 setImmediate(listenToQueue);
 
 // This is ran before each incoming message on the queue is handeled
-function ready(cb) {
+function ready(retries, cb) {
 	const	tasks	= [];
+
+	if (typeof retries === 'function') {
+		cb	= retries;
+		retries	= 0;
+	}
 
 	if (typeof cb !== 'function') {
 		cb = function(){};
+	}
+
+	if (retries === undefined) {
+		retries	= 0;
 	}
 
 	if (isReady === true) { cb(); return; }
@@ -83,17 +114,30 @@ function ready(cb) {
 		return;
 	}
 
+	intercom	= require('larvitutils').instances.intercom;
+
+	if ( ! (intercom instanceof require('larvitamintercom')) && retries < 10) {
+		retries ++;
+		setTimeout(function() {
+			ready(retries, cb);
+		}, 50);
+		return;
+	} else if ( ! (intercom instanceof require('larvitamintercom'))) {
+		log.error('larvitproduct: dataWriter.js - ready() - Intercom is not set!');
+		return;
+	}
+
 	readyInProgress = true;
 
 	// We are strictly in need of the intercom!
 	if ( ! (intercom instanceof require('larvitamintercom'))) {
 		const	err	= new Error('larvitutils.instances.intercom is not an instance of Intercom!');
-		log.error('larvitproduct: dataWriter.js - ' + err.message);
+		log.error('larvitproduct: dataWriter.js - ready() - ' + err.message);
 		throw err;
 	}
 
 	if (exports.mode === 'both' || exports.mode === 'slave') {
-		log.verbose('larvitproduct: dataWriter.js: exports.mode: "' + exports.mode + '", so read');
+		log.verbose('larvitproduct: dataWriter.js - ready() - exports.mode: "' + exports.mode + '", so read');
 
 		tasks.push(function(cb) {
 			amsync.mariadb({'exchange': exports.exchangeName + '_dataDump'}, cb);
@@ -104,7 +148,7 @@ function ready(cb) {
 	tasks.push(function(cb) {
 		dbmigration(function(err) {
 			if (err) {
-				log.error('larvitproduct: dataWriter.js: Database error: ' + err.message);
+				log.error('larvitproduct: dataWriter.js - ready() - Database error: ' + err.message);
 			}
 
 			cb(err);
