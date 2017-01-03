@@ -53,7 +53,7 @@ Products.prototype.generateWhere = function(cb) {
 		if (that.uuids.length === 0) {
 			sql += '	AND 0';
 		} else {
-			sql += '	AND products.uuid IN (';
+			sql += '	AND p.uuid IN (';
 
 			for (let i = 0; that.uuids[i] !== undefined; i ++) {
 				sql += '?,';
@@ -71,9 +71,9 @@ Products.prototype.generateWhere = function(cb) {
 			if (Array.isArray(attributeValue)) {
 				for (let i = 0; attributeValue[i] !== undefined; i ++) {
 					if (i === 0) {
-						sql += '	AND ( products.uuid IN (\n';
+						sql += '	AND (p.uuid IN (\n';
 					} else {
-						sql += '	OR products.uuid IN (\n';
+						sql += '	OR p.uuid IN (\n';
 					}
 
 					sql += '		SELECT DISTINCT productUuid\n';
@@ -90,7 +90,7 @@ Products.prototype.generateWhere = function(cb) {
 				}
 				sql += ')';
 			} else {
-				sql += '	AND products.uuid IN (\n';
+				sql += '	AND p.uuid IN (\n';
 				sql += '		SELECT DISTINCT productUuid\n';
 				sql += '		FROM product_product_attributes\n';
 
@@ -103,13 +103,11 @@ Products.prototype.generateWhere = function(cb) {
 				}
 				sql += ')';
 			}
-
-
 		}
 	}
 
 	if (that.searchString !== undefined && that.searchString !== '') {
-		sql += '	AND products.uuid IN (\n';
+		sql += '	AND p.uuid IN (\n';
 		sql += '		SELECT DISTINCT productUuid\n';
 		sql += '		FROM product_product_attributes\n';
 		sql += ' WHERE data LIKE ?)\n';
@@ -117,7 +115,7 @@ Products.prototype.generateWhere = function(cb) {
 		dbFields.push('%' + that.searchString.trim() + '%');
 	}
 
-	cb(sql, dbFields);
+	cb(null, sql, dbFields);
 };
 
 Products.prototype.get = function(cb) {
@@ -132,11 +130,13 @@ Products.prototype.get = function(cb) {
 
 	// Get basic products
 	tasks.push(function(cb) {
-		let	countSql	= 'SELECT COUNT(*) AS products FROM product_products products WHERE 1',
-			sql	= 'SELECT * FROM product_products products WHERE 1';
+		let	countSql	= 'SELECT COUNT(*) AS products FROM product_products p WHERE 1',
+			sql	= 'SELECT * FROM product_products p WHERE 1';
 
-		that.generateWhere(function(where, dbFields) {
+		that.generateWhere(function(err, where, dbFields) {
 			const	tasks	= [];
+
+			if (err) { cb(err); return; }
 
 			where	+= ' ORDER BY created DESC';
 			countSql	+= where;
@@ -248,43 +248,55 @@ Products.prototype.getUniqeAttributes = function(filters, cb) {
 		tasks	= [],
 		that	= this;
 
-	if ( ! filters) {
-		filters = [];
+	if (typeof filters === 'function') {
+		cb	= filters;
+		filters	= undefined;
+	}
+
+	if (Array.isArray(filters) && filters.length === 0) {
+		cb(null, {});
+		return;
 	}
 
 	tasks.push(ready);
 
 	tasks.push(function(cb) {
 		let	sql;
-		sql	=	'SELECT DISTINCT product_attributes.name, product_product_attributes.data\n';
-		sql	+=	'FROM product_products as products\n';
-		sql	+=	'JOIN product_product_attributes ON products.uuid = product_product_attributes.productUuid\n';
-		sql	+=	'JOIN product_attributes ON product_product_attributes.attributeUuid = product_attributes.uuid WHERE 1\n';
 
-		that.generateWhere(function(where, dbFields) {
+		sql	=	'SELECT DISTINCT pa.name, ppa.data\n';
+		sql	+=	'FROM product_products AS p\n';
+		sql	+=	'	JOIN product_product_attributes	AS ppa	ON p.uuid	= ppa.productUuid\n';
+		sql	+=	'	JOIN product_attributes	AS pa	ON ppa.attributeUuid	= pa.uuid\n';
+		sql	+=	'WHERE 1\n';
+
+		that.generateWhere(function(err, where, dbFields) {
+			if (err) { cb(err); return; }
+
 			sql 	+= where;
 
-			if (filters.length > 0) {
+			if (filters !== undefined) {
 				sql += ' AND (';
 				for (let i = 0; filters[i] !== undefined; i ++) {
-					sql += ' product_attributes.name = ? OR';
-					dbFields.push(filters[i]);
+					sql += ' pa.uuid = ? OR';
+					dbFields.push(lUtils.uuidToBuffer(filters[i]));
 				}
 				sql = sql.substring(0, sql.length - 3);
-				sql += ')';
+				sql += ')\n';
 			}
 
-			ready(function() {
-				db.query(sql, dbFields, function(err, rows) {
-					for (let i = 0; rows[i] !== undefined; i ++) {
-						if (attributes[rows[i].name] == undefined) {
-							attributes[rows[i].name] = [rows[i].data];
-						} else {
-							attributes[rows[i].name].push(rows[i].data);
-						}
+			sql += 'ORDER BY pa.name, ppa.data;';
+
+			db.query(sql, dbFields, function(err, rows) {
+				if (err) { cb(err); return; }
+
+				for (let i = 0; rows[i] !== undefined; i ++) {
+					if (attributes[rows[i].name] == undefined) {
+						attributes[rows[i].name] = [rows[i].data];
+					} else {
+						attributes[rows[i].name].push(rows[i].data);
 					}
-					cb();
-				});
+				}
+				cb();
 			});
 		});
 	});
@@ -305,9 +317,11 @@ Products.prototype.getUuids = function(cb) {
 
 	// Get uuids
 	tasks.push(function(cb) {
-		let	sql	= 'SELECT uuid FROM product_products products WHERE 1';
+		let	sql	= 'SELECT uuid FROM product_products p WHERE 1';
 
-		that.generateWhere(function(where, dbFields) {
+		that.generateWhere(function(err, where, dbFields) {
+			if (err) { cb(err); return; }
+
 			sql 	+= where;
 
 			db.query(sql, dbFields, function(err, rows) {
