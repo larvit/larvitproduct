@@ -3,13 +3,13 @@
 const	EventEmitter	= require('events').EventEmitter,
 	eventEmitter	= new EventEmitter(),
 	dataWriter	= require(__dirname + '/dataWriter.js'),
-	intercom	= require('larvitutils').instances.intercom,
 	lUtils	= require('larvitutils'),
 	async	= require('async'),
 	db	= require('larvitdb');
 
 let	readyInProgress	= false,
-	isReady	= false;
+	isReady	= false,
+	intercom;
 
 function ready(cb) {
 	const	tasks	= [];
@@ -26,6 +26,12 @@ function ready(cb) {
 	// dataWriter handes database migrations etc, make sure its run first
 	tasks.push(function(cb) {
 		dataWriter.ready(cb);
+	});
+
+	// Set intercom after dataWriter is ready
+	tasks.push(function(cb) {
+		intercom	= require('larvitutils').instances.intercom;
+		cb();
 	});
 
 	async.series(tasks, function() {

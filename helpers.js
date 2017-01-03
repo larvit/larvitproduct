@@ -1,11 +1,12 @@
 'use strict';
 
 const	dataWriter	= require(__dirname + '/dataWriter.js'),
-	intercom	= require('larvitutils').instances.intercom,
 	uuidLib	= require('uuid'),
 	async	= require('async'),
 	log	= require('winston'),
 	db	= require('larvitdb');
+
+let intercom;
 
 function getAttributeUuidBuffer(attributeName, cb) {
 	for (let i = 0; exports.attributes[i] !== undefined; i ++) {
@@ -16,16 +17,11 @@ function getAttributeUuidBuffer(attributeName, cb) {
 	}
 
 	// If we get down here, the field does not exist, create it and rerun
-	(function() {
+	ready(function(err) {
 		const	options	= {'exchange': dataWriter.exchangeName},
 			message	= {};
 
-		// We are strictly in need of the intercom!
-		if ( ! (intercom instanceof require('larvitamintercom'))) {
-			const	err	= new Error('larvitutils.instances.intercom is not an instance of Intercom!');
-			log.error('larvitproduct: helpers.js - ' + err.message);
-			throw err;
-		}
+		if (err) { cb(err); return; }
 
 		message.action	= 'writeAttribute';
 		message.params	= {};
@@ -46,7 +42,7 @@ function getAttributeUuidBuffer(attributeName, cb) {
 				});
 			});
 		});
-	})();
+	});
 };
 
 /**
@@ -114,6 +110,13 @@ function loadAttributesToCache(cb) {
 		}
 
 		cb();
+	});
+}
+
+function ready(cb) {
+	dataWriter.ready(function(err) {
+		intercom	= require('larvitutils').instances.intercom;
+		cb(err);
 	});
 }
 

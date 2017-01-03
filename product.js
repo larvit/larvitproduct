@@ -3,7 +3,6 @@
 const	EventEmitter	= require('events').EventEmitter,
 	eventEmitter	= new EventEmitter(),
 	dataWriter	= require(__dirname + '/dataWriter.js'),
-	intercom	= require('larvitutils').instances.intercom,
 	Products	= require(__dirname + '/products.js'),
 	helpers	= require(__dirname + '/helpers.js'),
 	uuidLib	= require('uuid'),
@@ -11,7 +10,8 @@ const	EventEmitter	= require('events').EventEmitter,
 	log	= require('winston');
 
 let	readyInProgress	= false,
-	isReady	= false;
+	isReady	= false,
+	intercom;
 
 function ready(cb) {
 	const	tasks	= [];
@@ -25,16 +25,15 @@ function ready(cb) {
 
 	readyInProgress = true;
 
-	// We are strictly in need of the intercom!
-	if ( ! (intercom instanceof require('larvitamintercom'))) {
-		const	err	= new Error('larvitutils.instances.intercom is not an instance of Intercom!');
-		log.error('larvitproduct: product.js - ' + err.message);
-		throw err;
-	}
-
 	// dataWriter handes database migrations etc, make sure its run first
 	tasks.push(function(cb) {
 		dataWriter.ready(cb);
+	});
+
+	// Set intercom after dataWriter is ready
+	tasks.push(function(cb) {
+		intercom	= require('larvitutils').instances.intercom;
+		cb();
 	});
 
 	// Load attributes
