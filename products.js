@@ -248,6 +248,10 @@ Products.prototype.getUniqeAttributes = function(filters, cb) {
 		tasks	= [],
 		that	= this;
 
+	if ( ! filters) {
+		filters = [];
+	}
+
 	tasks.push(ready);
 
 	tasks.push(function(cb) {
