@@ -64,27 +64,34 @@ function listenToQueue(retries, cb) {
 
 	log.info('larvitproduct: dataWriter.js - listenToQueue() - listenMethod: ' + listenMethod);
 
-	intercom[listenMethod](options, function(message, ack, deliveryTag) {
-		exports.ready(function(err) {
-			ack(err); // Ack first, if something goes wrong we log it and handle it manually
+	intercom.ready(function(err) {
+		if (err) {
+			log.error('larvitproduct: dataWriter.js - listenToQueue() - intercom.ready() err: ' + err.message);
+			return;
+		}
 
-			if (err) {
-				log.error('larvitproduct: dataWriter.js - listenToQueue() - intercom.' + listenMethod + '() - exports.ready() returned err: ' + err.message);
-				return;
-			}
+		intercom[listenMethod](options, function(message, ack, deliveryTag) {
+			exports.ready(function(err) {
+				ack(err); // Ack first, if something goes wrong we log it and handle it manually
 
-			if (typeof message !== 'object') {
-				log.error('larvitproduct: dataWriter.js - listenToQueue() - intercom.' + listenMethod + '() - Invalid message received, is not an object! deliveryTag: "' + deliveryTag + '"');
-				return;
-			}
+				if (err) {
+					log.error('larvitproduct: dataWriter.js - listenToQueue() - intercom.' + listenMethod + '() - exports.ready() returned err: ' + err.message);
+					return;
+				}
 
-			if (typeof exports[message.action] === 'function') {
-				exports[message.action](message.params, deliveryTag, message.uuid);
-			} else {
-				log.warn('larvitproduct: dataWriter.js - listenToQueue() - intercom.' + listenMethod + '() - Unknown message.action received: "' + message.action + '"');
-			}
-		});
-	}, ready);
+				if (typeof message !== 'object') {
+					log.error('larvitproduct: dataWriter.js - listenToQueue() - intercom.' + listenMethod + '() - Invalid message received, is not an object! deliveryTag: "' + deliveryTag + '"');
+					return;
+				}
+
+				if (typeof exports[message.action] === 'function') {
+					exports[message.action](message.params, deliveryTag, message.uuid);
+				} else {
+					log.warn('larvitproduct: dataWriter.js - listenToQueue() - intercom.' + listenMethod + '() - Unknown message.action received: "' + message.action + '"');
+				}
+			});
+		}, ready);
+	});
 }
 // Run listenToQueue as soon as all I/O is done, this makes sure the exports.mode can be set
 // by the application before listening commences
