@@ -18,8 +18,9 @@ const	Products	= require(__dirname + '/products.js'),
  *		'renameCols':	{'oldName': 'newName'},	// Rename columns, using first row as names
  *		'replaceByCols':	['col1', 'col2'],	// With erase all previous product data where BOTH these attributes/columns matches
  *		'staticColHeads':	{'4': 'foo', '7': 'bar'},	// Manually set the column names for 4 to "foo" and 7 to "bar". Counting starts at 0
- *		'staticCols':	{'colName': colValues, 'colName2': colValues ...}	// Will extend the columns with this
+ *		'staticCols':	{'colName': colValues, 'colName2': colValues ...},	// Will extend the columns with this
  *		'updateByCols':	['col1', 'col2'],	// With update product data where BOTH these attributes/columns matches
+ *		'noNew':	boolean	// Option to create products that did not exist before
  *	}
  * @param func cb(err, [productUuid1, productUuid2]) the second array is a list of all added/altered products
  */
@@ -160,6 +161,13 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 			// Check if we already have a product in the database
 			tasks.push(function(cb) {
+				if ( ! options.findByCols && options.noNew === true) {
+					const	err	= new Error('findByCols is not set and we should not create any new products. This means no product will ever be created.');
+					log.verbose('larvitproduct: ./importer.js - fromFile() - ' + err.message);
+					cb(err);
+					return;
+				}
+
 				if (options.findByCols) {
 					for (let i = 0; options.findByCols[i] !== undefined; i ++) {
 						const	col	= options.findByCols[i];
@@ -181,7 +189,12 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 					products.limit	= 1;
 					products.get(function(err, productList, matchedProducts) {
-						if (matchedProducts === 0) {
+						if (matchedProducts === 0 && options.noNew === true) {
+							const	err	= new Error('No matching product found and options.noNew === true');
+							log.verbose('larvitproduct: ./importer.js - fromFile() - ' + err.message);
+							cb(err);
+							return;
+						} else if (matchedProducts === 0) {
 							product = new Product();
 							cb();
 							return;
@@ -201,9 +214,13 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 						product = new Product(Object.keys(productList)[0]);
 						product.loadFromDb(cb);
 					});
-				} else {
+				} else if (options.noNew !== true) {
 					product = new Product();
 					cb();
+				} else {
+					const	err	= new Error('No product found to be updated or replaced and no new products should be created due to noNew !== true');
+					log.verbose('larvitproduct: ./importer.js - fromFile() - ' + err.message);
+					cb(err);
 				}
 			});
 
