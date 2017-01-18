@@ -789,6 +789,21 @@ describe('Helpers', function() {
 				assert.deepEqual(uuidValidate(lUtils.formatUuid(uuids[attributeName]), 1), true);
 			}
 
+			assert.deepEqual(Object.keys(uuids).length,	3);
+
+			done();
+		});
+	});
+
+	it('should be case sensitive on attribute names and handle them correctly', function(done) {
+		productLib.helpers.getAttributeUuidBuffers(['moep', 'Moep'], function(err, uuids) {
+			if (err) throw err;
+
+			for (const attributeName of Object.keys(uuids)) {
+				assert.deepEqual(uuidValidate(lUtils.formatUuid(uuids[attributeName]), 1), true);
+			}
+			assert.deepEqual(Object.keys(uuids).length,	2);
+
 			done();
 		});
 	});
