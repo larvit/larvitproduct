@@ -775,7 +775,8 @@ describe('Helpers', function() {
 		productLib.helpers.getAttributeUuidBuffer('foo', function(err, uuid) {
 			if (err) throw err;
 
-			assert.deepEqual(uuidValidate(lUtils.formatUuid(uuid), 1), true);
+			assert.deepEqual(uuid instanceof Buffer,	true);
+			assert.deepEqual(uuidValidate(lUtils.formatUuid(uuid), 1),	true);
 
 			done();
 		});
@@ -786,7 +787,8 @@ describe('Helpers', function() {
 			if (err) throw err;
 
 			for (const attributeName of Object.keys(uuids)) {
-				assert.deepEqual(uuidValidate(lUtils.formatUuid(uuids[attributeName]), 1), true);
+				assert.deepEqual(uuids[attributeName] instanceof Buffer,	true);
+				assert.deepEqual(uuidValidate(lUtils.formatUuid(uuids[attributeName]), 1),	true);
 			}
 
 			assert.deepEqual(Object.keys(uuids).length,	3);
@@ -800,7 +802,8 @@ describe('Helpers', function() {
 			if (err) throw err;
 
 			for (const attributeName of Object.keys(uuids)) {
-				assert.deepEqual(uuidValidate(lUtils.formatUuid(uuids[attributeName]), 1), true);
+				assert.deepEqual(uuids[attributeName] instanceof Buffer,	true);
+				assert.deepEqual(uuidValidate(lUtils.formatUuid(uuids[attributeName]), 1),	true);
 			}
 			assert.deepEqual(Object.keys(uuids).length,	2);
 
