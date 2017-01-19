@@ -122,7 +122,6 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 				}
 			}
 
-			// Format cols
 			for (let i = 0; csvRow[i] !== undefined; i ++) {
 				let	colVal	= csvRow[i];
 
@@ -133,14 +132,15 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 					continue;
 				}
 
-				if (options.formatCols !== undefined) {
-					if (typeof options.formatCols[colHeads[i]] === 'function' && colVal !== undefined) {
-						colVal = options.formatCols[colHeads[i]](colVal, csvRow, colHeads);
-					}
-				}
-
 				if (options.ignoreCols.indexOf(colHeads[i]) === - 1) {
 					attributes[colHeads[i]] = colVal;
+				}
+			}
+
+			// Format cols in the order the object is given to us
+			if (options.formatCols !== undefined) {
+				for (const colName of Object.keys(options.formatCols)) {
+					attributes[colName] = options.formatCols[colName](attributes[colName], attributes);
 				}
 			}
 
