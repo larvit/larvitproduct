@@ -135,7 +135,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 				if (options.formatCols !== undefined) {
 					if (typeof options.formatCols[colHeads[i]] === 'function' && colVal !== undefined) {
-						colVal = options.formatCols[colHeads[i]](colVal, csvRow);
+						colVal = options.formatCols[colHeads[i]](colVal, csvRow, colHeads);
 					}
 				}
 
