@@ -15,19 +15,20 @@ const	Products	= require(__dirname + '/products.js'),
  *		'formatCols':	{'colName': function},	// Will be applied to all values of selected column
  *		'ignoreCols':	['colName1', 'colName2'],	// Will not write these cols to database
  *		'ignoreTopRows':	0,	// Number of top rows to ignore before treating it as the top row
+ *		'noNew':	boolean	// Option to create products that did not exist before
+ *		'parserOptions':	obj	// Will be forwarded to fast-csv
  *		'renameCols':	{'oldName': 'newName'},	// Rename columns, using first row as names
  *		'replaceByCols':	['col1', 'col2'],	// With erase all previous product data where BOTH these attributes/columns matches
  *		'staticColHeads':	{'4': 'foo', '7': 'bar'},	// Manually set the column names for 4 to "foo" and 7 to "bar". Counting starts at 0
  *		'staticCols':	{'colName': colValues, 'colName2': colValues ...},	// Will extend the columns with this
  *		'updateByCols':	['col1', 'col2'],	// With update product data where BOTH these attributes/columns matches
- *		'noNew':	boolean	// Option to create products that did not exist before
  *	}
  * @param func cb(err, [productUuid1, productUuid2]) the second array is a list of all added/altered products
  */
 exports.fromFile = function fromFile(filePath, options, cb) {
 	const	alteredProductUuids	= [],
 		fileStream	= fs.createReadStream(filePath),
-		csvStream	= fastCsv(),
+		csvStream	= fastCsv(options.parserOptions),
 		products	= new Products(),
 		colHeads	= [],
 		tasks	= [];
