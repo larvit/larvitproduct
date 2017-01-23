@@ -74,7 +74,6 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 	fileStream.pipe(csvStream);
 	csvStream.on('data', function(csvRow) {
-
 		tasks.push(function(cb) {
 			const	attributes	= {},
 				tasks	= [];
@@ -110,8 +109,10 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 					}
 				}
 
+				cb();
 				return;
 			} else if (currentRowNr < options.ignoreTopRows) {
+				cb();
 				return;
 			}
 
