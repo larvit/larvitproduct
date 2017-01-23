@@ -810,6 +810,17 @@ describe('Helpers', function() {
 			done();
 		});
 	});
+
+	it('it should ignore BOMs in strings', function(done) {
+		productLib.helpers.getAttributeUuidBuffer(new Buffer('efbbbf70', 'hex').toString(), function(err, uuid) {
+			if (err) throw err;
+
+			assert.deepEqual(uuid instanceof Buffer,	true);
+			assert.deepEqual(uuidValidate(lUtils.formatUuid(uuid), 1),	true);
+
+			done();
+		});
+	});
 });
 
 after(function(done) {
