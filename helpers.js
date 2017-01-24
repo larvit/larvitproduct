@@ -11,7 +11,7 @@ let intercom;
 
 function getAttributeUuidBuffer(attributeName, cb) {
 	// Remove unprintable space
-	attributeName = stripBom(attributeName);
+	attributeName = stripBom(String(attributeName));
 
 	for (let i = 0; exports.attributes[i] !== undefined; i ++) {
 		if (exports.attributes[i].name === attributeName) {

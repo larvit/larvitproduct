@@ -359,7 +359,7 @@ function writeProduct(params, deliveryTag, msgUuid) {
 				sql += '(?,?,?),';
 				dbFields.push(productUuidBuf);
 				dbFields.push(attributeUuidsByName[fieldName]);
-				dbFields.push(stripBom(attributeData));
+				dbFields.push(stripBom(String(attributeData)));
 			}
 		}
 
@@ -377,7 +377,7 @@ function writeAttribute(params, deliveryTag, msgUuid) {
 	const	uuid	= params.uuid,
 		name	= params.name;
 
-	db.query('INSERT IGNORE INTO product_attributes (uuid, name) VALUES(?,?)', [lUtils.uuidToBuffer(uuid), stripBom(name)], function(err) {
+	db.query('INSERT IGNORE INTO product_attributes (uuid, name) VALUES(?,?)', [lUtils.uuidToBuffer(uuid), stripBom(String(name))], function(err) {
 		exports.emitter.emit(msgUuid, err);
 	});
 }
