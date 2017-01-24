@@ -3,6 +3,7 @@
 const	EventEmitter	= require('events').EventEmitter,
 	eventEmitter	= new EventEmitter(),
 	dbmigration	= require('larvitdbmigration')({'tableName': 'product_db_version', 'migrationScriptsPath': __dirname + '/dbmigration'}),
+	stripBom	= require('strip-bom'),
 	helpers	= require(__dirname + '/helpers.js'),
 	lUtils	= require('larvitutils'),
 	amsync	= require('larvitamsync'),
@@ -358,7 +359,7 @@ function writeProduct(params, deliveryTag, msgUuid) {
 				sql += '(?,?,?),';
 				dbFields.push(productUuidBuf);
 				dbFields.push(attributeUuidsByName[fieldName]);
-				dbFields.push(attributeData);
+				dbFields.push(stripBom(attributeData));
 			}
 		}
 
@@ -376,7 +377,7 @@ function writeAttribute(params, deliveryTag, msgUuid) {
 	const	uuid	= params.uuid,
 		name	= params.name;
 
-	db.query('INSERT IGNORE INTO product_attributes (uuid, name) VALUES(?,?)', [lUtils.uuidToBuffer(uuid), name], function(err) {
+	db.query('INSERT IGNORE INTO product_attributes (uuid, name) VALUES(?,?)', [lUtils.uuidToBuffer(uuid), stripBom(name)], function(err) {
 		exports.emitter.emit(msgUuid, err);
 	});
 }
