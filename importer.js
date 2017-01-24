@@ -7,6 +7,8 @@ const	Products	= require(__dirname + '/products.js'),
 	log	= require('winston'),
 	fs	= require('fs');
 
+log.context	= 'larvitproduct: ./importer.js - ';
+
 /**
  * Import from file
  *
@@ -130,7 +132,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 				if (colHeads[i] === '' && colVal === '') {
 					continue;
 				} else if (colHeads[i] === '') {
-					log.warn('larvitproduct: ./importer.js - fromFile() - Ignoring column ' + i + ' on rowNr: ' + currentRowNr + ' since no column header was found');
+					log.warn(log.context + 'fromFile() - Ignoring column ' + i + ' on rowNr: ' + currentRowNr + ' since no column header was found');
 					continue;
 				}
 
@@ -142,6 +144,10 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 			// Format cols in the order the object is given to us
 			if (options.formatCols !== undefined) {
 				for (const colName of Object.keys(options.formatCols)) {
+					if (typeof options.formatCols[colName] !== 'function') {
+						log.warn(log.context + 'fromFile() - options.formatCols[' + colName + '] is not a function');
+						continue;
+					}
 					attributes[colName] = options.formatCols[colName](attributes[colName], attributes);
 				}
 			}
@@ -152,7 +158,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 					if ( ! attributes[options.findByCols[i]]) {
 						const err = new Error('Missing attribute value for "' + options.findByCols[i] + '" rowNr: ' + currentRowNr);
 
-						log.verbose('larvitproduct: ./importer.js - fromFile() - ' + err.message);
+						log.verbose('fromFile() - ' + err.message);
 						cb(err);
 						return;
 					}
@@ -165,7 +171,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 			tasks.push(function(cb) {
 				if ( ! options.findByCols && options.noNew === true) {
 					const	err	= new Error('findByCols is not set and we should not create any new products. This means no product will ever be created.');
-					log.verbose('larvitproduct: ./importer.js - fromFile() - ' + err.message);
+					log.verbose(log.context + 'fromFile() - ' + err.message);
 					cb(err);
 					return;
 				}
@@ -176,7 +182,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 						if ( ! attributes[col]) {
 							const	err	= new Error('replaceByCol: "' + col + '" is entered, but product does not have this col');
-							log.warn('larvitproduct: ./importer.js - fromFile() - Ignoring product since replaceByCol "' + col + '" is missing on rowNr: ' + currentRowNr);
+							log.warn(log.context + 'fromFile() - Ignoring product since replaceByCol "' + col + '" is missing on rowNr: ' + currentRowNr);
 							cb(err);
 							return;
 						}
@@ -193,7 +199,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 					products.get(function(err, productList, matchedProducts) {
 						if (matchedProducts === 0 && options.noNew === true) {
 							const	err	= new Error('No matching product found and options.noNew === true');
-							log.verbose('larvitproduct: ./importer.js - fromFile() - ' + err.message);
+							log.verbose(log.context + 'fromFile() - ' + err.message);
 							cb(err);
 							return;
 						} else if (matchedProducts === 0) {
@@ -203,12 +209,12 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 						}
 
 						if (matchedProducts > 1) {
-							log.warn('larvitproduct: ./importer.js - fromFile() - Multiple products matched "' + JSON.stringify(options.findByCols) + '"');
+							log.warn(log.context + 'fromFile() - Multiple products matched "' + JSON.stringify(options.findByCols) + '"');
 						}
 
 						if ( ! productList) {
 							const	err	= new Error('Invalid productList object returned from products.get()');
-							log.error('larvitproduct: ./importer.js - fromFile() - ' + err.message);
+							log.error(log.context + 'fromFile() - ' + err.message);
 							cb(err);
 							return;
 						}
@@ -221,7 +227,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 					cb();
 				} else {
 					const	err	= new Error('No product found to be updated or replaced and no new products should be created due to noNew !== true');
-					log.verbose('larvitproduct: ./importer.js - fromFile() - ' + err.message);
+					log.verbose(log.context + 'fromFile() - ' + err.message);
 					cb(err);
 				}
 			});
@@ -242,7 +248,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 				product.save(function(err) {
 					if (err) {
-						log.warn('larvitproduct: ./importer.js - fromFile() - Could not save product: ' + err.message);
+						log.warn(log.context + 'fromFile() - Could not save product: ' + err.message);
 					} else {
 						alteredProductUuids.push(product.uuid);
 					}
@@ -253,7 +259,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 			async.series(tasks, function(err) {
 				if ( ! err) {
-					log.verbose('larvitproduct: ./importer.js - fromFile() - Imported product uuid: ' + product.uuid);
+					log.verbose(log.context + 'fromFile() - Imported product uuid: ' + product.uuid);
 				}
 
 				cb(); // Never report back an error, since that will break the import of the other products
@@ -265,7 +271,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 		async.parallelLimit(tasks, 100, function() {
 			fs.unlink(filePath, function(err) {
 				if (err) {
-					log.warn('larvitproduct: ./importer.js - fromFile() - fs.unlink() - err: ' + err.message);
+					log.warn(log.context + 'fromFile() - fs.unlink() - err: ' + err.message);
 				}
 
 				cb(err, alteredProductUuids);
@@ -274,7 +280,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 	});
 
 	csvStream.on('error', function(err) {
-		log.warn('larvitproduct: ./importer.js - fromFile() - Could not parse csv: ' + err.message);
+		log.warn(log.context + 'fromFile() - Could not parse csv: ' + err.message);
 		cb(err);
 		return;
 	});
