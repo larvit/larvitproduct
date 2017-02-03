@@ -140,9 +140,11 @@ function ready(retries, cb) {
 	if (exports.mode === 'both' || exports.mode === 'slave') {
 		log.verbose('larvitproduct: dataWriter.js - ready() - exports.mode: "' + exports.mode + '", so read');
 
-		tasks.push(function(cb) {
-			amsync.mariadb({'exchange': exports.exchangeName + '_dataDump'}, cb);
-		});
+		if (exports.noDbSync !== true) {
+			tasks.push(function(cb) {
+				amsync.mariadb({'exchange': exports.exchangeName + '_dataDump'}, cb);
+			});
+		}
 	}
 
 	// Migrate database
