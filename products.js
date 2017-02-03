@@ -56,6 +56,12 @@ Products.prototype.generateWhere = function(cb) {
 			that.uuids = [that.uuids];
 		}
 
+		for (let i = 0; that.uuids[i] !== undefined; i ++) {
+			if ( ! lUtils.uuidToBuffer(that.uuids[i])) {
+				that.uuids = that.uuids.slice(i, 0);
+			}
+		}
+
 		if (that.uuids.length === 0) {
 			sql += '	AND 0';
 		} else {
