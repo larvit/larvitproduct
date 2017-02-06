@@ -809,6 +809,18 @@ describe('Helpers', function() {
 	});
 });
 
+describe('Import', function() {
+	it('should import our test file', function(done) {
+		productLib.importer.fromFile(__dirname + '/products.csv', function(err, uuids) {
+			if (err) throw err;
+
+			assert.deepEqual(uuids.length,	2);
+
+			done();
+		});
+	});
+});
+
 after(function(done) {
 	db.removeAllTables(done);
 });

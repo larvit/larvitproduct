@@ -27,6 +27,7 @@
   "dependencies": {
     "async": "^2.1.2",
     "fast-csv": "^2.3.0",
+    "iconv-lite": "^0.4.15",
     "larvitamintercom": "^0.1.11",
     "larvitamsync": "^0.2.0",
     "larvitdb": "^1.2.5",
