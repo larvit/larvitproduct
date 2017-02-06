@@ -3,6 +3,7 @@
 const	EventEmitter	= require('events').EventEmitter,
 	eventEmitter	= new EventEmitter(),
 	dbmigration	= require('larvitdbmigration')({'tableName': 'product_db_version', 'migrationScriptsPath': __dirname + '/dbmigration'}),
+	stripBom	= require('strip-bom'),
 	helpers	= require(__dirname + '/helpers.js'),
 	lUtils	= require('larvitutils'),
 	amsync	= require('larvitamsync'),
@@ -136,19 +137,14 @@ function ready(retries, cb) {
 
 	readyInProgress = true;
 
-	// We are strictly in need of the intercom!
-	if ( ! (intercom instanceof require('larvitamintercom'))) {
-		const	err	= new Error('larvitutils.instances.intercom is not an instance of Intercom!');
-		log.error('larvitproduct: dataWriter.js - ready() - ' + err.message);
-		throw err;
-	}
-
 	if (exports.mode === 'both' || exports.mode === 'slave') {
 		log.verbose('larvitproduct: dataWriter.js - ready() - exports.mode: "' + exports.mode + '", so read');
 
-		tasks.push(function(cb) {
-			amsync.mariadb({'exchange': exports.exchangeName + '_dataDump'}, cb);
-		});
+		if (exports.noDbSync !== true) {
+			tasks.push(function(cb) {
+				amsync.mariadb({'exchange': exports.exchangeName + '_dataDump'}, cb);
+			});
+		}
 	}
 
 	// Migrate database
@@ -365,7 +361,7 @@ function writeProduct(params, deliveryTag, msgUuid) {
 				sql += '(?,?,?),';
 				dbFields.push(productUuidBuf);
 				dbFields.push(attributeUuidsByName[fieldName]);
-				dbFields.push(attributeData);
+				dbFields.push(stripBom(String(attributeData)));
 			}
 		}
 
@@ -383,7 +379,7 @@ function writeAttribute(params, deliveryTag, msgUuid) {
 	const	uuid	= params.uuid,
 		name	= params.name;
 
-	db.query('INSERT IGNORE INTO product_attributes (uuid, name) VALUES(?,?)', [lUtils.uuidToBuffer(uuid), name], function(err) {
+	db.query('INSERT IGNORE INTO product_attributes (uuid, name) VALUES(?,?)', [lUtils.uuidToBuffer(uuid), stripBom(String(name))], function(err) {
 		exports.emitter.emit(msgUuid, err);
 	});
 }

@@ -1,6 +1,7 @@
 'use strict';
 
 const	dataWriter	= require(__dirname + '/dataWriter.js'),
+	stripBom	= require('strip-bom'),
 	uuidLib	= require('uuid'),
 	async	= require('async'),
 	log	= require('winston'),
@@ -9,6 +10,9 @@ const	dataWriter	= require(__dirname + '/dataWriter.js'),
 let intercom;
 
 function getAttributeUuidBuffer(attributeName, cb) {
+	// Remove unprintable space
+	attributeName = stripBom(String(attributeName));
+
 	for (let i = 0; exports.attributes[i] !== undefined; i ++) {
 		if (exports.attributes[i].name === attributeName) {
 			cb(null, exports.attributes[i].uuid);

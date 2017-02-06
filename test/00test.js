@@ -372,6 +372,7 @@ describe('Product', function() {
 			done();
 		});
 	});
+
 });
 
 describe('Products', function() {
@@ -435,7 +436,6 @@ describe('Products', function() {
 		// Get 0 results for wrong uuids
 		tasks.push(function(cb) {
 			const products = new productLib.Products();
-
 			products.uuids = uuidLib.v1();
 
 			products.get(function(err, productList, productsCount) {
@@ -483,6 +483,26 @@ describe('Products', function() {
 				assert.deepEqual(uuidValidate(productList[dbUuids[2]].uuid, 1),	true);
 				assert.deepEqual(productList[dbUuids[2]].uuid,	dbUuids[2]);
 				assert.deepEqual(toString.call(productList[dbUuids[2]].created),	'[object Date]');
+
+				cb();
+			});
+		});
+
+		async.series(tasks, done);
+	});
+
+	it('should not get products with invalid uuid', function(done) {
+		const	tasks	= [];
+
+		tasks.push(function(cb) {
+			const products = new productLib.Products();
+			products.uuids = 'invalidUuid';
+
+			products.get(function(err, productList, productsCount) {
+				if (err) throw err;
+				assert.deepEqual(typeof productList,	'object');
+				assert.deepEqual(Object.keys(productList).length,	0);
+				assert.deepEqual(productsCount,	0);
 
 				cb();
 			});
@@ -775,7 +795,8 @@ describe('Helpers', function() {
 		productLib.helpers.getAttributeUuidBuffer('foo', function(err, uuid) {
 			if (err) throw err;
 
-			assert.deepEqual(uuidValidate(lUtils.formatUuid(uuid), 1), true);
+			assert.deepEqual(uuid instanceof Buffer,	true);
+			assert.deepEqual(uuidValidate(lUtils.formatUuid(uuid), 1),	true);
 
 			done();
 		});
@@ -786,7 +807,8 @@ describe('Helpers', function() {
 			if (err) throw err;
 
 			for (const attributeName of Object.keys(uuids)) {
-				assert.deepEqual(uuidValidate(lUtils.formatUuid(uuids[attributeName]), 1), true);
+				assert.deepEqual(uuids[attributeName] instanceof Buffer,	true);
+				assert.deepEqual(uuidValidate(lUtils.formatUuid(uuids[attributeName]), 1),	true);
 			}
 
 			assert.deepEqual(Object.keys(uuids).length,	3);
@@ -800,9 +822,21 @@ describe('Helpers', function() {
 			if (err) throw err;
 
 			for (const attributeName of Object.keys(uuids)) {
-				assert.deepEqual(uuidValidate(lUtils.formatUuid(uuids[attributeName]), 1), true);
+				assert.deepEqual(uuids[attributeName] instanceof Buffer,	true);
+				assert.deepEqual(uuidValidate(lUtils.formatUuid(uuids[attributeName]), 1),	true);
 			}
 			assert.deepEqual(Object.keys(uuids).length,	2);
+
+			done();
+		});
+	});
+
+	it('it should ignore BOMs in strings', function(done) {
+		productLib.helpers.getAttributeUuidBuffer(new Buffer('efbbbf70', 'hex').toString(), function(err, uuid) {
+			if (err) throw err;
+
+			assert.deepEqual(uuid instanceof Buffer,	true);
+			assert.deepEqual(uuidValidate(lUtils.formatUuid(uuid), 1),	true);
 
 			done();
 		});

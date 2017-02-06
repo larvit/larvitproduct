@@ -51,6 +51,9 @@ products.get(function(err, productList) {
 
 ### Highjack datawriter to fill up database before getting data from the queue
 
+__THIS MIGHT BE BROKEN__
+
+
 ```javascript
 const	EventEmitter	= require('events').EventEmitter,
 	eventEmitter	= new EventEmitter(),
