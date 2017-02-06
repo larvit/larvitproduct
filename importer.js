@@ -74,7 +74,6 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 	fileStream.pipe(csvStream);
 	csvStream.on('data', function(csvRow) {
-
 		tasks.push(function(cb) {
 			const	attributes	= {},
 				tasks	= [];
@@ -146,6 +145,11 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 			// Check if we should ignore this row
 			tasks.push(function(cb) {
+				if ( ! options.findByCols) {
+					cb();
+					return;
+				}
+
 				for (let i = 0; options.findByCols[i] !== undefined; i ++) {
 					if ( ! attributes[options.findByCols[i]]) {
 						const err = new Error('Missing attribute value for "' + options.findByCols[i] + '" rowNr: ' + currentRowNr);
