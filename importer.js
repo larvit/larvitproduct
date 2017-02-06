@@ -274,13 +274,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 	csvStream.on('end', function() {
 		async.parallelLimit(tasks, 100, function() {
-			fs.unlink(filePath, function(err) {
-				if (err) {
-					log.warn(log.context + 'fromFile() - fs.unlink() - err: ' + err.message);
-				}
-
-				cb(err, alteredProductUuids);
-			});
+			cb(null, alteredProductUuids);
 		});
 	});
 
