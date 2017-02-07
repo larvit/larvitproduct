@@ -8,7 +8,8 @@ const	uuidValidate	= require('uuid-validate'),
 	async	= require('async'),
 	log	= require('winston'),
 	db	= require('larvitdb'),
-	fs	= require('fs');
+	fs	= require('fs'),
+	os	= require('os');
 
 let	productLib;
 
@@ -845,10 +846,32 @@ describe('Helpers', function() {
 
 describe('Import', function() {
 	it('should import our test file', function(done) {
-		productLib.importer.fromFile(__dirname + '/products.csv', function(err, uuids) {
-			if (err) throw err;
+		const	tmpFile	= os.tmpdir() + '/tmp_products.csv',
+			tasks	= [];
 
-			assert.deepEqual(uuids.length,	2);
+		// First create our test file
+		tasks.push(function(cb) {
+			fs.writeFile(tmpFile, 'name,price,description\nball,100,it is round\ntv,55,"About 32"" in size"', cb);
+		});
+
+		// Import file
+		tasks.push(function(cb) {
+			productLib.importer.fromFile(tmpFile, function(err, uuids) {
+				if (err) throw err;
+
+				assert.deepEqual(uuids.length,	2);
+
+				cb();
+			});
+		});
+
+		// Remove tmp file
+		tasks.push(function(cb) {
+			fs.unlink(tmpFile, cb);
+		});
+
+		async.series(tasks, function(err) {
+			if (err) throw err;
 
 			done();
 		});
