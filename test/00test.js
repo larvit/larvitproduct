@@ -845,7 +845,7 @@ describe('Helpers', function() {
 });
 
 describe('Import', function() {
-	it('should import our test file', function(done) {
+	function importFromStr(str, options, cb) {
 		const	tmpFile	= os.tmpdir() + '/tmp_products.csv',
 			tasks	= [];
 
@@ -853,17 +853,15 @@ describe('Import', function() {
 
 		// First create our test file
 		tasks.push(function(cb) {
-			fs.writeFile(tmpFile, 'name,price,description\nball,100,it is round\ntv,55,"About 32"" in size"', cb);
+			fs.writeFile(tmpFile, str, cb);
 		});
 
 		// Import file
 		tasks.push(function(cb) {
-			productLib.importer.fromFile(tmpFile, function(err, result) {
+			productLib.importer.fromFile(tmpFile, options, function(err, result) {
 				uuids	= result;
 
 				if (err) throw err;
-
-				assert.deepEqual(uuids.length,	2);
 
 				cb();
 			});
@@ -874,31 +872,57 @@ describe('Import', function() {
 			fs.unlink(tmpFile, cb);
 		});
 
-		// Make checkups in the database
-		tasks.push(function(cb) {
-			let	sql	= '';
+		async.series(tasks, function(err) {
+			cb(err, uuids);
+		});
+	}
 
-			sql += 'SELECT pa.name, ppa.productUuid, ppa.data\n';
-			sql += 'FROM product_product_attributes ppa JOIN product_attributes pa ON pa.uuid = ppa.attributeUuid\n';
-			sql += 'WHERE ppa.productUuid IN (?,?);';
+	function getProductData(uuids, cb) {
+		const	dbFields	= [];
 
-			db.query(sql, [lUtils.uuidToBuffer(uuids[0]), lUtils.uuidToBuffer(uuids[1])], function(err, rows) {
-				const	testProducts	= {};
+		let	sql	= '';
 
-				if (err) throw err;
+		sql += 'SELECT pa.name, ppa.productUuid, ppa.data\n';
+		sql += 'FROM product_product_attributes ppa JOIN product_attributes pa ON pa.uuid = ppa.attributeUuid\n';
+		sql += 'WHERE ppa.productUuid IN (';
 
-				for (let i = 0; rows[i] !== undefined; i ++) {
-					const	row	= rows[i],
-						productUuid	= lUtils.formatUuid(row.productUuid);
+		for (let i = 0; uuids[i] !== undefined; i ++) {
+			sql += '?,';
+			dbFields.push(lUtils.uuidToBuffer(uuids[i]));
+		}
 
-					if (testProducts[productUuid] === undefined) {
-						testProducts[productUuid] = {};
-					}
+		sql = sql.substring(0, sql.length - 1) + ');';
 
-					testProducts[productUuid][row.name] = row.data;
+		db.query(sql, dbFields, function(err, rows) {
+			const	testProducts	= {};
+
+			if (err) throw err;
+
+			for (let i = 0; rows[i] !== undefined; i ++) {
+				const	row	= rows[i],
+					productUuid	= lUtils.formatUuid(row.productUuid);
+
+				if (testProducts[productUuid] === undefined) {
+					testProducts[productUuid] = {};
 				}
 
-				assert.deepEqual(Object.keys(testProducts).length,	2);
+				testProducts[productUuid][row.name] = row.data;
+			}
+
+			cb(err, testProducts);
+		});
+	}
+
+	it('very simple test case', function(done) {
+		const	productStr	= 'name,price,description\nball,100,it is round\ntv,55,"About 32"" in size"';
+
+		importFromStr(productStr, {}, function(err, uuids) {
+			if (err) throw err;
+
+			assert.deepEqual(uuids.length,	2);
+
+			getProductData(uuids, function(err, testProducts) {
+				if (err) throw err;
 
 				for (const productUuid of Object.keys(testProducts)) {
 					const	product	= testProducts[productUuid];
@@ -916,14 +940,47 @@ describe('Import', function() {
 					}
 				}
 
-				cb();
+				done();
 			});
 		});
+	});
 
-		async.series(tasks, function(err) {
+	it('Override static column data', function(done) {
+		const	productStr	= 'name,size,enabled\nball,3,true\ntv,14,false\nspoon,2,true',
+			options	= {'staticCols': { 'foul': 'nope', 'enabled': 'false'} };
+
+		importFromStr(productStr, options, function(err, uuids) {
 			if (err) throw err;
 
-			done();
+			assert.deepEqual(uuids.length,	3);
+
+			getProductData(uuids, function(err, testProducts) {
+				if (err) throw err;
+
+				for (const productUuid of Object.keys(testProducts)) {
+					const	product	= testProducts[productUuid];
+
+					assert.deepEqual(Object.keys(product).length,	4);
+
+					if (product.name === 'ball') {
+						assert.deepEqual(product.size,	'3');
+						assert.deepEqual(product.enabled,	'true');
+						assert.deepEqual(product.foul,	'nope');
+					} else if (product.name === 'tv') {
+						assert.deepEqual(product.size,	'14');
+						assert.deepEqual(product.enabled,	'false');
+						assert.deepEqual(product.foul,	'nope');
+					} else if (product.name === 'spoon') {
+						assert.deepEqual(product.size,	'2');
+						assert.deepEqual(product.enabled,	'true');
+						assert.deepEqual(product.foul,	'nope');
+					} else {
+						throw new Error('Unexpected product: ' + JSON.stringify(product));
+					}
+				}
+
+				done();
+			});
 		});
 	});
 });

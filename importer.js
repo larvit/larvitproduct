@@ -108,7 +108,9 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 				// Manually add the static column heads
 				if (options.staticCols) {
 					for (const colName of Object.keys(options.staticCols)) {
-						colHeads.push(colName);
+						if (colHeads.indexOf(colName) === - 1) {
+							colHeads.push(colName);
+						}
 					}
 				}
 
@@ -119,14 +121,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 				return;
 			}
 
-			// Manually add the static column values
-			if (options.staticCols) {
-				for (const colName of Object.keys(options.staticCols)) {
-					csvRow.push(options.staticCols[colName]);
-				}
-			}
-
-			for (let i = 0; csvRow[i] !== undefined; i ++) {
+			for (let i = 0; colHeads[i] !== undefined; i ++) {
 				let	colVal	= csvRow[i];
 
 				if (colHeads[i] === '' && colVal === '') {
@@ -134,6 +129,8 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 				} else if (colHeads[i] === '') {
 					log.warn(log.context + 'fromFile() - Ignoring column ' + i + ' on rowNr: ' + currentRowNr + ' since no column header was found');
 					continue;
+				} else if (colVal === undefined && options.staticCols[colHeads[i]] !== undefined) {
+					colVal = options.staticCols[colHeads[i]];
 				}
 
 				if (options.ignoreCols.indexOf(colHeads[i]) === - 1) {
