@@ -15,7 +15,7 @@ let	productLib;
 
 // Set up winston
 log.remove(log.transports.Console);
-/**/log.add(log.transports.Console, {
+/** /log.add(log.transports.Console, {
 	'level':	'warn',
 	'colorize':	true,
 	'timestamp':	true,
@@ -849,6 +849,8 @@ describe('Import', function() {
 		const	tmpFile	= os.tmpdir() + '/tmp_products.csv',
 			tasks	= [];
 
+		let	uuids	= [];
+
 		// First create our test file
 		tasks.push(function(cb) {
 			fs.writeFile(tmpFile, 'name,price,description\nball,100,it is round\ntv,55,"About 32"" in size"', cb);
@@ -856,7 +858,9 @@ describe('Import', function() {
 
 		// Import file
 		tasks.push(function(cb) {
-			productLib.importer.fromFile(tmpFile, function(err, uuids) {
+			productLib.importer.fromFile(tmpFile, function(err, result) {
+				uuids	= result;
+
 				if (err) throw err;
 
 				assert.deepEqual(uuids.length,	2);
@@ -868,6 +872,52 @@ describe('Import', function() {
 		// Remove tmp file
 		tasks.push(function(cb) {
 			fs.unlink(tmpFile, cb);
+		});
+
+		// Make checkups in the database
+		tasks.push(function(cb) {
+			let	sql	= '';
+
+			sql += 'SELECT pa.name, ppa.productUuid, ppa.data\n';
+			sql += 'FROM product_product_attributes ppa JOIN product_attributes pa ON pa.uuid = ppa.attributeUuid\n';
+			sql += 'WHERE ppa.productUuid IN (?,?);';
+
+			db.query(sql, [lUtils.uuidToBuffer(uuids[0]), lUtils.uuidToBuffer(uuids[1])], function(err, rows) {
+				const	testProducts	= {};
+
+				if (err) throw err;
+
+				for (let i = 0; rows[i] !== undefined; i ++) {
+					const	row	= rows[i],
+						productUuid	= lUtils.formatUuid(row.productUuid);
+
+					if (testProducts[productUuid] === undefined) {
+						testProducts[productUuid] = {};
+					}
+
+					testProducts[productUuid][row.name] = row.data;
+				}
+
+				assert.deepEqual(Object.keys(testProducts).length,	2);
+
+				for (const productUuid of Object.keys(testProducts)) {
+					const	product	= testProducts[productUuid];
+
+					assert.deepEqual(Object.keys(product).length,	3);
+
+					if (product.name === 'ball') {
+						assert.deepEqual(product.price,	'100');
+						assert.deepEqual(product.description,	'it is round');
+					} else if (product.name === 'tv') {
+						assert.deepEqual(product.price,	'55');
+						assert.deepEqual(product.description,	'About 32" in size');
+					} else {
+						throw new Error('Unexpected product: ' + JSON.stringify(product));
+					}
+				}
+
+				cb();
+			});
 		});
 
 		async.series(tasks, function(err) {
