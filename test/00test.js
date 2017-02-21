@@ -867,7 +867,7 @@ describe('Helpers', function() {
 		});
 	});
 
-	it('it should ignore BOMs in strings', function(done) {
+	it('should ignore BOMs in strings', function(done) {
 		productLib.helpers.getAttributeUuidBuffer(new Buffer('efbbbf70', 'hex').toString(), function(err, uuid) {
 			if (err) throw err;
 
