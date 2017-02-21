@@ -41,10 +41,10 @@ function listenToQueue(retries, cb) {
 				// out messages from us, and we want "consume"
 				// since we want the queue to persist even if this
 				// minion goes offline.
-	} else if (exports.mode === 'slave') {
+	} else if (exports.mode === 'slave' || exports.mode === 'noSync') {
 		listenMethod = 'subscribe';
 	} else {
-		const	err	= new Error('Invalid exports.mode. Must be either "master" or "slave"');
+		const	err	= new Error('Invalid exports.mode. Must be either "master", "slave" or "noSync"');
 		log.error('larvitproduct: dataWriter.js - listenToQueue() - ' + err.message);
 		cb(err);
 		return;
@@ -137,14 +137,16 @@ function ready(retries, cb) {
 
 	readyInProgress = true;
 
-	if (exports.mode === 'both' || exports.mode === 'slave') {
+	if (exports.mode === 'slave') {
 		log.verbose('larvitproduct: dataWriter.js - ready() - exports.mode: "' + exports.mode + '", so read');
 
-		if (exports.noDbSync !== true) {
-			tasks.push(function(cb) {
-				amsync.mariadb({'exchange': exports.exchangeName + '_dataDump'}, cb);
-			});
-		}
+		tasks.push(function(cb) {
+			amsync.mariadb({'exchange': exports.exchangeName + '_dataDump'}, cb);
+		});
+	}
+
+	if (exports.mode === 'noSync') {
+		log.warn('larvitproduct: dataWriter.js - ready() - exports.mode: "' + exports.mode + '", never run this mode in production!');
 	}
 
 	// Migrate database
