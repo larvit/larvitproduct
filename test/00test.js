@@ -546,41 +546,6 @@ describe('Products', function() {
 		});
 	});
 
-	it('should get attribute data based on attribute', function(done) {
-		const	products	= new productLib.Products(),
-			product = new productLib.Product(),
-			tasks	= [];
-
-		// Create product
-		tasks.push(function(cb) {
-			product.attributes = {'type': 'Radiator'};
-			product.save(function(err) {
-				if (err) throw err;
-				cb();
-			});
-		});
-
-		// Get attribute data based on earlier created product.
-		tasks.push(function(cb) {
-			products.getAttributeData('type', function(err, result) {
-				if (err) throw err;
-				assert.deepEqual(result[0],	'Radiator');
-				cb();
-			});
-		});
-
-		// Delete created product
-		tasks.push(function(cb) {
-			product.rm(cb);
-		});
-
-		async.series(tasks, function(err) {
-			if (err) throw err;
-			done();
-		});
-
-	});
-
 	describe('should get products based on attributes', function() {
 		it('multiple attributes with values', function(done) {
 			const	products	= new productLib.Products();

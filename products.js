@@ -319,42 +319,6 @@ Products.prototype.getUniqeAttributes = function(filters, cb) {
 	});
 };
 
-Products.prototype.getAttributeData = function(attribute, cb) {
-	const	attributes	= [],
-		tasks	= [];
-
-	let attributeUuid;
-
-	// Get attribute uuid
-	tasks.push(function(cb) {
-		const	sql	= 'SELECT uuid FROM product_attributes WHERE name = ?',
-			dbFields	= [attribute];
-
-		db.query(sql, dbFields, function(err, attributes) {
-			attributeUuid	= attributes[0].uuid;
-			cb();
-		});
-	});
-
-	// Get attribute data
-	tasks.push(function(cb) {
-		const	sql	= 'SELECT data FROM product_product_attributes WHERE attributeUuid = ?',
-			dbFields	= [attributeUuid];
-
-		db.query(sql, dbFields, function(err, result) {
-			for (let i = 0; result[i] !== undefined; i ++) {
-				attributes.push(result[i].data);
-			}
-			cb();
-		});
-	});
-
-	async.series(tasks, function(err) {
-		cb(err, attributes);
-	});
-
-};
-
 Products.prototype.getUuids = function(cb) {
 	const	tasks	= [],
 		uuids	= [],
