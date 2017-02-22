@@ -118,6 +118,51 @@ Products.prototype.generateWhere = function(cb) {
 		}
 	}
 
+	if (that.matchAnyAttribute !== undefined) {
+
+		if (that.matchAllAttributes === undefined) {
+			sql += ' AND (\n';
+		} else {
+			sql += ' OR (\n';
+		}
+
+		for (const attributeName of Object.keys(that.matchAnyAttribute)) {
+			const	attributeValue	= that.matchAnyAttribute[attributeName];
+
+			sql += '	OR (p.uuid IN (\n';
+			sql += '		SELECT DISTINCT productUuid\n';
+			sql += '		FROM product_product_attributes\n';
+			sql += '		WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?)\n';
+
+			dbFields.push(attributeName);
+
+			if (Array.isArray(attributeValue) && attributeValue[0] !== undefined) {
+
+				sql += '	AND (';
+
+				for (let i = 0; attributeValue[i] !== undefined; i ++) {
+
+					if (i > 0) {
+						sql += ' OR ';
+					}
+
+					sql += '		`data` = ?\n';
+					dbFields.push(attributeValue[i]);
+				}	
+				
+				sql += '	)';
+				
+			} else if (attributeValue !== undefined) {
+				sql += '	AND `data` = ?\n';
+				dbFields.push(attributeValue);
+			}
+
+			sql += '))';
+		}
+
+		sql += ')';
+	}
+
 	if (that.searchString !== undefined && that.searchString !== '') {
 		sql += '	AND p.uuid IN (\n';
 		sql += '		SELECT DISTINCT productUuid\n';
@@ -162,6 +207,11 @@ Products.prototype.get = function(cb) {
 			}
 
 			tasks.push(function(cb) {
+
+				if (dbFields.indexOf('no') > -1) {
+					console.log(sql);
+				}
+
 				db.query(sql, dbFields, function(err, rows) {
 					if (err) { cb(err); return; }
 

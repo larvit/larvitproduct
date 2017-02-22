@@ -15,12 +15,13 @@ let	productLib;
 
 // Set up winston
 log.remove(log.transports.Console);
-/** /log.add(log.transports.Console, {
-	'level':	'warn',
+/* log.add(log.transports.Console, {
+	'level':	'debug',
 	'colorize':	true,
 	'timestamp':	true,
-	'json':	false
-});/**/
+	'json':	false,
+	'humanReadableUnhandledException': true
+}); */
 
 before(function(done) {
 	this.timeout(10000);
@@ -321,6 +322,7 @@ describe('Product', function() {
 			product.attributes.foo	= 'bar';
 			product.attributes.nisse	= 'mm';
 			product.attributes.active	= 'true';
+			product.attributes.bacon	= 'yes';
 			product.save(cb);
 		});
 		tasks.push(function(cb) {
@@ -329,6 +331,7 @@ describe('Product', function() {
 			product.attributes.foo	= 'baz';
 			product.attributes.nisse	= 'nej';
 			product.attributes.active	= 'true';
+			product.attributes.bacon	= 'no';
 			product.save(cb);
 		});
 		tasks.push(function(cb) {
@@ -336,6 +339,7 @@ describe('Product', function() {
 
 			product.attributes.foo	= 'bar';
 			product.attributes.active	= 'true';
+			product.attributes.bacon	= 'narwhal';
 			product.save(cb);
 		});
 
@@ -547,7 +551,7 @@ describe('Products', function() {
 	});
 
 	describe('should get products based on attributes', function() {
-		it('multiple attributes with values', function(done) {
+		it('multiple required attributes with values', function(done) {
 			const	products	= new productLib.Products();
 
 			products.matchAllAttributes = {
@@ -565,7 +569,7 @@ describe('Products', function() {
 			});
 		});
 
-		it('multiple attributes, one with value the other without', function(done) {
+		it('multiple required attributes, one with value the other without', function(done) {
 			const	products	= new productLib.Products();
 
 			products.matchAllAttributes = {
@@ -581,6 +585,64 @@ describe('Products', function() {
 
 				done();
 			});
+		});
+
+		it('single OR attributes with multiple values', function (done) {
+
+			const 	products 	= new productLib.Products();
+
+			products.matchAnyAttribute = {
+				'bacon': ['yes', 'narwhal']
+			};
+
+			products.get(function(err, productList, productsCount) {
+				if (err) throw err;
+
+				assert.deepEqual(Object.keys(productList).length,	2);
+				assert.deepEqual(productsCount,	2);
+
+				done();
+			});
+
+		});
+
+		it('single OR attributes with single value', function (done) {
+
+			const 	products 	= new productLib.Products();
+
+			products.matchAnyAttribute = {
+				'bacon': 'narwhal'
+			};
+
+			products.get(function(err, productList, productsCount) {
+				if (err) throw err;
+
+				assert.deepEqual(Object.keys(productList).length,	1);
+				assert.deepEqual(productsCount,	1);
+
+				done();
+			});
+
+		});
+
+		it('multiple OR attributes with multiple values', function (done) {
+
+			const 	products 	= new productLib.Products();
+
+			products.matchAnyAttribute = {
+				'bacon': ['no', 'narwhal'],
+				'foo':	['baz']
+			};
+
+			products.get(function(err, productList, productsCount) {
+				if (err) throw err;
+
+				assert.deepEqual(Object.keys(productList).length,	3);
+				assert.deepEqual(productsCount,	3);
+
+				done();
+			});
+
 		});
 	});
 
@@ -609,13 +671,13 @@ describe('Products', function() {
 
 					if (JSON.stringify(product.attributes.nisse) === JSON.stringify(['mm'])) {
 						assert.deepEqual(product.attributes.foo,	['bar']);
-						assert.deepEqual(Object.keys(product.attributes).length,	3);
+						assert.deepEqual(Object.keys(product.attributes).length,	4);
 					} else if (JSON.stringify(product.attributes.nisse) === JSON.stringify(['nej'])) {
 						assert.deepEqual(product.attributes.foo,	['baz']);
-						assert.deepEqual(Object.keys(product.attributes).length,	3);
+						assert.deepEqual(Object.keys(product.attributes).length,	4);
 					} else {
 						assert.deepEqual(product.attributes.foo,	['bar']);
-						assert.deepEqual(Object.keys(product.attributes).length,	2);
+						assert.deepEqual(Object.keys(product.attributes).length,	3);
 					}
 
 				}
@@ -986,5 +1048,6 @@ describe('Import', function() {
 });
 
 after(function(done) {
-	db.removeAllTables(done);
+	//db.removeAllTables(done);
+	done();
 });
