@@ -606,7 +606,7 @@ describe('Products', function() {
 
 		});
 
-		it('single OR attributes with single value', function (done) {
+		it('single optional attribute with single value', function (done) {
 
 			const 	products 	= new productLib.Products();
 
@@ -625,12 +625,12 @@ describe('Products', function() {
 
 		});
 
-		it('multiple OR attributes with multiple values', function (done) {
+		it('multiple optional attributes with multiple values', function (done) {
 
 			const 	products 	= new productLib.Products();
 
 			products.matchAnyAttribute = {
-				'bacon': ['no', 'narwhal'],
+				'bacon': ['yes', 'narwhal'],
 				'foo':	['baz']
 			};
 
@@ -644,6 +644,99 @@ describe('Products', function() {
 			});
 
 		});
+
+		it('single mandatory attribute with single value and single optional attribute with single value', function (done) {
+
+			const 	products 	= new productLib.Products();
+
+			products.matchAnyAttribute = {
+				'bacon': 'yes'
+			};
+
+			products.matchAllAttributes = {
+				'foo': 'bar'
+			};
+
+			products.get(function(err, productList, productsCount) {
+				if (err) throw err;
+
+				assert.deepEqual(Object.keys(productList).length,	1);
+				assert.deepEqual(productsCount,	1);
+
+				done();
+			});
+		});
+
+		it('multiple mandatory attributes with multiple values and multiple optional attributes with multiple values', function (done) {
+
+			const tasks = [];
+
+			tasks.push(function (cb) {
+				const	product	= new productLib.Product();
+
+				product.attributes.enabled2 = 'true';
+				product.attributes.enabled = 'true';
+				product.attributes.country = 'all';
+				product.attributes.country2 = 'all';
+				product.save(cb);
+			});
+
+			tasks.push(function (cb) {
+				const	product	= new productLib.Product();
+
+				product.attributes.enabled2 = 'true';
+				product.attributes.enabled = 'true';
+				product.attributes.country = 'se';
+				product.attributes.country2 = 'se';
+				product.save(cb);
+			});
+
+			tasks.push(function (cb) {
+				const	product	= new productLib.Product();
+
+				product.attributes.enabled2 = 'false';
+				product.attributes.enabled = 'false';
+				product.attributes.country = 'se';
+				product.attributes.country2 = 'se';
+				product.save(cb);
+			});
+
+			tasks.push(function (cb) {
+				const	product	= new productLib.Product();
+
+				product.attributes.enabled2 = 'maybe';
+				product.attributes.enabled = 'maybe';
+				product.attributes.country = 'dk';
+				product.attributes.country2 = 'dk';
+				product.save(cb);
+			});
+
+			async.parallel(tasks, function (err) {
+
+				if (err) throw err;
+
+				const 	products 	= new productLib.Products();
+
+				products.matchAllAttributes = {
+					'enabled': ['true', 'maybe'],
+					'enabled2':  ['true', 'maybe']
+				};
+
+				products.matchAnyAttribute = {
+					'country': ['all', 'se'],
+					'country2': ['all', 'se']
+				};
+
+				products.get(function(err, productList, productsCount) {
+					if (err) throw err;
+
+					assert.deepEqual(Object.keys(productList).length,	2);
+					assert.deepEqual(productsCount,	2);
+
+					done();
+				});
+			});
+		});
 	});
 
 	describe('should get products and their attributes', function() {
@@ -653,6 +746,8 @@ describe('Products', function() {
 			const products = new productLib.Products();
 
 			products.returnAllAttributes = true;
+
+			products.matchAllAttributes = { 'foo': undefined, 'active': undefined };
 
 			products.get(function(err, productList, productsCount) {
 				if (err) throw err;
@@ -692,6 +787,8 @@ describe('Products', function() {
 
 			products.returnAttributes = ['foo', 'active'];
 
+			products.matchAllAttributes = { 'foo': undefined, 'active': undefined };
+
 			products.get(function(err, productList, productsCount) {
 				let	bar	= 0,
 					baz	= 0;
@@ -725,7 +822,7 @@ describe('Products', function() {
 			});
 		});
 
-	});
+	}); 
 
 	describe('should be able to search', function() {
 		it('should be able to search for a product', function(done) {
@@ -765,7 +862,7 @@ describe('Products', function() {
 			});
 		});
 	});
-
+/*
 	describe('alter multpiple products', function() {
 		it('should set attribute on multiple products', function(done) {
 			const	tasks	= [];
@@ -832,8 +929,10 @@ describe('Products', function() {
 
 			async.series(tasks, done);
 		});
-	});
-});
+	}); */
+}); 
+
+
 
 describe('Helpers', function() {
 	it('should get attribute values', function(done) {
@@ -1048,6 +1147,6 @@ describe('Import', function() {
 });
 
 after(function(done) {
-	//db.removeAllTables(done);
-	done();
+	db.removeAllTables(done);
+	//done();
 });

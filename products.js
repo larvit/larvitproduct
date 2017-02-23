@@ -120,16 +120,17 @@ Products.prototype.generateWhere = function(cb) {
 
 	if (that.matchAnyAttribute !== undefined) {
 
-		if (that.matchAllAttributes === undefined) {
-			sql += ' AND (\n';
-		} else {
-			sql += ' OR (\n';
-		}
+		sql += ' AND (\n';
 
-		for (const attributeName of Object.keys(that.matchAnyAttribute)) {
-			const	attributeValue	= that.matchAnyAttribute[attributeName];
+		for (let i = 0; i < Object.keys(that.matchAnyAttribute).length; i ++) {
+			const	attributeName = Object.keys(that.matchAnyAttribute)[i],
+				attributeValue = that.matchAnyAttribute[attributeName];
 
-			sql += '	OR (p.uuid IN (\n';
+			if (i > 0) {
+				sql += ' OR ';
+			}
+				
+			sql += '		p.uuid IN (\n';
 			sql += '		SELECT DISTINCT productUuid\n';
 			sql += '		FROM product_product_attributes\n';
 			sql += '		WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?)\n';
@@ -146,7 +147,7 @@ Products.prototype.generateWhere = function(cb) {
 						sql += ' OR ';
 					}
 
-					sql += '		`data` = ?\n';
+					sql += ' `data` = ?\n';
 					dbFields.push(attributeValue[i]);
 				}	
 				
@@ -156,8 +157,8 @@ Products.prototype.generateWhere = function(cb) {
 				sql += '	AND `data` = ?\n';
 				dbFields.push(attributeValue);
 			}
-
-			sql += '))';
+			
+			sql += ')';
 		}
 
 		sql += ')';
@@ -208,10 +209,6 @@ Products.prototype.get = function(cb) {
 
 			tasks.push(function(cb) {
 
-				if (dbFields.indexOf('no') > -1) {
-					console.log(sql);
-				}
-
 				db.query(sql, dbFields, function(err, rows) {
 					if (err) { cb(err); return; }
 
@@ -229,6 +226,7 @@ Products.prototype.get = function(cb) {
 			});
 
 			tasks.push(function(cb) {
+				
 				db.query(countSql, dbFields, function(err, rows) {
 					if (err) { cb(err); return; }
 
