@@ -26,12 +26,12 @@ function ready(cb) {
 	readyInProgress = true;
 
 	// dataWriter handes database migrations etc, make sure its run first
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		dataWriter.ready(cb);
 	});
 
 	// Set intercom after dataWriter is ready
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		intercom	= require('larvitutils').instances.intercom;
 		cb();
 	});
@@ -39,7 +39,7 @@ function ready(cb) {
 	// Load attributes
 	tasks.push(helpers.loadAttributesToCache);
 
-	async.series(tasks, function() {
+	async.series(tasks, function () {
 		isReady	= true;
 		eventEmitter.emit('ready');
 		cb();
@@ -70,17 +70,17 @@ function Product(options) {
 	if (this.created	=== undefined) { this.created	= new Date();	}
 }
 
-Product.prototype.loadFromDb = function(cb) {
+Product.prototype.loadFromDb = function (cb) {
 	const	products	= new Products(),
 		tasks	= [],
 		that	= this;
 
 	tasks.push(ready);
 
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		products.uuids	= [that.uuid];
 		products.returnAllAttributes	= true;
-		products.get(function(err, result) {
+		products.get(function (err, result) {
 			if (err) { cb(err); return; }
 
 			if (Object.keys(result).length) {
@@ -101,7 +101,7 @@ Product.prototype.loadFromDb = function(cb) {
 Product.prototype.getAttributeUuidBuffer	= helpers.getAttributeUuidBuffer;
 Product.prototype.getAttributeUuidBuffers	= helpers.getAttributeUuidBuffers;
 
-Product.prototype.rm = function(cb) {
+Product.prototype.rm = function (cb) {
 	const	options	= {'exchange': dataWriter.exchangeName},
 		message	= {},
 		that	= this;
@@ -111,7 +111,7 @@ Product.prototype.rm = function(cb) {
 
 	message.params.uuids	= [that.uuid];
 
-	intercom.send(message, options, function(err, msgUuid) {
+	intercom.send(message, options, function (err, msgUuid) {
 		if (err) { cb(err); return; }
 
 		dataWriter.emitter.once(msgUuid, cb);
@@ -119,14 +119,14 @@ Product.prototype.rm = function(cb) {
 };
 
 // Saving the product object to the database.
-Product.prototype.save = function(cb) {
+Product.prototype.save = function (cb) {
 	const	tasks	= [],
 		that	= this;
 
 	// Await database readiness
 	tasks.push(ready);
 
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		const	options	= {'exchange': dataWriter.exchangeName},
 			message	= {};
 
@@ -137,14 +137,14 @@ Product.prototype.save = function(cb) {
 		message.params.created	= that.created;
 		message.params.attributes	= that.attributes;
 
-		intercom.send(message, options, function(err, msgUuid) {
+		intercom.send(message, options, function (err, msgUuid) {
 			if (err) { cb(err); return; }
 
 			dataWriter.emitter.once(msgUuid, cb);
 		});
 	});
 
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		that.loadFromDb(cb);
 	});
 

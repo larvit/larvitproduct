@@ -24,17 +24,17 @@ function ready(cb) {
 	readyInProgress = true;
 
 	// dataWriter handes database migrations etc, make sure its run first
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		dataWriter.ready(cb);
 	});
 
 	// Set intercom after dataWriter is ready
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		intercom	= require('larvitutils').instances.intercom;
 		cb();
 	});
 
-	async.series(tasks, function() {
+	async.series(tasks, function () {
 		isReady	= true;
 		eventEmitter.emit('ready');
 		cb();
@@ -45,7 +45,7 @@ function Products() {
 	this.ready	= ready;
 }
 
-Products.prototype.generateWhere = function(cb) {
+Products.prototype.generateWhere = function (cb) {
 	const	dbFields	= [],
 		that	= this;
 
@@ -176,7 +176,7 @@ Products.prototype.generateWhere = function(cb) {
 	cb(null, sql, dbFields);
 };
 
-Products.prototype.get = function(cb) {
+Products.prototype.get = function (cb) {
 	const	tasks	= [],
 		that	= this;
 
@@ -187,11 +187,11 @@ Products.prototype.get = function(cb) {
 	tasks.push(ready);
 
 	// Get basic products
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		let	countSql	= 'SELECT COUNT(*) AS products FROM product_products p WHERE 1',
 			sql	= 'SELECT * FROM product_products p WHERE 1';
 
-		that.generateWhere(function(err, where, dbFields) {
+		that.generateWhere(function (err, where, dbFields) {
 			const	tasks	= [];
 
 			if (err) { cb(err); return; }
@@ -207,9 +207,9 @@ Products.prototype.get = function(cb) {
 				}
 			}
 
-			tasks.push(function(cb) {
+			tasks.push(function (cb) {
 
-				db.query(sql, dbFields, function(err, rows) {
+				db.query(sql, dbFields, function (err, rows) {
 					if (err) { cb(err); return; }
 
 					for (let i = 0; rows[i] !== undefined; i ++) {
@@ -225,9 +225,9 @@ Products.prototype.get = function(cb) {
 				});
 			});
 
-			tasks.push(function(cb) {
+			tasks.push(function (cb) {
 				
-				db.query(countSql, dbFields, function(err, rows) {
+				db.query(countSql, dbFields, function (err, rows) {
 					if (err) { cb(err); return; }
 
 					productsCount = rows[0].products;
@@ -240,7 +240,7 @@ Products.prototype.get = function(cb) {
 	});
 
 	// Get fields
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		const dbFields = [];
 
 		let sql;
@@ -273,7 +273,7 @@ Products.prototype.get = function(cb) {
 			sql = sql.substring(0, sql.length - 1) + ')\n';
 		}
 
-		db.query(sql, dbFields, function(err, rows) {
+		db.query(sql, dbFields, function (err, rows) {
 			if (err) { cb(err); return; }
 
 			for (let i = 0; rows[i] !== undefined; i ++) {
@@ -296,14 +296,14 @@ Products.prototype.get = function(cb) {
 		});
 	});
 
-	async.series(tasks, function(err) {
+	async.series(tasks, function (err) {
 		if (err) { cb(err); return; }
 
 		cb(null, products, productsCount);
 	});
 };
 
-Products.prototype.getUniqeAttributes = function(filters, cb) {
+Products.prototype.getUniqeAttributes = function (filters, cb) {
 	const	attributes	= {},
 		tasks	= [],
 		that	= this;
@@ -320,7 +320,7 @@ Products.prototype.getUniqeAttributes = function(filters, cb) {
 
 	tasks.push(ready);
 
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		let	sql;
 
 		sql	=	'SELECT DISTINCT pa.name, ppa.data\n';
@@ -329,7 +329,7 @@ Products.prototype.getUniqeAttributes = function(filters, cb) {
 		sql	+=	'	JOIN product_attributes	AS pa	ON ppa.attributeUuid	= pa.uuid\n';
 		sql	+=	'WHERE 1\n';
 
-		that.generateWhere(function(err, where, dbFields) {
+		that.generateWhere(function (err, where, dbFields) {
 			if (err) { cb(err); return; }
 
 			sql 	+= where;
@@ -346,7 +346,7 @@ Products.prototype.getUniqeAttributes = function(filters, cb) {
 
 			sql += 'ORDER BY pa.name, ppa.data;';
 
-			db.query(sql, dbFields, function(err, rows) {
+			db.query(sql, dbFields, function (err, rows) {
 				if (err) { cb(err); return; }
 
 				for (let i = 0; rows[i] !== undefined; i ++) {
@@ -361,13 +361,13 @@ Products.prototype.getUniqeAttributes = function(filters, cb) {
 		});
 	});
 
-	async.series(tasks, function(err) {
+	async.series(tasks, function (err) {
 		if (err) { cb(err); return; }
 		cb(null, attributes);
 	});
 };
 
-Products.prototype.getUuids = function(cb) {
+Products.prototype.getUuids = function (cb) {
 	const	tasks	= [],
 		uuids	= [],
 		that	= this;
@@ -376,15 +376,15 @@ Products.prototype.getUuids = function(cb) {
 	tasks.push(ready);
 
 	// Get uuids
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		let	sql	= 'SELECT uuid FROM product_products p WHERE 1';
 
-		that.generateWhere(function(err, where, dbFields) {
+		that.generateWhere(function (err, where, dbFields) {
 			if (err) { cb(err); return; }
 
 			sql 	+= where;
 
-			db.query(sql, dbFields, function(err, rows) {
+			db.query(sql, dbFields, function (err, rows) {
 				if (err) { cb(err); return; }
 
 				for (let i = 0; rows[i] !== undefined; i ++) {
@@ -396,65 +396,65 @@ Products.prototype.getUuids = function(cb) {
 		});
 	});
 
-	async.series(tasks, function(err) {
+	async.series(tasks, function (err) {
 		if (err) { cb(err); return; }
 
 		cb(err, uuids);
 	});
 };
 
-Products.prototype.rm = function(cb) {
+Products.prototype.rm = function (cb) {
 	const	tasks	= [],
 		that	= this;
 
 	let	uuids;
 
 	// Get uuids
-	tasks.push(function(cb) {
-		that.getUuids(function(err, result) {
+	tasks.push(function (cb) {
+		that.getUuids(function (err, result) {
 			uuids = result;
 			cb(err);
 		});
 	});
 
 	// Send the message to the queue
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		const	options	= {'exchange': dataWriter.exchangeName},
 			message	= {};
 
 		message.action	= 'rmProducts';
 		message.params	= {'uuids': uuids};
 
-		intercom.send(message, options, function(err, msgUuid) {
+		intercom.send(message, options, function (err, msgUuid) {
 			if (err) { cb(err); return; }
 
 			dataWriter.emitter.once(msgUuid, cb);
 		});
 	});
 
-	async.series(tasks, function(err) {
+	async.series(tasks, function (err) {
 		if (err) { cb(err); return; }
 
 		cb(null, uuids.length);
 	});
 };
 
-Products.prototype.setAttribute = function(name, value, cb) {
+Products.prototype.setAttribute = function (name, value, cb) {
 	const	tasks	= [],
 		that	= this;
 
 	let	uuids;
 
 	// Get uuids
-	tasks.push(function(cb) {
-		that.getUuids(function(err, result) {
+	tasks.push(function (cb) {
+		that.getUuids(function (err, result) {
 			uuids = result;
 			cb(err);
 		});
 	});
 
 	// Send the message to the queue
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		const	options	= {'exchange': dataWriter.exchangeName},
 			message	= {};
 
@@ -464,14 +464,14 @@ Products.prototype.setAttribute = function(name, value, cb) {
 		message.params.attributeName	= name;
 		message.params.attributeValue	= value;
 
-		intercom.send(message, options, function(err, msgUuid) {
+		intercom.send(message, options, function (err, msgUuid) {
 			if (err) { cb(err); return; }
 
 			dataWriter.emitter.once(msgUuid, cb);
 		});
 	});
 
-	async.series(tasks, function(err) {
+	async.series(tasks, function (err) {
 		if (err) { cb(err); return; }
 
 		cb(null, uuids.length);

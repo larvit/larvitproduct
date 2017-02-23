@@ -4,7 +4,7 @@ const	productLib	= require(__dirname + '/../../index.js'),
 	async	= require('async'),
 	log	= require('winston');
 
-exports.run = function(req, res, cb) {
+exports.run = function (req, res, cb) {
 	const	tasks	= [],
 		data	= {'global': res.globalData};
 
@@ -17,14 +17,14 @@ exports.run = function(req, res, cb) {
 
 	data.global.menuControllerName = 'products';
 
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		data.product = new productLib.Product(data.global.urlParsed.query.uuid);
 
 		data.product.loadFromDb(cb);
 	});
 
 	if (data.global.formFields.save !== undefined) {
-		tasks.push(function(cb) {
+		tasks.push(function (cb) {
 			data.product.attributes	= {};
 
 			// Handle product attributes
@@ -41,7 +41,7 @@ exports.run = function(req, res, cb) {
 				}
 			}
 
-			data.product.save(function(err) {
+			data.product.save(function (err) {
 				if (err) { cb(err); return; }
 
 				if (data.product.uuid !== undefined && data.global.urlParsed.query.uuid === undefined) {
@@ -59,9 +59,9 @@ exports.run = function(req, res, cb) {
 	}
 
 	if (data.global.formFields.rmProduct !== undefined) {
-		tasks.push(function(cb) {
+		tasks.push(function (cb) {
 			log.verbose('larvitproduct: ./controllers/products/edit.js: run() - Removing product, uuid: "' + data.product.uuid + '"');
-			data.product.rm(function(err) {
+			data.product.rm(function (err) {
 				if (err) { cb(err); return; }
 
 				req.session.data.nextCallData	= {'global': {'messages': ['Product removed: ' + data.product.uuid]}};
@@ -72,7 +72,7 @@ exports.run = function(req, res, cb) {
 		});
 	}
 
-	async.series(tasks, function(err) {
+	async.series(tasks, function (err) {
 		cb(err, req, res, data);
 	});
 };

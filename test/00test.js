@@ -23,12 +23,12 @@ log.remove(log.transports.Console);
 	'humanReadableUnhandledException': true
 }); */
 
-before(function(done) {
+before(function (done) {
 	this.timeout(10000);
 	const	tasks	= [];
 
 	// Run DB Setup
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		let confFile;
 
 		if (process.env.DBCONFFILE === undefined) {
@@ -40,12 +40,12 @@ before(function(done) {
 		log.verbose('DB config file: "' + confFile + '"');
 
 		// First look for absolute path
-		fs.stat(confFile, function(err) {
+		fs.stat(confFile, function (err) {
 			if (err) {
 
 				// Then look for this string in the config folder
 				confFile = __dirname + '/../config/' + confFile;
-				fs.stat(confFile, function(err) {
+				fs.stat(confFile, function (err) {
 					if (err) throw err;
 					log.verbose('DB config: ' + JSON.stringify(require(confFile)));
 					db.setup(require(confFile), cb);
@@ -60,8 +60,8 @@ before(function(done) {
 	});
 
 	// Check for empty db
-	tasks.push(function(cb) {
-		db.query('SHOW TABLES', function(err, rows) {
+	tasks.push(function (cb) {
+		db.query('SHOW TABLES', function (err, rows) {
 			if (err) throw err;
 
 			if (rows.length) {
@@ -73,7 +73,7 @@ before(function(done) {
 	});
 
 	// Setup intercom
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		let confFile;
 
 		if (process.env.INTCONFFILE === undefined) {
@@ -85,12 +85,12 @@ before(function(done) {
 		log.verbose('Intercom config file: "' + confFile + '"');
 
 		// First look for absolute path
-		fs.stat(confFile, function(err) {
+		fs.stat(confFile, function (err) {
 			if (err) {
 
 				// Then look for this string in the config folder
 				confFile = __dirname + '/../config/' + confFile;
-				fs.stat(confFile, function(err) {
+				fs.stat(confFile, function (err) {
 					if (err) throw err;
 					log.verbose('Intercom config: ' + JSON.stringify(require(confFile)));
 					lUtils.instances.intercom = new Intercom(require(confFile).default);
@@ -108,7 +108,7 @@ before(function(done) {
 
 	// Preload caches etc
 	// We do this so the timing of the rest of the tests gets more correct
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		productLib	= require(__dirname + '/../index.js');
 		productLib.dataWriter.mode	= 'master';
 		productLib.ready(cb);
@@ -117,10 +117,10 @@ before(function(done) {
 	async.series(tasks, done);
 });
 
-describe('Product', function() {
+describe('Product', function () {
 	let	productUuid;
 
-	it('should instantiate a new plain product object', function(done) {
+	it('should instantiate a new plain product object', function (done) {
 		const product = new productLib.Product();
 
 		assert.deepEqual(toString.call(product),	'[object Object]');
@@ -131,7 +131,7 @@ describe('Product', function() {
 		done();
 	});
 
-	it('should instantiate a new plain product object, with empty object as option', function(done) {
+	it('should instantiate a new plain product object, with empty object as option', function (done) {
 		const product = new productLib.Product({});
 
 		assert.deepEqual(toString.call(product),	'[object Object]');
@@ -142,10 +142,10 @@ describe('Product', function() {
 		done();
 	});
 
-	it('should instantiate a new plain product object, with custom uuid', function(done) {
+	it('should instantiate a new plain product object, with custom uuid', function (done) {
 		const product = new productLib.Product('6a7c9adc-9b73-11e6-9f33-a24fc0d9649c');
 
-		product.loadFromDb(function(err) {
+		product.loadFromDb(function (err) {
 			if (err) throw err;
 
 			assert.deepEqual(toString.call(product),	'[object Object]');
@@ -158,10 +158,10 @@ describe('Product', function() {
 		});
 	});
 
-	it('should instantiate a new plain product object, with custom uuid as explicit option', function(done) {
+	it('should instantiate a new plain product object, with custom uuid as explicit option', function (done) {
 		const product = new productLib.Product({'uuid': '6a7c9adc-9b73-11e6-9f33-a24fc0d9649c'});
 
-		product.loadFromDb(function(err) {
+		product.loadFromDb(function (err) {
 			if (err) throw err;
 
 			assert.deepEqual(toString.call(product),	'[object Object]');
@@ -174,11 +174,11 @@ describe('Product', function() {
 		});
 	});
 
-	it('should instantiate a new plain product object, with custom created', function(done) {
+	it('should instantiate a new plain product object, with custom created', function (done) {
 		const	manCreated	= new Date(),
 			product	= new productLib.Product({'created': manCreated});
 
-		product.loadFromDb(function(err) {
+		product.loadFromDb(function (err) {
 			if (err) throw err;
 
 			assert.deepEqual(toString.call(product),	'[object Object]');
@@ -190,7 +190,7 @@ describe('Product', function() {
 		});
 	});
 
-	it('should save a product', function(done) {
+	it('should save a product', function (done) {
 		function createProduct(cb) {
 			const product = new productLib.Product();
 
@@ -213,7 +213,7 @@ describe('Product', function() {
 						'	JOIN product_attributes ON uuid = attributeUuid\n' +
 						'WHERE productUuid = ?';
 
-			db.query(sql, dbFields, function(err, rows) {
+			db.query(sql, dbFields, function (err, rows) {
 				if (err) throw err;
 
 				assert.deepEqual(rows.length,	5);
@@ -237,16 +237,16 @@ describe('Product', function() {
 			});
 		}
 
-		async.series([createProduct, checkProduct], function(err) {
+		async.series([createProduct, checkProduct], function (err) {
 			if (err) throw err;
 			done();
 		});
 	});
 
-	it('should load saved product from db', function(done) {
+	it('should load saved product from db', function (done) {
 		const product = new productLib.Product(productUuid);
 
-		product.loadFromDb(function(err) {
+		product.loadFromDb(function (err) {
 			if (err) throw err;
 
 			assert.deepEqual(product.uuid,	productUuid);
@@ -261,19 +261,19 @@ describe('Product', function() {
 		});
 	});
 
-	it('should alter an product already saved to db', function(done) {
+	it('should alter an product already saved to db', function (done) {
 		const	tasks	= [];
 
-		tasks.push(function(cb) {
+		tasks.push(function (cb) {
 			const	product	= new productLib.Product(productUuid);
 
-			product.loadFromDb(function(err) {
+			product.loadFromDb(function (err) {
 				if (err) throw err;
 
 				product.attributes.boll = ['foo'];
 				delete product.attributes.weight;
 
-				product.save(function(err) {
+				product.save(function (err) {
 					if (err) throw err;
 
 					assert.deepEqual(product.uuid,	productUuid);
@@ -289,10 +289,10 @@ describe('Product', function() {
 			});
 		});
 
-		tasks.push(function(cb) {
+		tasks.push(function (cb) {
 			const	product	= new productLib.Product(productUuid);
 
-			product.loadFromDb(function(err) {
+			product.loadFromDb(function (err) {
 				if (err) throw err;
 
 				assert.deepEqual(product.uuid,	productUuid);
@@ -310,13 +310,13 @@ describe('Product', function() {
 		async.series(tasks, done);
 	});
 
-	it('should remove a product', function(done) {
+	it('should remove a product', function (done) {
 		const	tasks	= [];
 
 		let	prevCount;
 
 		// Add some more products
-		tasks.push(function(cb) {
+		tasks.push(function (cb) {
 			const	product	= new productLib.Product();
 
 			product.attributes.foo	= 'bar';
@@ -325,7 +325,7 @@ describe('Product', function() {
 			product.attributes.bacon	= 'yes';
 			product.save(cb);
 		});
-		tasks.push(function(cb) {
+		tasks.push(function (cb) {
 			const	product	= new productLib.Product();
 
 			product.attributes.foo	= 'baz';
@@ -334,7 +334,7 @@ describe('Product', function() {
 			product.attributes.bacon	= 'no';
 			product.save(cb);
 		});
-		tasks.push(function(cb) {
+		tasks.push(function (cb) {
 			const	product	= new productLib.Product();
 
 			product.attributes.foo	= 'bar';
@@ -344,10 +344,10 @@ describe('Product', function() {
 		});
 
 		// Get all products before
-		tasks.push(function(cb) {
+		tasks.push(function (cb) {
 			const	products	= new productLib.Products();
 
-			products.get(function(err, result) {
+			products.get(function (err, result) {
 				prevCount	= Object.keys(result).length;
 				assert.notDeepEqual(Object.keys(result).indexOf(productUuid), - 1);
 				cb();
@@ -355,24 +355,24 @@ describe('Product', function() {
 		});
 
 		// Remove a product
-		tasks.push(function(cb) {
+		tasks.push(function (cb) {
 			const	product	= new productLib.Product(productUuid);
 
 			product.rm(cb);
 		});
 
 		// Get all products after
-		tasks.push(function(cb) {
+		tasks.push(function (cb) {
 			const	products	= new productLib.Products();
 
-			products.get(function(err, result) {
+			products.get(function (err, result) {
 				assert.deepEqual(Object.keys(result).length, (prevCount - 1));
 				assert.deepEqual(Object.keys(result).indexOf(productUuid), - 1);
 				cb();
 			});
 		});
 
-		async.series(tasks, function(err) {
+		async.series(tasks, function (err) {
 			if (err) throw err;
 			done();
 		});
@@ -380,14 +380,14 @@ describe('Product', function() {
 
 });
 
-describe('Products', function() {
+describe('Products', function () {
 	let	dbUuids	= [];
 
 	// Since we've created products above, they should turn up here
-	it('should get a list of products', function(done) {
+	it('should get a list of products', function (done) {
 		const products = new productLib.Products();
 
-		products.get(function(err, productList, productsCount) {
+		products.get(function (err, productList, productsCount) {
 			if (err) throw err;
 			assert.deepEqual(typeof productList,	'object');
 			assert.deepEqual(Object.keys(productList).length,	3);
@@ -402,14 +402,14 @@ describe('Products', function() {
 		});
 	});
 
-	it('should get products by uuids', function(done) {
+	it('should get products by uuids', function (done) {
 		const tasks = [];
 
 		// Get all uuids in db
-		tasks.push(function(cb) {
+		tasks.push(function (cb) {
 			const products = new productLib.Products();
 
-			products.get(function(err, productList, productsCount) {
+			products.get(function (err, productList, productsCount) {
 				if (err) throw err;
 
 				dbUuids = Object.keys(productList);
@@ -420,12 +420,12 @@ describe('Products', function() {
 		});
 
 		// Get by first uuid
-		tasks.push(function(cb) {
+		tasks.push(function (cb) {
 			const products = new productLib.Products();
 
 			products.uuids = dbUuids[0];
 
-			products.get(function(err, productList, productsCount) {
+			products.get(function (err, productList, productsCount) {
 				if (err) throw err;
 				assert.deepEqual(typeof productList,	'object');
 				assert.deepEqual(Object.keys(productList).length,	1);
@@ -439,11 +439,11 @@ describe('Products', function() {
 		});
 
 		// Get 0 results for wrong uuids
-		tasks.push(function(cb) {
+		tasks.push(function (cb) {
 			const products = new productLib.Products();
 			products.uuids = uuidLib.v1();
 
-			products.get(function(err, productList, productsCount) {
+			products.get(function (err, productList, productsCount) {
 				if (err) throw err;
 				assert.deepEqual(typeof productList,	'object');
 				assert.deepEqual(Object.keys(productList).length,	0);
@@ -454,12 +454,12 @@ describe('Products', function() {
 		});
 
 		// Get 0 results for no uuids (empty array)
-		tasks.push(function(cb) {
+		tasks.push(function (cb) {
 			const products = new productLib.Products();
 
 			products.uuids = [];
 
-			products.get(function(err, productList, productsCount) {
+			products.get(function (err, productList, productsCount) {
 				if (err) throw err;
 				assert.deepEqual(typeof productList,	'object');
 				assert.deepEqual(Object.keys(productList).length,	0);
@@ -470,12 +470,12 @@ describe('Products', function() {
 		});
 
 		// get 2 results for two uuids
-		tasks.push(function(cb) {
+		tasks.push(function (cb) {
 			const products = new productLib.Products();
 
 			products.uuids = [dbUuids[0], dbUuids[2]];
 
-			products.get(function(err, productList, productsCount) {
+			products.get(function (err, productList, productsCount) {
 				if (err) throw err;
 				assert.deepEqual(typeof productList,	'object');
 				assert.deepEqual(Object.keys(productList).length,	2);
@@ -496,14 +496,14 @@ describe('Products', function() {
 		async.series(tasks, done);
 	});
 
-	it('should not get products with invalid uuid', function(done) {
+	it('should not get products with invalid uuid', function (done) {
 		const	tasks	= [];
 
-		tasks.push(function(cb) {
+		tasks.push(function (cb) {
 			const products = new productLib.Products();
 			products.uuids = 'invalidUuid';
 
-			products.get(function(err, productList, productsCount) {
+			products.get(function (err, productList, productsCount) {
 				if (err) throw err;
 				assert.deepEqual(typeof productList,	'object');
 				assert.deepEqual(Object.keys(productList).length,	0);
@@ -516,12 +516,12 @@ describe('Products', function() {
 		async.series(tasks, done);
 	});
 
-	it('should get products with limits', function(done) {
+	it('should get products with limits', function (done) {
 		const products = new productLib.Products();
 
 		products.limit = 2;
 
-		products.get(function(err, productList, productsCount) {
+		products.get(function (err, productList, productsCount) {
 			if (err) throw err;
 			assert.deepEqual(typeof productList,	'object');
 			assert.deepEqual(Object.keys(productList).length,	2);
@@ -531,13 +531,13 @@ describe('Products', function() {
 		});
 	});
 
-	it('should get products with limit and offset', function(done) {
+	it('should get products with limit and offset', function (done) {
 		const products = new productLib.Products();
 
 		products.limit	= 2;
 		products.offset	= 2;
 
-		products.get(function(err, productList, productsCount) {
+		products.get(function (err, productList, productsCount) {
 
 			if (err) throw err;
 			assert.deepEqual(typeof productList,	'object');
@@ -550,8 +550,8 @@ describe('Products', function() {
 		});
 	});
 
-	describe('should get products based on attributes', function() {
-		it('multiple required attributes with values', function(done) {
+	describe('should get products based on attributes', function () {
+		it('multiple required attributes with values', function (done) {
 			const	products	= new productLib.Products();
 
 			products.matchAllAttributes = {
@@ -559,7 +559,7 @@ describe('Products', function() {
 				'nisse':	'nej'
 			};
 
-			products.get(function(err, productList, productsCount) {
+			products.get(function (err, productList, productsCount) {
 				if (err) throw err;
 
 				assert.deepEqual(Object.keys(productList).length,	1);
@@ -569,7 +569,7 @@ describe('Products', function() {
 			});
 		});
 
-		it('multiple required attributes, one with value the other without', function(done) {
+		it('multiple required attributes, one with value the other without', function (done) {
 			const	products	= new productLib.Products();
 
 			products.matchAllAttributes = {
@@ -577,7 +577,7 @@ describe('Products', function() {
 				'nisse':	undefined
 			};
 
-			products.get(function(err, productList, productsCount) {
+			products.get(function (err, productList, productsCount) {
 				if (err) throw err;
 
 				assert.deepEqual(Object.keys(productList).length,	2);
@@ -588,14 +588,13 @@ describe('Products', function() {
 		});
 
 		it('single OR attributes with multiple values', function (done) {
-
 			const 	products 	= new productLib.Products();
 
 			products.matchAnyAttribute = {
 				'bacon': ['yes', 'narwhal']
 			};
 
-			products.get(function(err, productList, productsCount) {
+			products.get(function (err, productList, productsCount) {
 				if (err) throw err;
 
 				assert.deepEqual(Object.keys(productList).length,	2);
@@ -607,14 +606,13 @@ describe('Products', function() {
 		});
 
 		it('single optional attribute with single value', function (done) {
-
 			const 	products 	= new productLib.Products();
 
 			products.matchAnyAttribute = {
 				'bacon': 'narwhal'
 			};
 
-			products.get(function(err, productList, productsCount) {
+			products.get(function (err, productList, productsCount) {
 				if (err) throw err;
 
 				assert.deepEqual(Object.keys(productList).length,	1);
@@ -626,7 +624,6 @@ describe('Products', function() {
 		});
 
 		it('multiple optional attributes with multiple values', function (done) {
-
 			const 	products 	= new productLib.Products();
 
 			products.matchAnyAttribute = {
@@ -634,7 +631,7 @@ describe('Products', function() {
 				'foo':	['baz']
 			};
 
-			products.get(function(err, productList, productsCount) {
+			products.get(function (err, productList, productsCount) {
 				if (err) throw err;
 
 				assert.deepEqual(Object.keys(productList).length,	3);
@@ -646,18 +643,12 @@ describe('Products', function() {
 		});
 
 		it('single mandatory attribute with single value and single optional attribute with single value', function (done) {
-
 			const 	products 	= new productLib.Products();
 
-			products.matchAnyAttribute = {
-				'bacon': 'yes'
-			};
+			products.matchAnyAttribute	= { 'bacon':	'yes'	};
+			products.matchAllAttributes	= { 'foo':	'bar'	};
 
-			products.matchAllAttributes = {
-				'foo': 'bar'
-			};
-
-			products.get(function(err, productList, productsCount) {
+			products.get(function (err, productList, productsCount) {
 				if (err) throw err;
 
 				assert.deepEqual(Object.keys(productList).length,	1);
@@ -668,66 +659,64 @@ describe('Products', function() {
 		});
 
 		it('multiple mandatory attributes with multiple values and multiple optional attributes with multiple values', function (done) {
-
 			const tasks = [];
 
 			tasks.push(function (cb) {
 				const	product	= new productLib.Product();
 
-				product.attributes.enabled2 = 'true';
-				product.attributes.enabled = 'true';
-				product.attributes.country = 'all';
-				product.attributes.country2 = 'all';
+				product.attributes.enabled2	= 'true';
+				product.attributes.enabled	= 'true';
+				product.attributes.country	= 'all';
+				product.attributes.country2	= 'all';
 				product.save(cb);
 			});
 
 			tasks.push(function (cb) {
 				const	product	= new productLib.Product();
 
-				product.attributes.enabled2 = 'true';
-				product.attributes.enabled = 'true';
-				product.attributes.country = 'se';
-				product.attributes.country2 = 'se';
+				product.attributes.enabled2	= 'true';
+				product.attributes.enabled	= 'true';
+				product.attributes.country	= 'se';
+				product.attributes.country2	= 'se';
 				product.save(cb);
 			});
 
 			tasks.push(function (cb) {
 				const	product	= new productLib.Product();
 
-				product.attributes.enabled2 = 'false';
-				product.attributes.enabled = 'false';
-				product.attributes.country = 'se';
-				product.attributes.country2 = 'se';
+				product.attributes.enabled2	= 'false';
+				product.attributes.enabled	= 'false';
+				product.attributes.country	= 'se';
+				product.attributes.country2	= 'se';
 				product.save(cb);
 			});
 
 			tasks.push(function (cb) {
 				const	product	= new productLib.Product();
 
-				product.attributes.enabled2 = 'maybe';
-				product.attributes.enabled = 'maybe';
-				product.attributes.country = 'dk';
-				product.attributes.country2 = 'dk';
+				product.attributes.enabled2	= 'maybe';
+				product.attributes.enabled	= 'maybe';
+				product.attributes.country	= 'dk';
+				product.attributes.country2	= 'dk';
 				product.save(cb);
 			});
 
 			async.parallel(tasks, function (err) {
-
 				if (err) throw err;
 
 				const 	products 	= new productLib.Products();
 
 				products.matchAllAttributes = {
-					'enabled': ['true', 'maybe'],
-					'enabled2':  ['true', 'maybe']
+					'enabled':	['true', 'maybe'],
+					'enabled2': 	['true', 'maybe']
 				};
 
 				products.matchAnyAttribute = {
-					'country': ['all', 'se'],
-					'country2': ['all', 'se']
+					'country':	['all', 'se'],
+					'country2':	['all', 'se']
 				};
 
-				products.get(function(err, productList, productsCount) {
+				products.get(function (err, productList, productsCount) {
 					if (err) throw err;
 
 					assert.deepEqual(Object.keys(productList).length,	2);
@@ -737,19 +726,47 @@ describe('Products', function() {
 				});
 			});
 		});
+
+		it('should match only a specific product', function (done) {
+			const	tasks	= [];
+
+			// Create a product that should be matched
+			tasks.push(function (cb) {
+				const	product	= new productLib.Product();
+
+				product.attributes.country	= ['no', 'dk'];
+				product.attributes.enabled	= ['true', 'maybe'];
+				product.save(cb);
+			});
+
+			// Try matching this single product
+			tasks.push(function (cb) {
+				const	products	= new productLib.Products();
+
+				products.returnAllAttributes	= true;
+				products.matchAllAttributes	= {'country': ['no', 'dk'], 'enabled': ['true', 'maybe']};
+
+				products.get(function (err, result) {
+					assert.deepEqual(Object.keys(result).length,	1);
+					cb(err);
+				});
+			});
+
+			async.series(tasks, done);
+		});
 	});
 
-	describe('should get products and their attributes', function() {
+	describe('should get products and their attributes', function () {
 
 		// Get all products and all attributes
-		it('should get a list of products and all their attributes', function(done) {
+		it('should get a list of products and all their attributes', function (done) {
 			const products = new productLib.Products();
 
 			products.returnAllAttributes = true;
 
 			products.matchAllAttributes = { 'foo': undefined, 'active': undefined };
 
-			products.get(function(err, productList, productsCount) {
+			products.get(function (err, productList, productsCount) {
 				if (err) throw err;
 
 				assert.deepEqual(typeof productList,	'object');
@@ -782,14 +799,14 @@ describe('Products', function() {
 		});
 
 		// Get all products and foo and active attributes
-		it('should get a list of products and the foo and active attributes', function(done) {
+		it('should get a list of products and the foo and active attributes', function (done) {
 			const products = new productLib.Products();
 
 			products.returnAttributes = ['foo', 'active'];
 
 			products.matchAllAttributes = { 'foo': undefined, 'active': undefined };
 
-			products.get(function(err, productList, productsCount) {
+			products.get(function (err, productList, productsCount) {
 				let	bar	= 0,
 					baz	= 0;
 
@@ -821,11 +838,10 @@ describe('Products', function() {
 				done();
 			});
 		});
+	});
 
-	}); 
-
-	describe('should be able to search', function() {
-		it('should be able to search for a product', function(done) {
+	describe('should be able to search', function () {
+		it('should be able to search for a product', function (done) {
 			const attributes = {
 				'name':	'Searchable product #1',
 				'price':	959,
@@ -843,37 +859,37 @@ describe('Products', function() {
 			function searchProduct(cb) {
 				const products = new productLib.Products();
 
-				products.searchString = 'searchable';
-				products.returnAttributes = ['name', 'price', 'weight'];
+				products.searchString	= 'searchable';
+				products.returnAttributes	= ['name', 'price', 'weight'];
 
-				products.get(function(err, result) {
+				products.get(function (err, result) {
 					for (const uuid of Object.keys(result)) {
-						assert.deepEqual(attributes.name, result[uuid].attributes.name[0]);
-						assert.deepEqual(attributes.price, result[uuid].attributes.price[0]);
-						assert.deepEqual(attributes.weight, result[uuid].attributes.weight[0]);
+						assert.deepEqual(attributes.name,	result[uuid].attributes.name[0]);
+						assert.deepEqual(attributes.price,	result[uuid].attributes.price[0]);
+						assert.deepEqual(attributes.weight,	result[uuid].attributes.weight[0]);
 					};
 					cb();
 				});
 			}
 
-			async.series([createProduct, searchProduct], function(err) {
+			async.series([createProduct, searchProduct], function (err) {
 				if (err) throw err;
 				done();
 			});
 		});
 	});
-/*
-	describe('alter multpiple products', function() {
-		it('should set attribute on multiple products', function(done) {
+
+	describe('alter multpiple products', function () {
+		it('should set attribute on multiple products', function (done) {
 			const	tasks	= [];
 
 			// Set attributes
-			tasks.push(function(cb) {
+			tasks.push(function (cb) {
 				const	products	= new productLib.Products();
 
 				products.matchAllAttributes = {'foo': 'bar'};
 
-				products.setAttribute('womp', 'wapp', function(err, matches) {
+				products.setAttribute('womp', 'wapp', function (err, matches) {
 					if (err) throw err;
 
 					assert.deepEqual(matches, 2);
@@ -882,7 +898,7 @@ describe('Products', function() {
 			});
 
 			// Check the result
-			tasks.push(function(cb) {
+			tasks.push(function (cb) {
 				const	testProducts	= new productLib.Products(),
 					expectedAttributes	= [
 						'foo___bar',
@@ -900,12 +916,12 @@ describe('Products', function() {
 						'weight___111214'
 					];
 
-				testProducts.returnAllAttributes = true;
+				testProducts.returnAllAttributes	= true;
 
-				testProducts.get(function(err, result) {
+				testProducts.get(function (err, result) {
 					if (err) throw err;
 
-					assert.deepEqual(Object.keys(result).length, 4);
+					assert.deepEqual(Object.keys(result).length, 9);
 
 					for (const productUuid of Object.keys(result)) {
 						const	product	= result[productUuid];
@@ -929,14 +945,12 @@ describe('Products', function() {
 
 			async.series(tasks, done);
 		});
-	}); */
-}); 
+	});
+});
 
-
-
-describe('Helpers', function() {
-	it('should get attribute values', function(done) {
-		productLib.helpers.getAttributeValues('foo', function(err, result) {
+describe('Helpers', function () {
+	it('should get attribute values', function (done) {
+		productLib.helpers.getAttributeValues('foo', function (err, result) {
 			if (err) throw err;
 
 			assert.deepEqual(result,	['bar', 'baz']);
@@ -944,8 +958,8 @@ describe('Helpers', function() {
 		});
 	});
 
-	it('should get empty array on non existing attribute name', function(done) {
-		productLib.helpers.getAttributeValues('trams', function(err, result) {
+	it('should get empty array on non existing attribute name', function (done) {
+		productLib.helpers.getAttributeValues('trams', function (err, result) {
 			if (err) throw err;
 
 			assert.deepEqual(result,	[]);
@@ -953,8 +967,8 @@ describe('Helpers', function() {
 		});
 	});
 
-	it('should get an attribute uuid', function(done) {
-		productLib.helpers.getAttributeUuidBuffer('foo', function(err, uuid) {
+	it('should get an attribute uuid', function (done) {
+		productLib.helpers.getAttributeUuidBuffer('foo', function (err, uuid) {
 			if (err) throw err;
 
 			assert.deepEqual(uuid instanceof Buffer,	true);
@@ -964,8 +978,8 @@ describe('Helpers', function() {
 		});
 	});
 
-	it('should not create duplicate attribute names', function(done) {
-		productLib.helpers.getAttributeUuidBuffers(['lurt', 'flams', 'lurt', 'annat', 'lurt'], function(err, uuids) {
+	it('should not create duplicate attribute names', function (done) {
+		productLib.helpers.getAttributeUuidBuffers(['lurt', 'flams', 'lurt', 'annat', 'lurt'], function (err, uuids) {
 			if (err) throw err;
 
 			for (const attributeName of Object.keys(uuids)) {
@@ -979,8 +993,8 @@ describe('Helpers', function() {
 		});
 	});
 
-	it('should be case sensitive on attribute names and handle them correctly', function(done) {
-		productLib.helpers.getAttributeUuidBuffers(['moep', 'Moep'], function(err, uuids) {
+	it('should be case sensitive on attribute names and handle them correctly', function (done) {
+		productLib.helpers.getAttributeUuidBuffers(['moep', 'Moep'], function (err, uuids) {
 			if (err) throw err;
 
 			for (const attributeName of Object.keys(uuids)) {
@@ -993,8 +1007,8 @@ describe('Helpers', function() {
 		});
 	});
 
-	it('should ignore BOMs in strings', function(done) {
-		productLib.helpers.getAttributeUuidBuffer(new Buffer('efbbbf70', 'hex').toString(), function(err, uuid) {
+	it('should ignore BOMs in strings', function (done) {
+		productLib.helpers.getAttributeUuidBuffer(new Buffer('efbbbf70', 'hex').toString(), function (err, uuid) {
 			if (err) throw err;
 
 			assert.deepEqual(uuid instanceof Buffer,	true);
@@ -1005,7 +1019,7 @@ describe('Helpers', function() {
 	});
 });
 
-describe('Import', function() {
+describe('Import', function () {
 	function importFromStr(str, options, cb) {
 		const	tmpFile	= os.tmpdir() + '/tmp_products.csv',
 			tasks	= [];
@@ -1013,13 +1027,13 @@ describe('Import', function() {
 		let	uuids	= [];
 
 		// First create our test file
-		tasks.push(function(cb) {
+		tasks.push(function (cb) {
 			fs.writeFile(tmpFile, str, cb);
 		});
 
 		// Import file
-		tasks.push(function(cb) {
-			productLib.importer.fromFile(tmpFile, options, function(err, result) {
+		tasks.push(function (cb) {
+			productLib.importer.fromFile(tmpFile, options, function (err, result) {
 				uuids	= result;
 
 				if (err) throw err;
@@ -1029,11 +1043,11 @@ describe('Import', function() {
 		});
 
 		// Remove tmp file
-		tasks.push(function(cb) {
+		tasks.push(function (cb) {
 			fs.unlink(tmpFile, cb);
 		});
 
-		async.series(tasks, function(err) {
+		async.series(tasks, function (err) {
 			cb(err, uuids);
 		});
 	}
@@ -1054,7 +1068,7 @@ describe('Import', function() {
 
 		sql = sql.substring(0, sql.length - 1) + ');';
 
-		db.query(sql, dbFields, function(err, rows) {
+		db.query(sql, dbFields, function (err, rows) {
 			const	testProducts	= {};
 
 			if (err) throw err;
@@ -1074,15 +1088,15 @@ describe('Import', function() {
 		});
 	}
 
-	it('very simple test case', function(done) {
+	it('very simple test case', function (done) {
 		const	productStr	= 'name,price,description\nball,100,it is round\ntv,55,"About 32"" in size"';
 
-		importFromStr(productStr, {}, function(err, uuids) {
+		importFromStr(productStr, {}, function (err, uuids) {
 			if (err) throw err;
 
 			assert.deepEqual(uuids.length,	2);
 
-			getProductData(uuids, function(err, testProducts) {
+			getProductData(uuids, function (err, testProducts) {
 				if (err) throw err;
 
 				for (const productUuid of Object.keys(testProducts)) {
@@ -1106,16 +1120,16 @@ describe('Import', function() {
 		});
 	});
 
-	it('Override static column data', function(done) {
+	it('Override static column data', function (done) {
 		const	productStr	= 'name,size,enabled\nball,3,true\ntv,14,false\nspoon,2,true',
 			options	= {'staticCols': { 'foul': 'nope', 'enabled': 'false'} };
 
-		importFromStr(productStr, options, function(err, uuids) {
+		importFromStr(productStr, options, function (err, uuids) {
 			if (err) throw err;
 
 			assert.deepEqual(uuids.length,	3);
 
-			getProductData(uuids, function(err, testProducts) {
+			getProductData(uuids, function (err, testProducts) {
 				if (err) throw err;
 
 				for (const productUuid of Object.keys(testProducts)) {
@@ -1146,7 +1160,6 @@ describe('Import', function() {
 	});
 });
 
-after(function(done) {
+after(function (done) {
 	db.removeAllTables(done);
-	//done();
 });

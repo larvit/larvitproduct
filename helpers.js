@@ -21,7 +21,7 @@ function getAttributeUuidBuffer(attributeName, cb) {
 	}
 
 	// If we get down here, the field does not exist, create it and rerun
-	ready(function(err) {
+	ready(function (err) {
 		const	options	= {'exchange': dataWriter.exchangeName},
 			message	= {};
 
@@ -33,13 +33,13 @@ function getAttributeUuidBuffer(attributeName, cb) {
 		message.params.uuid	= uuidLib.v1();
 		message.params.name	= attributeName;
 
-		intercom.send(message, options, function(err, msgUuid) {
+		intercom.send(message, options, function (err, msgUuid) {
 			if (err) { cb(err); return; }
 
-			dataWriter.emitter.once(msgUuid, function(err) {
+			dataWriter.emitter.once(msgUuid, function (err) {
 				if (err) { cb(err); return; }
 
-				loadAttributesToCache(function(err) {
+				loadAttributesToCache(function (err) {
 					if (err) { cb(err); return; }
 
 					getAttributeUuidBuffer(attributeName, cb);
@@ -62,8 +62,8 @@ function getAttributeUuidBuffers(attributeNames, cb) {
 	for (let i = 0; attributeNames[i] !== undefined; i ++) {
 		const	attributeName = attributeNames[i];
 
-		tasks.push(function(cb) {
-			getAttributeUuidBuffer(attributeName, function(err, fieldUuid) {
+		tasks.push(function (cb) {
+			getAttributeUuidBuffer(attributeName, function (err, fieldUuid) {
 				if (err) { cb(err); return; }
 
 				fieldUuidsByName[attributeName] = fieldUuid;
@@ -72,7 +72,7 @@ function getAttributeUuidBuffers(attributeNames, cb) {
 		});
 	}
 
-	async.parallel(tasks, function(err) {
+	async.parallel(tasks, function (err) {
 		if (err) { cb(err); return; }
 
 		cb(null, fieldUuidsByName);
@@ -85,7 +85,7 @@ function getAttributeValues(attributeName, cb) {
 				'FROM product_product_attributes\n' +
 				'WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?)';
 
-	db.query(sql, dbFields, function(err, rows) {
+	db.query(sql, dbFields, function (err, rows) {
 		const	values = [];
 
 		if (err) { cb(err); return; }
@@ -99,7 +99,7 @@ function getAttributeValues(attributeName, cb) {
 }
 
 function loadAttributesToCache(cb) {
-	db.query('SELECT * FROM product_attributes ORDER BY name;', function(err, rows) {
+	db.query('SELECT * FROM product_attributes ORDER BY name;', function (err, rows) {
 		if (err) {
 			log.error('larvitproduct: helpers.js - loadAttributesToCache() - Database error: ' + err.message);
 			return;
@@ -118,7 +118,7 @@ function loadAttributesToCache(cb) {
 }
 
 function ready(cb) {
-	dataWriter.ready(function(err) {
+	dataWriter.ready(function (err) {
 		intercom	= require('larvitutils').instances.intercom;
 		cb(err);
 	});

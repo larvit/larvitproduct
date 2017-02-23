@@ -39,7 +39,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 	if (options === undefined) {
 		options	= {};
-		cb	= function(){};
+		cb	= function (){};
 	}
 
 	if (typeof options === 'function') {
@@ -48,7 +48,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 	}
 
 	if (typeof cb !== 'function') {
-		cb = function(){};
+		cb = function (){};
 	}
 
 	if (options.ignoreCols	=== undefined) { options.ignoreCols	= [];	}
@@ -76,8 +76,8 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 	}
 
 	fileStream.pipe(csvStream);
-	csvStream.on('data', function(csvRow) {
-		tasks.push(function(cb) {
+	csvStream.on('data', function (csvRow) {
+		tasks.push(function (cb) {
 			const	attributes	= {},
 				tasks	= [];
 
@@ -150,7 +150,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 			}
 
 			// Check if we should ignore this row
-			tasks.push(function(cb) {
+			tasks.push(function (cb) {
 				if ( ! options.findByCols) {
 					cb();
 					return;
@@ -170,7 +170,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 			});
 
 			// Check if we already have a product in the database
-			tasks.push(function(cb) {
+			tasks.push(function (cb) {
 				if ( ! options.findByCols && options.noNew === true) {
 					const	err	= new Error('findByCols is not set and we should not create any new products. This means no product will ever be created.');
 					log.verbose(log.context + 'fromFile() - ' + err.message);
@@ -198,7 +198,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 					}
 
 					products.limit	= 1;
-					products.get(function(err, productList, matchedProducts) {
+					products.get(function (err, productList, matchedProducts) {
 						if (matchedProducts === 0 && options.noNew === true) {
 							const	err	= new Error('No matching product found and options.noNew === true');
 							log.verbose(log.context + 'fromFile() - ' + err.message);
@@ -235,7 +235,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 			});
 
 			// Assign product attributes and save
-			tasks.push(function(cb) {
+			tasks.push(function (cb) {
 				if (options.updateByCols) {
 					if ( ! product.attributes) {
 						product.attributes = {};
@@ -248,7 +248,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 					product.attributes = attributes;
 				}
 
-				product.save(function(err) {
+				product.save(function (err) {
 					if (err) {
 						log.warn(log.context + 'fromFile() - Could not save product: ' + err.message);
 					} else {
@@ -259,7 +259,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 				});
 			});
 
-			async.series(tasks, function(err) {
+			async.series(tasks, function (err) {
 				if ( ! err) {
 					log.verbose(log.context + 'fromFile() - Imported product uuid: ' + product.uuid);
 				}
@@ -269,13 +269,13 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 		});
 	});
 
-	csvStream.on('end', function() {
-		async.parallelLimit(tasks, 100, function() {
+	csvStream.on('end', function () {
+		async.parallelLimit(tasks, 100, function () {
 			cb(null, alteredProductUuids);
 		});
 	});
 
-	csvStream.on('error', function(err) {
+	csvStream.on('error', function (err) {
 		log.warn(log.context + 'fromFile() - Could not parse csv: ' + err.message);
 		cb(err);
 		return;

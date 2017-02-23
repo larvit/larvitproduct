@@ -28,7 +28,7 @@ function listenToQueue(retries, cb) {
 	}
 
 	if (typeof cb !== 'function') {
-		cb = function(){};
+		cb = function (){};
 	}
 
 	if (retries === undefined) {
@@ -54,7 +54,7 @@ function listenToQueue(retries, cb) {
 
 	if ( ! (intercom instanceof require('larvitamintercom')) && retries < 10) {
 		retries ++;
-		setTimeout(function() {
+		setTimeout(function () {
 			listenToQueue(retries, cb);
 		}, 50);
 		return;
@@ -65,14 +65,14 @@ function listenToQueue(retries, cb) {
 
 	log.info('larvitproduct: dataWriter.js - listenToQueue() - listenMethod: ' + listenMethod);
 
-	intercom.ready(function(err) {
+	intercom.ready(function (err) {
 		if (err) {
 			log.error('larvitproduct: dataWriter.js - listenToQueue() - intercom.ready() err: ' + err.message);
 			return;
 		}
 
-		intercom[listenMethod](options, function(message, ack, deliveryTag) {
-			exports.ready(function(err) {
+		intercom[listenMethod](options, function (message, ack, deliveryTag) {
+			exports.ready(function (err) {
 				ack(err); // Ack first, if something goes wrong we log it and handle it manually
 
 				if (err) {
@@ -108,7 +108,7 @@ function ready(retries, cb) {
 	}
 
 	if (typeof cb !== 'function') {
-		cb = function(){};
+		cb = function (){};
 	}
 
 	if (retries === undefined) {
@@ -126,7 +126,7 @@ function ready(retries, cb) {
 
 	if ( ! (intercom instanceof require('larvitamintercom')) && retries < 10) {
 		retries ++;
-		setTimeout(function() {
+		setTimeout(function () {
 			ready(retries, cb);
 		}, 50);
 		return;
@@ -140,7 +140,7 @@ function ready(retries, cb) {
 	if (exports.mode === 'slave') {
 		log.verbose('larvitproduct: dataWriter.js - ready() - exports.mode: "' + exports.mode + '", so read');
 
-		tasks.push(function(cb) {
+		tasks.push(function (cb) {
 			amsync.mariadb({'exchange': exports.exchangeName + '_dataDump'}, cb);
 		});
 	}
@@ -150,8 +150,8 @@ function ready(retries, cb) {
 	}
 
 	// Migrate database
-	tasks.push(function(cb) {
-		dbmigration(function(err) {
+	tasks.push(function (cb) {
+		dbmigration(function (err) {
 			if (err) {
 				log.error('larvitproduct: dataWriter.js - ready() - Database error: ' + err.message);
 			}
@@ -160,7 +160,7 @@ function ready(retries, cb) {
 		});
 	});
 
-	async.series(tasks, function(err) {
+	async.series(tasks, function (err) {
 		if (err) {
 			return;
 		}
@@ -191,7 +191,7 @@ function rmProducts(params, deliveryTag, msgUuid) {
 	}
 
 	// Delete attributes
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		let	sql	= 'DELETE FROM product_product_attributes WHERE productUuid IN (';
 
 		for (let i = 0; productUuidBufs[i] !== undefined; i ++) {
@@ -204,7 +204,7 @@ function rmProducts(params, deliveryTag, msgUuid) {
 	});
 
 	// Delete product
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		let	sql	= 'DELETE FROM product_products WHERE uuid IN (';
 
 		for (let i = 0; productUuidBufs[i] !== undefined; i ++) {
@@ -216,7 +216,7 @@ function rmProducts(params, deliveryTag, msgUuid) {
 		db.query(sql, productUuidBufs, cb);
 	});
 
-	async.series(tasks, function(err) {
+	async.series(tasks, function (err) {
 		exports.emitter.emit(msgUuid, err);
 	});
 }
@@ -266,7 +266,7 @@ function setAttribute(params, deliveryTag, msgUuid) {
 	}
 
 	// Remove this attribute from the given products
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		const	dbFields	= [params.attributeName];
 
 		let	sql	= 'DELETE FROM product_product_attributes WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?) AND productUuid IN (';
@@ -282,12 +282,12 @@ function setAttribute(params, deliveryTag, msgUuid) {
 	});
 
 	// Make sure the new attribute exists
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		helpers.getAttributeUuidBuffers([params.attributeName], cb);
 	});
 
 	// Set the new attribute value
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		const	dbFields	= [params.attributeName, params.attributeValue];
 
 		let	sql	= 'INSERT INTO product_product_attributes (productUuid, attributeUuid, data) ';
@@ -304,7 +304,7 @@ function setAttribute(params, deliveryTag, msgUuid) {
 		db.query(sql, dbFields, cb);
 	});
 
-	async.series(tasks, function(err) {
+	async.series(tasks, function (err) {
 		exports.emitter.emit(msgUuid, err);
 	});
 }
@@ -326,29 +326,29 @@ function writeProduct(params, deliveryTag, msgUuid) {
 	}
 
 	// Make sure the base product row exists
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		const	sql	= 'INSERT IGNORE INTO product_products (uuid, created) VALUES(?,?)';
 
 		db.query(sql, [productUuidBuf, created], cb);
 	});
 
 	// Clean out old attribute data
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		db.query('DELETE FROM product_product_attributes WHERE productUuid = ?', [productUuidBuf], cb);
 	});
 
 	// By now we have a clean database, lets insert stuff!
 
 	// Get all attribute uuids
-	tasks.push(function(cb) {
-		helpers.getAttributeUuidBuffers(Object.keys(productAttributes), function(err, result) {
+	tasks.push(function (cb) {
+		helpers.getAttributeUuidBuffers(Object.keys(productAttributes), function (err, result) {
 			attributeUuidsByName = result;
 			cb(err);
 		});
 	});
 
 	// Insert attributes
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		const	dbFields	= [];
 
 		let	sql	= 'INSERT INTO product_product_attributes (productUuid, attributeUuid, `data`) VALUES';
@@ -372,7 +372,7 @@ function writeProduct(params, deliveryTag, msgUuid) {
 		db.query(sql, dbFields, cb);
 	});
 
-	async.series(tasks, function(err) {
+	async.series(tasks, function (err) {
 		exports.emitter.emit(msgUuid, err);
 	});
 }
@@ -381,7 +381,7 @@ function writeAttribute(params, deliveryTag, msgUuid) {
 	const	uuid	= params.uuid,
 		name	= params.name;
 
-	db.query('INSERT IGNORE INTO product_attributes (uuid, name) VALUES(?,?)', [lUtils.uuidToBuffer(uuid), stripBom(String(name))], function(err) {
+	db.query('INSERT IGNORE INTO product_attributes (uuid, name) VALUES(?,?)', [lUtils.uuidToBuffer(uuid), stripBom(String(name))], function (err) {
 		exports.emitter.emit(msgUuid, err);
 	});
 }

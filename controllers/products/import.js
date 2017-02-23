@@ -4,7 +4,7 @@ const	productLib	= require(__dirname + '/../../index.js'),
 	async	= require('async'),
 	log	= require('winston');
 
-exports.run = function(req, res, cb) {
+exports.run = function (req, res, cb) {
 	const	tasks	= [],
 		data	= {'global': res.globalData};
 
@@ -18,7 +18,7 @@ exports.run = function(req, res, cb) {
 	data.global.menuControllerName = 'products';
 
 	if (data.global.formFields.import !== undefined && req.formFiles !== undefined && req.formFiles.file !== undefined && req.formFiles.file.size) {
-		tasks.push(function(cb) {
+		tasks.push(function (cb) {
 			productLib.importer.fromFile(req.formFiles.file.path, {'replaceByField': req.formFields.replaceByField});
 
 			log.verbose('larvitproduct: ./controllers/products/import.js - Import file uploaded with size: ' + req.formFiles.file.size);
@@ -29,7 +29,7 @@ exports.run = function(req, res, cb) {
 		});
 	}
 
-	async.series(tasks, function(err) {
+	async.series(tasks, function (err) {
 		cb(err, req, res, data);
 	});
 };

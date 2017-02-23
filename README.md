@@ -33,7 +33,7 @@ const	productLib	= require('larvitproduct'),
 
 product.attributes = {'name': 'Conductor', 'price': 200, 'available color': ['blue', 'green']};
 
-product.save(function(err) {
+product.save(function (err) {
 	if (err) throw err;
 });
 ```
@@ -44,7 +44,7 @@ product.save(function(err) {
 const	productLib	= require('larvitproduct'),
 	products	= new productLib.Products();
 
-products.get(function(err, productList) {
+products.get(function (err, productList) {
 	// productList being an object with productUuid as key
 });
 ```
@@ -64,7 +64,7 @@ const	EventEmitter	= require('events').EventEmitter,
 let	readyInProgress	= false,
 	isReady	= false;
 
-productLib.dataWriter.ready = function(cb) {
+productLib.dataWriter.ready = function (cb) {
 	const	tasks	= [];
 
 	if (isReady === true) { cb(); return; }
@@ -78,7 +78,7 @@ productLib.dataWriter.ready = function(cb) {
 
 	// Do async stuff here that have to happend before the first message
 	// from the queue is written to the database
-	tasks.push(function(cb) {
+	tasks.push(function (cb) {
 		// do stuff
 		cb();
 	});
@@ -86,7 +86,7 @@ productLib.dataWriter.ready = function(cb) {
 	// Run the original ready function
 	tasks.push(oldReady);
 
-	async.series(tasks, function() {
+	async.series(tasks, function () {
 		isReady	= true;
 		eventEmitter.emit('ready');
 		cb();
