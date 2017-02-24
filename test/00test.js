@@ -674,8 +674,8 @@ describe('Products', function () {
 			tasks.push(function (cb) {
 				const	product	= new productLib.Product();
 
-				product.attributes.enabled2	= 'true';
-				product.attributes.enabled	= 'true';
+				product.attributes.enabled2	= ['true', 'maybe'];
+				product.attributes.enabled	= ['true', 'maybe'];
 				product.attributes.country	= 'se';
 				product.attributes.country2	= 'se';
 				product.save(cb);
@@ -694,10 +694,20 @@ describe('Products', function () {
 			tasks.push(function (cb) {
 				const	product	= new productLib.Product();
 
-				product.attributes.enabled2	= 'maybe';
-				product.attributes.enabled	= 'maybe';
+				product.attributes.enabled2	= ['maybe', 'true'];
+				product.attributes.enabled	= ['true', 'maybe'];
 				product.attributes.country	= 'dk';
 				product.attributes.country2	= 'dk';
+				product.save(cb);
+			});
+
+			tasks.push(function (cb) {
+				const	product	= new productLib.Product();
+
+				product.attributes.enabled2	= ['maybe', 'true'];
+				product.attributes.enabled	= ['true', 'maybe'];
+				product.attributes.country	= 'all';
+				product.attributes.country2	= 'se';
 				product.save(cb);
 			});
 
@@ -921,7 +931,7 @@ describe('Products', function () {
 				testProducts.get(function (err, result) {
 					if (err) throw err;
 
-					assert.deepEqual(Object.keys(result).length, 9);
+					assert.deepEqual(Object.keys(result).length, 10);
 
 					for (const productUuid of Object.keys(result)) {
 						const	product	= result[productUuid];

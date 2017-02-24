@@ -85,8 +85,8 @@ Products.prototype.generateWhere = function (cb) {
 					if (i === 0) {
 						sql += '	AND (p.uuid IN (\n';
 					} else {
-						sql += '	OR p.uuid IN (\n';
-					}
+						sql += '	AND p.uuid IN (\n';
+					} 
 
 					sql += '		SELECT DISTINCT productUuid\n';
 					sql += '		FROM product_product_attributes\n';
