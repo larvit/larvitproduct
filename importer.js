@@ -267,10 +267,19 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 				cb(); // Never report back an error, since that will break the import of the other products
 			});
 		});
+
+		if (tasks.length >= 100) {
+			csvStream.pause();
+			async.parallel(tasks, function () {
+				tasks.length = 0;
+				csvStream.resume();
+			});
+		}
 	});
 
 	csvStream.on('end', function () {
-		async.parallelLimit(tasks, 100, function () {
+		// Run possible remaining tasks
+		async.parallel(tasks, function () {
 			cb(null, alteredProductUuids);
 		});
 	});

@@ -1,6 +1,6 @@
 {
   "name": "larvitproduct",
-  "version": "0.2.16",
+  "version": "0.2.17",
   "description": "Generic product database for use in webshops or other places",
   "main": "index.js",
   "scripts": {
