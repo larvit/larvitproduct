@@ -86,7 +86,7 @@ Products.prototype.generateWhere = function (cb) {
 						sql += '	AND (p.uuid IN (\n';
 					} else {
 						sql += '	AND p.uuid IN (\n';
-					} 
+					}
 
 					sql += '		SELECT DISTINCT productUuid\n';
 					sql += '		FROM product_product_attributes\n';
@@ -129,7 +129,7 @@ Products.prototype.generateWhere = function (cb) {
 			if (i > 0) {
 				sql += ' OR ';
 			}
-				
+
 			sql += '		p.uuid IN (\n';
 			sql += '		SELECT DISTINCT productUuid\n';
 			sql += '		FROM product_product_attributes\n';
@@ -149,15 +149,15 @@ Products.prototype.generateWhere = function (cb) {
 
 					sql += ' `data` = ?\n';
 					dbFields.push(attributeValue[i]);
-				}	
-				
+				}
+
 				sql += '	)';
-				
+
 			} else if (attributeValue !== undefined) {
 				sql += '	AND `data` = ?\n';
 				dbFields.push(attributeValue);
 			}
-			
+
 			sql += ')';
 		}
 
@@ -165,12 +165,18 @@ Products.prototype.generateWhere = function (cb) {
 	}
 
 	if (that.searchString !== undefined && that.searchString !== '') {
+		let	searchStr	= '';
+
 		sql += '	AND p.uuid IN (\n';
 		sql += '		SELECT DISTINCT productUuid\n';
 		sql += '		FROM product_product_attributes\n';
-		sql += ' WHERE data LIKE ?)\n';
+		sql += ' WHERE MATCH (data) AGAINST (? IN BOOLEAN MODE))\n';
 
-		dbFields.push('%' + that.searchString.trim() + '%');
+		for (const str of that.searchString.trim().split(' ')) {
+			searchStr += '+' + str + ' ';
+		}
+
+		dbFields.push(searchStr.trim());
 	}
 
 	cb(null, sql, dbFields);
@@ -226,7 +232,6 @@ Products.prototype.get = function (cb) {
 			});
 
 			tasks.push(function (cb) {
-				
 				db.query(countSql, dbFields, function (err, rows) {
 					if (err) { cb(err); return; }
 

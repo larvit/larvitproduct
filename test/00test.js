@@ -873,6 +873,8 @@ describe('Products', function () {
 				products.returnAttributes	= ['name', 'price', 'weight'];
 
 				products.get(function (err, result) {
+					if (err) throw err;
+
 					for (const uuid of Object.keys(result)) {
 						assert.deepEqual(attributes.name,	result[uuid].attributes.name[0]);
 						assert.deepEqual(attributes.price,	result[uuid].attributes.price[0]);
