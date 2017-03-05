@@ -11,6 +11,23 @@ let	readyInProgress	= false,
 	isReady	= false,
 	intercom;
 
+function escapeAttributeName(name, arr) {
+	if ( ! arr) {
+		arr = [];
+	}
+
+	return '`' + name.replace(/`/g, '_') + '_____' + arrCount(arr, name) + '`';
+}
+
+function arrCount(arr, key) {
+	let	counter	= 0;
+	for (let i = 0; arr[i] !== undefined; i ++) {
+		if (arr[i] === key) counter ++;
+	}
+
+	return counter;
+}
+
 function ready(cb) {
 	const	tasks	= [];
 
@@ -46,10 +63,14 @@ function Products() {
 }
 
 Products.prototype.generateWhere = function (cb) {
-	const	dbFields	= [],
+	const	joinedAttrs	= [],
+		attrValues	= [],
+		attrNames	= [],
+		dbFields	= [],
 		that	= this;
 
-	let sql = '';
+	let	whereSql	= '	1\n',
+		joinSql	= '';
 
 	if (that.uuids !== undefined) {
 		if ( ! (that.uuids instanceof Array)) {
@@ -63,123 +84,108 @@ Products.prototype.generateWhere = function (cb) {
 		}
 
 		if (that.uuids.length === 0) {
-			sql += '	AND 0';
+			whereSql += '	AND 0\n';
 		} else {
-			sql += '	AND p.uuid IN (';
+			whereSql += '	AND p.uuid IN (';
 
 			for (let i = 0; that.uuids[i] !== undefined; i ++) {
-				sql += '?,';
+				whereSql += '?,';
 				dbFields.push(lUtils.uuidToBuffer(that.uuids[i]));
 			}
 
-			sql = sql.substring(0, sql.length - 1) + ')';
+			whereSql = whereSql.substring(0, whereSql.length - 1) + ')\n';
 		}
 	}
 
 	if (that.matchAllAttributes !== undefined) {
 		for (const attributeName of Object.keys(that.matchAllAttributes)) {
-			const	attributeValue	= that.matchAllAttributes[attributeName];
+			let	attributeValues	= that.matchAllAttributes[attributeName];
 
-			if (Array.isArray(attributeValue)) {
-				for (let i = 0; attributeValue[i] !== undefined; i ++) {
-					if (i === 0) {
-						sql += '	AND (p.uuid IN (\n';
-					} else {
-						sql += '	AND p.uuid IN (\n';
-					}
+			if ( ! Array.isArray(attributeValues)) {
+				attributeValues = [attributeValues];
+			}
 
-					sql += '		SELECT DISTINCT productUuid\n';
-					sql += '		FROM product_product_attributes\n';
+			for (const attributeValue of attributeValues) {
+				const	escapedAttributeName	= escapeAttributeName(attributeName, joinedAttrs);
 
-					dbFields.push(attributeName);
-					if (attributeValue[i] === undefined) {
-						sql += '		WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?)\n';
-					} else {
-						sql += '		WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?) AND `data` = ?\n';
-						dbFields.push(attributeValue[i]);
-					}
-					sql += ')';
-				}
-				sql += ')';
-			} else {
-				sql += '	AND p.uuid IN (\n';
-				sql += '		SELECT DISTINCT productUuid\n';
-				sql += '		FROM product_product_attributes\n';
+				joinedAttrs.push(attributeName);
+				joinSql += '	LEFT JOIN product_product_attributes AS ' + escapedAttributeName + '\n';
+				joinSql += '		ON	' + escapedAttributeName + '.productUuid	= p.uuid\n';
+				joinSql += '		AND	' + escapedAttributeName + '.attributeUuid	= (SELECT uuid FROM product_attributes WHERE name = ?)\n';
+				attrNames.push(attributeName);
 
-				dbFields.push(attributeName);
 				if (attributeValue === undefined) {
-					sql += '		WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?)\n';
+					whereSql += '	AND ' + escapedAttributeName + '.data IS NOT NULL\n';
 				} else {
-					sql += '		WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?) AND `data` = ?\n';
-					dbFields.push(attributeValue);
+					whereSql += '	AND ' + escapedAttributeName + '.data = ?\n';
+					attrValues.push(attributeValue);
 				}
-				sql += ')';
 			}
 		}
 	}
 
 	if (that.matchAnyAttribute !== undefined) {
+		let	first	= true;
 
-		sql += ' AND (\n';
+		whereSql += ' AND (\n';
 
-		for (let i = 0; i < Object.keys(that.matchAnyAttribute).length; i ++) {
-			const	attributeName = Object.keys(that.matchAnyAttribute)[i],
-				attributeValue = that.matchAnyAttribute[attributeName];
+		for (const attributeName of Object.keys(that.matchAnyAttribute)) {
+			const	escapedAttributeName	= escapeAttributeName(attributeName, joinedAttrs);
 
-			if (i > 0) {
-				sql += ' OR ';
+			let	attributeValues	= that.matchAnyAttribute[attributeName];
+
+			joinedAttrs.push(attributeName);
+			joinSql += '	LEFT JOIN product_product_attributes AS ' + escapedAttributeName + '\n';
+			joinSql += '		ON	' + escapedAttributeName + '.productUuid	= p.uuid\n';
+			joinSql += '		AND	' + escapedAttributeName + '.attributeUuid	= (SELECT uuid FROM product_attributes WHERE name = ?)\n';
+			attrNames.push(attributeName);
+
+			if ( ! Array.isArray(attributeValues)) {
+				attributeValues = [attributeValues];
 			}
 
-			sql += '		p.uuid IN (\n';
-			sql += '		SELECT DISTINCT productUuid\n';
-			sql += '		FROM product_product_attributes\n';
-			sql += '		WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?)\n';
-
-			dbFields.push(attributeName);
-
-			if (Array.isArray(attributeValue) && attributeValue[0] !== undefined) {
-
-				sql += '	AND (';
-
-				for (let i = 0; attributeValue[i] !== undefined; i ++) {
-
-					if (i > 0) {
-						sql += ' OR ';
-					}
-
-					sql += ' `data` = ?\n';
-					dbFields.push(attributeValue[i]);
+			for (const attributeValue of attributeValues) {
+				if (first === true) {
+					first	= false;
+				} else {
+					whereSql	+= 'OR ';
 				}
 
-				sql += '	)';
-
-			} else if (attributeValue !== undefined) {
-				sql += '	AND `data` = ?\n';
-				dbFields.push(attributeValue);
+				if (attributeValue === undefined) {
+					whereSql += escapedAttributeName + '.data IS NOT NULL\n';
+				} else {
+					whereSql += escapedAttributeName + '.data = ?\n';
+					attrValues.push(attributeValue);
+				}
 			}
-
-			sql += ')';
 		}
 
-		sql += ')';
+		whereSql += ')\n';
 	}
 
 	if (that.searchString !== undefined && that.searchString !== '') {
 		let	searchStr	= '';
 
-		sql += '	AND p.uuid IN (\n';
-		sql += '		SELECT DISTINCT productUuid\n';
-		sql += '		FROM product_product_attributes\n';
-		sql += ' WHERE MATCH (data) AGAINST (? IN BOOLEAN MODE))\n';
+		joinSql	+= '	LEFT JOIN product_search_index AS allAttributes ON allAttributes.productUuid = p.uuid\n';
+
+		whereSql += '	AND MATCH (allAttributes.content) AGAINST(? IN BOOLEAN MODE)\n';
 
 		for (const str of that.searchString.trim().split(' ')) {
 			searchStr += '+' + str + ' ';
 		}
 
-		dbFields.push(searchStr.trim());
+		attrValues.push(searchStr.trim());
 	}
 
-	cb(null, sql, dbFields);
+	for (let i = 0; attrNames[i] !== undefined; i ++) {
+		dbFields.push(attrNames[i]);
+	}
+
+	for (let i = 0; attrValues[i] !== undefined; i ++) {
+		dbFields.push(attrValues[i]);
+	}
+
+	cb(null, joinSql, whereSql, dbFields);
 };
 
 Products.prototype.get = function (cb) {
@@ -194,17 +200,16 @@ Products.prototype.get = function (cb) {
 
 	// Get basic products
 	tasks.push(function (cb) {
-		let	countSql	= 'SELECT COUNT(*) AS products FROM product_products p WHERE 1',
-			sql	= 'SELECT * FROM product_products p WHERE 1';
+		let	countSql	= 'SELECT COUNT(*) AS products\nFROM product_products p\n',
+			sql	= 'SELECT p.*\nFROM product_products p\n';
 
-		that.generateWhere(function (err, where, dbFields) {
+		that.generateWhere(function (err, joinSql, whereSql, dbFields) {
 			const	tasks	= [];
 
-			if (err) { cb(err); return; }
+			if (err) return cb(err);
 
-			where	+= ' ORDER BY created DESC';
-			countSql	+= where;
-			sql 	+= where;
+			countSql	+= joinSql + 'WHERE\n' + whereSql;
+			sql	+= joinSql + 'WHERE\n' + whereSql + 'ORDER BY p.created DESC\n';
 
 			if (that.limit) {
 				sql += ' LIMIT ' + parseInt(that.limit);
@@ -214,9 +219,32 @@ Products.prototype.get = function (cb) {
 			}
 
 			tasks.push(function (cb) {
+/** /
+
+products.matchAllAttributes = {
+	'enabled':	['true', 'maybe'],
+	'enabled2': 	['true', 'maybe']
+};
+
+products.matchAnyAttribute = {
+	'country':	['all', 'se'],
+	'country2':	['all', 'se']
+};
+
+/** /
+if (
+		that.matchAllAttributes
+	&&	Array.isArray(that.matchAllAttributes.enabled)
+) {
+	console.log(sql);
+	console.log(dbFields);
+	process.exit();
+}
+/**/
+
 
 				db.query(sql, dbFields, function (err, rows) {
-					if (err) { cb(err); return; }
+					if (err) return cb(err);
 
 					for (let i = 0; rows[i] !== undefined; i ++) {
 						const	row	= rows[i],
@@ -227,13 +255,13 @@ Products.prototype.get = function (cb) {
 						products[productUuid].created	= row.created;
 					}
 
-					cb();
+					return cb();
 				});
 			});
 
 			tasks.push(function (cb) {
 				db.query(countSql, dbFields, function (err, rows) {
-					if (err) { cb(err); return; }
+					if (err) return cb(err);
 
 					productsCount = rows[0].products;
 					cb();
@@ -251,8 +279,7 @@ Products.prototype.get = function (cb) {
 		let sql;
 
 		if ((that.returnAllAttributes !== true && ! that.returnAttributes) || Object.keys(products).length === 0) {
-			cb();
-			return;
+			return cb();
 		}
 
 		sql =  'SELECT productUuid, name AS attributeName, `data`\n';
@@ -279,7 +306,7 @@ Products.prototype.get = function (cb) {
 		}
 
 		db.query(sql, dbFields, function (err, rows) {
-			if (err) { cb(err); return; }
+			if (err) return cb(err);
 
 			for (let i = 0; rows[i] !== undefined; i ++) {
 				const row = rows[i];
@@ -302,7 +329,7 @@ Products.prototype.get = function (cb) {
 	});
 
 	async.series(tasks, function (err) {
-		if (err) { cb(err); return; }
+		if (err) return cb(err);
 
 		cb(null, products, productsCount);
 	});
@@ -319,8 +346,7 @@ Products.prototype.getUniqeAttributes = function (filters, cb) {
 	}
 
 	if (Array.isArray(filters) && filters.length === 0) {
-		cb(null, {});
-		return;
+		return cb(null, {});
 	}
 
 	tasks.push(ready);
@@ -335,7 +361,7 @@ Products.prototype.getUniqeAttributes = function (filters, cb) {
 		sql	+=	'WHERE 1\n';
 
 		that.generateWhere(function (err, where, dbFields) {
-			if (err) { cb(err); return; }
+			if (err) return cb(err);
 
 			sql 	+= where;
 
@@ -352,7 +378,7 @@ Products.prototype.getUniqeAttributes = function (filters, cb) {
 			sql += 'ORDER BY pa.name, ppa.data;';
 
 			db.query(sql, dbFields, function (err, rows) {
-				if (err) { cb(err); return; }
+				if (err) return cb(err);
 
 				for (let i = 0; rows[i] !== undefined; i ++) {
 					if (attributes[rows[i].name] == undefined) {
@@ -367,7 +393,7 @@ Products.prototype.getUniqeAttributes = function (filters, cb) {
 	});
 
 	async.series(tasks, function (err) {
-		if (err) { cb(err); return; }
+		if (err) return cb(err);
 		cb(null, attributes);
 	});
 };
@@ -382,15 +408,15 @@ Products.prototype.getUuids = function (cb) {
 
 	// Get uuids
 	tasks.push(function (cb) {
-		let	sql	= 'SELECT uuid FROM product_products p WHERE 1';
+		let	sql	= 'SELECT p.uuid\nFROM product_products p\n';
 
-		that.generateWhere(function (err, where, dbFields) {
-			if (err) { cb(err); return; }
+		that.generateWhere(function (err, joinSql, whereSql, dbFields) {
+			if (err) return cb(err);
 
-			sql 	+= where;
+			sql 	+= joinSql + 'WHERE\n' + whereSql;
 
 			db.query(sql, dbFields, function (err, rows) {
-				if (err) { cb(err); return; }
+				if (err) return cb(err);
 
 				for (let i = 0; rows[i] !== undefined; i ++) {
 					uuids.push(lUtils.formatUuid(rows[i].uuid));
@@ -402,7 +428,7 @@ Products.prototype.getUuids = function (cb) {
 	});
 
 	async.series(tasks, function (err) {
-		if (err) { cb(err); return; }
+		if (err) return cb(err);
 
 		cb(err, uuids);
 	});
@@ -431,14 +457,14 @@ Products.prototype.rm = function (cb) {
 		message.params	= {'uuids': uuids};
 
 		intercom.send(message, options, function (err, msgUuid) {
-			if (err) { cb(err); return; }
+			if (err) return cb(err);
 
 			dataWriter.emitter.once(msgUuid, cb);
 		});
 	});
 
 	async.series(tasks, function (err) {
-		if (err) { cb(err); return; }
+		if (err) return cb(err);
 
 		cb(null, uuids.length);
 	});
@@ -454,7 +480,7 @@ Products.prototype.setAttribute = function (name, value, cb) {
 	tasks.push(function (cb) {
 		that.getUuids(function (err, result) {
 			uuids = result;
-			cb(err);
+			return cb(err);
 		});
 	});
 
@@ -470,16 +496,16 @@ Products.prototype.setAttribute = function (name, value, cb) {
 		message.params.attributeValue	= value;
 
 		intercom.send(message, options, function (err, msgUuid) {
-			if (err) { cb(err); return; }
+			if (err) return cb(err);
 
 			dataWriter.emitter.once(msgUuid, cb);
 		});
 	});
 
 	async.series(tasks, function (err) {
-		if (err) { cb(err); return; }
+		if (err) return cb(err);
 
-		cb(null, uuids.length);
+		return cb(null, uuids.length);
 	});
 };
 

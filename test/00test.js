@@ -15,13 +15,14 @@ let	productLib;
 
 // Set up winston
 log.remove(log.transports.Console);
-/* log.add(log.transports.Console, {
-	'level':	'debug',
+/** /log.add(log.transports.Console, {
+	'level':	'warn',
 	'colorize':	true,
 	'timestamp':	true,
 	'json':	false,
-	'humanReadableUnhandledException': true
-}); */
+	'handleException':	true,
+	'humanReadableUnhandledException':	true
+}); /**/
 
 before(function (done) {
 	this.timeout(10000);

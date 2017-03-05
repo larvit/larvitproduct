@@ -203,6 +203,19 @@ function rmProducts(params, deliveryTag, msgUuid) {
 		db.query(sql, productUuidBufs, cb);
 	});
 
+	// Delete from search index
+	tasks.push(function (cb) {
+		let	sql	= 'DELETE FROM product_search_index WHERE productUuid IN (';
+
+		for (let i = 0; productUuidBufs[i] !== undefined; i ++) {
+			sql += '?,';
+		}
+
+		sql = sql.substring(0, sql.length - 1) + ');';
+
+		db.query(sql, productUuidBufs, cb);
+	});
+
 	// Delete product
 	tasks.push(function (cb) {
 		let	sql	= 'DELETE FROM product_products WHERE uuid IN (';
@@ -246,6 +259,7 @@ function runDumpServer(cb) {
 	args.push('product_db_version');
 	args.push('product_products');
 	args.push('product_product_attributes');
+	args.push('product_search_index');
 
 	options.dataDumpCmd = {
 		'command':	'mysqldump',
@@ -300,6 +314,26 @@ function setAttribute(params, deliveryTag, msgUuid) {
 		}
 
 		sql = sql.substring(0, sql.length - 1) + ');';
+
+		db.query(sql, dbFields, cb);
+	});
+
+	// Update search index
+	tasks.push(function (cb) {
+		const	dbFields	= [];
+
+		let	sql	= 'REPLACE INTO product_search_index (productUuid, content) ';
+
+		sql += 'SELECT productUuid, GROUP_CONCAT(data SEPARATOR \' \') ';
+		sql += 'FROM product_product_attributes WHERE productUuid IN (';
+
+		for (let i = 0; params.productUuids[i] !== undefined; i ++) {
+			sql += '?,';
+			dbFields.push(lUtils.uuidToBuffer(params.productUuids[i]));
+		}
+
+		sql = sql.substring(0, sql.length - 1) + ') ';
+		sql += 'GROUP BY productUuid;';
 
 		db.query(sql, dbFields, cb);
 	});
@@ -370,6 +404,17 @@ function writeProduct(params, deliveryTag, msgUuid) {
 		sql = sql.substring(0, sql.length - 1) + ';';
 
 		db.query(sql, dbFields, cb);
+	});
+
+	// Update search index
+	tasks.push(function (cb) {
+		let	sql	= 'REPLACE INTO product_search_index (productUuid, content) ';
+
+		sql += 'SELECT productUuid, GROUP_CONCAT(data SEPARATOR \' \') ';
+		sql += 'FROM product_product_attributes WHERE productUuid = ? ';
+		sql += 'GROUP BY productUuid;';
+
+		db.query(sql, productUuidBuf, cb);
 	});
 
 	async.series(tasks, function (err) {
