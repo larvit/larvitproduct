@@ -167,7 +167,7 @@ Products.prototype.generateWhere = function (cb) {
 	if (that.searchString !== undefined && that.searchString !== '') {
 		let	searchStr	= '';
 
-		joinSql	+= '	LEFT JOIN product_search_index AS allAttributes ON allAttributes.productUuid = p.uuid\n';
+		joinSql	+= '	JOIN product_search_index AS allAttributes ON allAttributes.productUuid = p.uuid\n';
 
 		whereSql += '	AND MATCH (allAttributes.content) AGAINST(? IN BOOLEAN MODE)\n';
 
