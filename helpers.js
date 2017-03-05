@@ -117,29 +117,35 @@ function loadAttributesToCache(cb) {
 		cb = function () {};
 	}
 
-	db.query('SELECT * FROM product_attributes ORDER BY name;', function (err, rows) {
-		if (err) {
-			log.error('larvitproduct: helpers.js - loadAttributesToCache() - Database error: ' + err.message);
-			return;
-		}
+	ready(function (err) {
+		if (err) return cb(err);
 
-		// Empty the previous cache
-		exports.attributes.length = 0;
+		db.query('SELECT * FROM product_attributes ORDER BY name;', function (err, rows) {
+			if (err) {
+				log.error('larvitproduct: helpers.js - loadAttributesToCache() - Database error: ' + err.message);
+				return;
+			}
 
-		// Load the new values
-		for (let i = 0; rows[i] !== undefined; i ++) {
-			exports.attributes.push(rows[i]);
-		}
+			// Empty the previous cache
+			exports.attributes.length = 0;
 
-		cb();
+			// Load the new values
+			for (let i = 0; rows[i] !== undefined; i ++) {
+				exports.attributes.push(rows[i]);
+			}
+
+			cb();
+		});
 	});
 }
 loadAttributesToCache();
 
 function ready(cb) {
-	dataWriter.ready(function (err) {
-		intercom	= require('larvitutils').instances.intercom;
-		cb(err);
+	setImmediate(function () {
+		dataWriter.ready(function (err) {
+			intercom	= require('larvitutils').instances.intercom;
+			cb(err);
+		});
 	});
 }
 
