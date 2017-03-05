@@ -3,6 +3,7 @@
 const	EventEmitter	= require('events').EventEmitter,
 	eventEmitter	= new EventEmitter(),
 	dataWriter	= require(__dirname + '/dataWriter.js'),
+	helpers	= require(__dirname + '/helpers.js'),
 	lUtils	= require('larvitutils'),
 	async	= require('async'),
 	db	= require('larvitdb');
@@ -219,30 +220,6 @@ Products.prototype.get = function (cb) {
 			}
 
 			tasks.push(function (cb) {
-/** /
-
-products.matchAllAttributes = {
-	'enabled':	['true', 'maybe'],
-	'enabled2': 	['true', 'maybe']
-};
-
-products.matchAnyAttribute = {
-	'country':	['all', 'se'],
-	'country2':	['all', 'se']
-};
-
-/** /
-if (
-		that.matchAllAttributes
-	&&	Array.isArray(that.matchAllAttributes.enabled)
-) {
-	console.log(sql);
-	console.log(dbFields);
-	process.exit();
-}
-/**/
-
-
 				db.query(sql, dbFields, function (err, rows) {
 					if (err) return cb(err);
 
@@ -282,8 +259,8 @@ if (
 			return cb();
 		}
 
-		sql =  'SELECT productUuid, name AS attributeName, `data`\n';
-		sql += 'FROM product_product_attributes JOIN product_attributes ON attributeUuid = uuid\n';
+		sql =  'SELECT productUuid, attributeUuid, `data`\n';
+		sql += 'FROM product_product_attributes\n';
 		sql += 'WHERE\n';
 		sql += ' productUuid IN (';
 
@@ -295,21 +272,22 @@ if (
 		sql = sql.substring(0, sql.length - 1) + ')\n';
 
 		if (that.returnAllAttributes !== true) {
-			sql += '	AND name IN (';
+			sql += '	AND (';
 
 			for (let i = 0; that.returnAttributes[i] !== undefined; i ++) {
-				sql += '?,';
+				sql += 'attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?) OR ';
 				dbFields.push(that.returnAttributes[i]);
 			}
 
-			sql = sql.substring(0, sql.length - 1) + ')\n';
+			sql = sql.substring(0, sql.length - 4) + ')\n';
 		}
 
 		db.query(sql, dbFields, function (err, rows) {
 			if (err) return cb(err);
 
 			for (let i = 0; rows[i] !== undefined; i ++) {
-				const row = rows[i];
+				const	row	= rows[i],
+					attributeName	= helpers.getAttributeName(row.attributeUuid);
 
 				row.productUuid = lUtils.formatUuid(row.productUuid);
 
@@ -317,11 +295,11 @@ if (
 					products[row.productUuid].attributes = {};
 				}
 
-				if (products[row.productUuid].attributes[row.attributeName] === undefined) {
-					products[row.productUuid].attributes[row.attributeName] = [];
+				if (products[row.productUuid].attributes[attributeName] === undefined) {
+					products[row.productUuid].attributes[attributeName] = [];
 				}
 
-				products[row.productUuid].attributes[row.attributeName].push(row.data);
+				products[row.productUuid].attributes[attributeName].push(row.data);
 			}
 
 			cb();

@@ -3,11 +3,25 @@
 const	dataWriter	= require(__dirname + '/dataWriter.js'),
 	stripBom	= require('strip-bom'),
 	uuidLib	= require('uuid'),
+	lUtils	= require('larvitutils'),
 	async	= require('async'),
 	log	= require('winston'),
 	db	= require('larvitdb');
 
 let intercom;
+
+function getAttributeName(uuid) {
+	const	uuidBuffer	= typeof uuid === 'object' ? uuid : lUtils.uuidToBuffer(uuid),
+		uuidHex	= uuidBuffer.toString('hex');
+
+	for (let i = 0; exports.attributes[i] !== undefined; i ++) {
+		if (exports.attributes[i].uuid.toString('hex') === uuidHex) {
+			return exports.attributes[i].name;
+		}
+	}
+
+	return undefined;
+}
 
 function getAttributeUuidBuffer(attributeName, cb) {
 	// Remove unprintable space
@@ -99,6 +113,10 @@ function getAttributeValues(attributeName, cb) {
 }
 
 function loadAttributesToCache(cb) {
+	if (typeof cb !== 'function') {
+		cb = function () {};
+	}
+
 	db.query('SELECT * FROM product_attributes ORDER BY name;', function (err, rows) {
 		if (err) {
 			log.error('larvitproduct: helpers.js - loadAttributesToCache() - Database error: ' + err.message);
@@ -116,6 +134,7 @@ function loadAttributesToCache(cb) {
 		cb();
 	});
 }
+loadAttributesToCache();
 
 function ready(cb) {
 	dataWriter.ready(function (err) {
@@ -125,6 +144,7 @@ function ready(cb) {
 }
 
 exports.attributes	= [];
+exports.getAttributeName	= getAttributeName;
 exports.getAttributeUuidBuffer	= getAttributeUuidBuffer;
 exports.getAttributeUuidBuffers	= getAttributeUuidBuffers;
 exports.getAttributeValues	= getAttributeValues;
