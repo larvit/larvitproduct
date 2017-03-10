@@ -2,16 +2,18 @@
 
 const	EventEmitter	= require('events').EventEmitter,
 	eventEmitter	= new EventEmitter(),
+	topLogPrefix	= 'larvitproduct: product.js: ',
 	dataWriter	= require(__dirname + '/dataWriter.js'),
-	Products	= require(__dirname + '/products.js'),
 	helpers	= require(__dirname + '/helpers.js'),
 	uuidLib	= require('uuid'),
+	lUtils	= require('larvitutils'),
 	async	= require('async'),
 	log	= require('winston');
 
 let	readyInProgress	= false,
 	isReady	= false,
-	intercom;
+	intercom,
+	es;
 
 function ready(cb) {
 	const	tasks	= [];
@@ -30,14 +32,12 @@ function ready(cb) {
 		dataWriter.ready(cb);
 	});
 
-	// Set intercom after dataWriter is ready
+	// Set intercom and es after dataWriter is ready
 	tasks.push(function (cb) {
-		intercom	= require('larvitutils').instances.intercom;
+		intercom	= lUtils.instances.intercom;
+		es	= lUtils.instances.elasticsearch;
 		cb();
 	});
-
-	// Load attributes
-	tasks.push(helpers.loadAttributesToCache);
 
 	async.series(tasks, function () {
 		isReady	= true;
@@ -47,6 +47,8 @@ function ready(cb) {
 }
 
 function Product(options) {
+	const	logPrefix	= topLogPrefix + 'Product() - ';
+
 	if (options === undefined) {
 		options = {};
 	}
@@ -59,7 +61,7 @@ function Product(options) {
 		this.uuid	= options.uuid;
 	} else {
 		this.uuid	= uuidLib.v1();
-		log.verbose('larvitproduct: product.js: Product() - New Product - Creating Product with uuid: ' + this.uuid);
+		log.verbose(logPrefix + 'New Product - Creating Product with uuid: ' + this.uuid);
 	}
 
 	this.created	= options.created;
@@ -71,24 +73,48 @@ function Product(options) {
 }
 
 Product.prototype.loadFromDb = function (cb) {
-	const	products	= new Products(),
+	const	logPrefix	= topLogPrefix + 'Product.prototype.loadFromDb() - uuid: ' + this.uuid + ' - ',
 		tasks	= [],
 		that	= this;
+
+	let	esResult;
 
 	tasks.push(ready);
 
 	tasks.push(function (cb) {
-		products.uuids	= [that.uuid];
-		products.returnAllAttributes	= true;
-		products.get(function (err, result) {
-			if (err) { cb(err); return; }
+		es.get({
+			'index':	'larvitproduct',
+			'type':	'product',
+			'id':	that.uuid
+		}, function (err, result) {
+			if (err && err.status === 404) {
+				log.debug(logPrefix + 'No product found in database');
+				esResult	= false;
+				cb();
+			} else if (err) {
+				log.error(logPrefix + 'es.get() - err: ' + err.message);
+				return cb(err);
+			}
 
-			if (Object.keys(result).length) {
-				for (const productUuid of Object.keys(result)) {
-					for (const attr of Object.keys(result[productUuid])) {
-						that[attr] = result[productUuid][attr];
-					}
-				}
+			esResult	= result;
+			cb();
+		});
+	});
+
+	tasks.push(function (cb) {
+		helpers.formatEsResult(esResult, function (err, result) {
+			if (err) return cb(err);
+
+			if (result && result.uuid) {
+				that.uuid	= result.uuid;
+			}
+
+			if (result && result.created) {
+				that.created	= result.created;
+			}
+
+			if (result && result.attributes) {
+				that.attributes	= result.attributes;
 			}
 
 			cb();
@@ -112,7 +138,7 @@ Product.prototype.rm = function (cb) {
 	message.params.uuids	= [that.uuid];
 
 	intercom.send(message, options, function (err, msgUuid) {
-		if (err) { cb(err); return; }
+		if (err) return cb(err);
 
 		dataWriter.emitter.once(msgUuid, cb);
 	});
@@ -138,7 +164,7 @@ Product.prototype.save = function (cb) {
 		message.params.attributes	= that.attributes;
 
 		intercom.send(message, options, function (err, msgUuid) {
-			if (err) { cb(err); return; }
+			if (err) return cb(err);
 
 			dataWriter.emitter.once(msgUuid, cb);
 		});

@@ -1,151 +1,83 @@
 'use strict';
 
-const	dataWriter	= require(__dirname + '/dataWriter.js'),
-	stripBom	= require('strip-bom'),
-	uuidLib	= require('uuid'),
+const	topLogPrefix	= 'larvitproduct: helpers.js - ',
+	dataWriter	= require(__dirname + '/dataWriter.js'),
 	lUtils	= require('larvitutils'),
-	async	= require('async'),
 	log	= require('winston'),
-	db	= require('larvitdb');
+	_	= require('lodash');
 
-let intercom;
+let	es;
 
-function getAttributeName(uuid) {
-	const	uuidBuffer	= typeof uuid === 'object' ? uuid : lUtils.uuidToBuffer(uuid),
-		uuidHex	= uuidBuffer.toString('hex');
+function formatEsResult(esResult, cb) {
+	const	logPrefix	= topLogPrefix + 'formatEsResult() - ',
+		product	= {};
 
-	for (let i = 0; exports.attributes[i] !== undefined; i ++) {
-		if (exports.attributes[i].uuid.toString('hex') === uuidHex) {
-			return exports.attributes[i].name;
+	if (esResult === false) {
+		return cb(null, product);
+	}
+
+	if ( ! esResult._id) {
+		const	err	= new Error('Missing esResult._id, full esResult: ' + JSON.stringify(esResult));
+		log.warn(logPrefix + err.message);
+		return cb(err);
+	}
+
+	product.uuid	= esResult._id;
+
+	if (esResult._source) {
+		product.attributes = _.cloneDeep(esResult._source);
+
+		if (product.attributes.created) {
+			product.created	= new Date(esResult._source.created);
+			delete product.attributes.created;
 		}
 	}
 
-	return undefined;
+	cb(null, product);
 }
-
-function getAttributeUuidBuffer(attributeName, cb) {
-	// Remove unprintable space
-	attributeName = stripBom(String(attributeName));
-
-	for (let i = 0; exports.attributes[i] !== undefined; i ++) {
-		if (exports.attributes[i].name === attributeName) {
-			cb(null, exports.attributes[i].uuid);
-			return;
-		}
-	}
-
-	// If we get down here, the field does not exist, create it and rerun
-	ready(function (err) {
-		const	options	= {'exchange': dataWriter.exchangeName},
-			message	= {};
-
-		if (err) { cb(err); return; }
-
-		message.action	= 'writeAttribute';
-		message.params	= {};
-
-		message.params.uuid	= uuidLib.v1();
-		message.params.name	= attributeName;
-
-		intercom.send(message, options, function (err, msgUuid) {
-			if (err) { cb(err); return; }
-
-			dataWriter.emitter.once(msgUuid, function (err) {
-				if (err) { cb(err); return; }
-
-				loadAttributesToCache(function (err) {
-					if (err) { cb(err); return; }
-
-					getAttributeUuidBuffer(attributeName, cb);
-				});
-			});
-		});
-	});
-};
-
-/**
- * Get attribute uuids by names
- *
- * @param arr	attributeNames array of strings
- * @param func	cb(err, object with names as key and uuids as values)
- */
-function getAttributeUuidBuffers(attributeNames, cb) {
-	const	fieldUuidsByName	= {},
-		tasks	= [];
-
-	for (let i = 0; attributeNames[i] !== undefined; i ++) {
-		const	attributeName = attributeNames[i];
-
-		tasks.push(function (cb) {
-			getAttributeUuidBuffer(attributeName, function (err, fieldUuid) {
-				if (err) { cb(err); return; }
-
-				fieldUuidsByName[attributeName] = fieldUuid;
-				cb();
-			});
-		});
-	}
-
-	async.parallel(tasks, function (err) {
-		if (err) { cb(err); return; }
-
-		cb(null, fieldUuidsByName);
-	});
-};
 
 function getAttributeValues(attributeName, cb) {
-	const	dbFields	=	[attributeName],
-		sql	=	'SELECT DISTINCT `data`\n' +
-				'FROM product_product_attributes\n' +
-				'WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?)';
+	const	logPrefix	= topLogPrefix + 'getAttributeValues() - ';
 
-	db.query(sql, dbFields, function (err, rows) {
-		const	values = [];
+	ready(function (err) {
+		const	values	= [];
 
-		if (err) { cb(err); return; }
+		if (err) return cb(err);
 
-		for (let i = 0; rows[i] !== undefined; i ++) {
-			values.push(rows[i].data);
-		}
+		es.search({
+			'index':	'larvitproduct',
+			'type':	'product',
+			'body': {
+				'aggs': {
+					'thingie': {
+						'terms': {
+							'field': attributeName + '.keyword'
+						}
+					}
+				}
+			}
+		}, function (err, result) {
+			if (err) {
+				log.error(logPrefix + err.message);
+				return cb(err);
+			}
 
-		cb(null, values);
+			for (let i = 0; result.aggregations.thingie.buckets[i] !== undefined; i ++) {
+				values.push(result.aggregations.thingie.buckets[i].key);
+			}
+
+			cb(null, values);
+		});
 	});
 }
-
-function loadAttributesToCache(cb) {
-	if (typeof cb !== 'function') {
-		cb = function () {};
-	}
-
-	db.query('SELECT * FROM product_attributes ORDER BY name;', function (err, rows) {
-		if (err) {
-			log.error('larvitproduct: helpers.js - loadAttributesToCache() - Database error: ' + err.message);
-			return;
-		}
-
-		// Empty the previous cache
-		exports.attributes.length = 0;
-
-		// Load the new values
-		for (let i = 0; rows[i] !== undefined; i ++) {
-			exports.attributes.push(rows[i]);
-		}
-
-		cb();
-	});
-}
-loadAttributesToCache();
 
 function ready(cb) {
 	dataWriter.ready(function (err) {
-		intercom	= require('larvitutils').instances.intercom;
+		es	= lUtils.instances.elasticsearch;
 		cb(err);
 	});
 }
 
 exports.attributes	= [];
-exports.getAttributeName	= getAttributeName;
-exports.getAttributeUuidBuffer	= getAttributeUuidBuffer;
-exports.getAttributeUuidBuffers	= getAttributeUuidBuffers;
+exports.formatEsResult	= formatEsResult;
 exports.getAttributeValues	= getAttributeValues;
-exports.loadAttributesToCache	= loadAttributesToCache;

@@ -2,23 +2,24 @@
 
 const	EventEmitter	= require('events').EventEmitter,
 	eventEmitter	= new EventEmitter(),
-	dbmigration	= require('larvitdbmigration')({'tableName': 'product_db_version', 'migrationScriptsPath': __dirname + '/dbmigration'}),
+	topLogPrefix	= 'larvitproduct: dataWriter.js - ',
 	stripBom	= require('strip-bom'),
-	helpers	= require(__dirname + '/helpers.js'),
 	lUtils	= require('larvitutils'),
 	amsync	= require('larvitamsync'),
 	async	= require('async'),
 	log	= require('winston'),
-	db	= require('larvitdb');
+	_	= require('lodash');
 
 let	readyInProgress	= false,
 	isReady	= false,
-	intercom;
+	intercom,
+	es;
 
 eventEmitter.setMaxListeners(30);
 
 function listenToQueue(retries, cb) {
-	const	options	= {'exchange': exports.exchangeName};
+	const	logPrefix	= topLogPrefix + 'listenToQueue() - ',
+		options	= {'exchange': exports.exchangeName};
 
 	let	listenMethod;
 
@@ -45,7 +46,7 @@ function listenToQueue(retries, cb) {
 		listenMethod = 'subscribe';
 	} else {
 		const	err	= new Error('Invalid exports.mode. Must be either "master", "slave" or "noSync"');
-		log.error('larvitproduct: dataWriter.js - listenToQueue() - ' + err.message);
+		log.error(logPrefix + err.message);
 		cb(err);
 		return;
 	}
@@ -59,15 +60,15 @@ function listenToQueue(retries, cb) {
 		}, 50);
 		return;
 	} else if ( ! (intercom instanceof require('larvitamintercom'))) {
-		log.error('larvitproduct: dataWriter.js - listenToQueue() - Intercom is not set!');
+		log.error(logPrefix + 'Intercom is not set!');
 		return;
 	}
 
-	log.info('larvitproduct: dataWriter.js - listenToQueue() - listenMethod: ' + listenMethod);
+	log.info(logPrefix + 'listenMethod: ' + listenMethod);
 
 	intercom.ready(function (err) {
 		if (err) {
-			log.error('larvitproduct: dataWriter.js - listenToQueue() - intercom.ready() err: ' + err.message);
+			log.error(logPrefix + 'intercom.ready() err: ' + err.message);
 			return;
 		}
 
@@ -76,19 +77,19 @@ function listenToQueue(retries, cb) {
 				ack(err); // Ack first, if something goes wrong we log it and handle it manually
 
 				if (err) {
-					log.error('larvitproduct: dataWriter.js - listenToQueue() - intercom.' + listenMethod + '() - exports.ready() returned err: ' + err.message);
+					log.error(logPrefix + 'intercom.' + listenMethod + '() - exports.ready() returned err: ' + err.message);
 					return;
 				}
 
 				if (typeof message !== 'object') {
-					log.error('larvitproduct: dataWriter.js - listenToQueue() - intercom.' + listenMethod + '() - Invalid message received, is not an object! deliveryTag: "' + deliveryTag + '"');
+					log.error(logPrefix + 'intercom.' + listenMethod + '() - Invalid message received, is not an object! deliveryTag: "' + deliveryTag + '"');
 					return;
 				}
 
 				if (typeof exports[message.action] === 'function') {
 					exports[message.action](message.params, deliveryTag, message.uuid);
 				} else {
-					log.warn('larvitproduct: dataWriter.js - listenToQueue() - intercom.' + listenMethod + '() - Unknown message.action received: "' + message.action + '"');
+					log.warn(logPrefix + 'intercom.' + listenMethod + '() - Unknown message.action received: "' + message.action + '"');
 				}
 			});
 		}, ready);
@@ -100,7 +101,8 @@ setImmediate(listenToQueue);
 
 // This is ran before each incoming message on the queue is handeled
 function ready(retries, cb) {
-	const	tasks	= [];
+	const	logPrefix	= topLogPrefix + 'ready() - ',
+		tasks	= [];
 
 	if (typeof retries === 'function') {
 		cb	= retries;
@@ -122,7 +124,7 @@ function ready(retries, cb) {
 		return;
 	}
 
-	intercom	= require('larvitutils').instances.intercom;
+	intercom	= lUtils.instances.intercom;
 
 	if ( ! (intercom instanceof require('larvitamintercom')) && retries < 10) {
 		retries ++;
@@ -131,34 +133,57 @@ function ready(retries, cb) {
 		}, 50);
 		return;
 	} else if ( ! (intercom instanceof require('larvitamintercom'))) {
-		log.error('larvitproduct: dataWriter.js - ready() - Intercom is not set!');
+		log.error(logPrefix + 'Intercom is not set!');
+		return;
+	}
+
+	es	= lUtils.instances.elasticsearch;
+
+	if (es === undefined && retries < 10) {
+		retries ++;
+		setTimeout(function () {
+			ready(retries, cb);
+		}, 50);
+		return;
+	} else if (es === undefined) {
+		log.error(logPrefix + 'Elasticsearch is not set!');
 		return;
 	}
 
 	readyInProgress = true;
 
-	if (exports.mode === 'slave') {
-		log.verbose('larvitproduct: dataWriter.js - ready() - exports.mode: "' + exports.mode + '", so read');
-
-		tasks.push(function (cb) {
-			amsync.mariadb({'exchange': exports.exchangeName + '_dataDump'}, cb);
-		});
-	}
-
-	if (exports.mode === 'noSync') {
-		log.warn('larvitproduct: dataWriter.js - ready() - exports.mode: "' + exports.mode + '", never run this mode in production!');
-	}
-
-	// Migrate database
 	tasks.push(function (cb) {
-		dbmigration(function (err) {
+		es.ping(function (err) {
 			if (err) {
-				log.error('larvitproduct: dataWriter.js - ready() - Database error: ' + err.message);
+				log.error(logPrefix + 'es.ping() - ' + err.message);
 			}
 
 			cb(err);
 		});
 	});
+
+	// Create elasticsearch index
+	tasks.push(function (cb) {
+		es.indices.create({'index': 'larvitproduct'}, function (err) {
+			if (err) {
+				log.error(logPrefix + 'es.indices.create() - ' + err.message);
+			}
+
+			cb(err);
+		});
+	});
+
+	if (exports.mode === 'slave') {
+		log.verbose(logPrefix + 'exports.mode: "' + exports.mode + '", so read');
+
+		//tasks.push(function (cb) {
+		//	amsync.mariadb({'exchange': exports.exchangeName + '_dataDump'}, cb);
+		//});
+	}
+
+	if (exports.mode === 'noSync') {
+		log.warn(logPrefix + 'exports.mode: "' + exports.mode + '", never run this mode in production!');
+	}
 
 	async.series(tasks, function (err) {
 		if (err) {
@@ -178,58 +203,18 @@ function ready(retries, cb) {
 
 function rmProducts(params, deliveryTag, msgUuid) {
 	const	productUuids	= params.uuids,
-		productUuidBufs	= [],
-		tasks	= [];
-
-	for (let i = 0; productUuids[i] !== undefined; i ++) {
-		productUuidBufs.push(lUtils.uuidToBuffer(productUuids[i]));
-	}
+		body	= [];
 
 	if (productUuids.length === 0) {
 		exports.emitter.emit(msgUuid, null);
 		return;
 	}
 
-	// Delete attributes
-	tasks.push(function (cb) {
-		let	sql	= 'DELETE FROM product_product_attributes WHERE productUuid IN (';
+	for (let i = 0; productUuids[i] !== undefined; i ++) {
+		body.push({'delete': {'_index': 'larvitproduct', '_type': 'product', '_id': productUuids[i]}});
+	}
 
-		for (let i = 0; productUuidBufs[i] !== undefined; i ++) {
-			sql += '?,';
-		}
-
-		sql = sql.substring(0, sql.length - 1) + ');';
-
-		db.query(sql, productUuidBufs, cb);
-	});
-
-	// Delete from search index
-	tasks.push(function (cb) {
-		let	sql	= 'DELETE FROM product_search_index WHERE productUuid IN (';
-
-		for (let i = 0; productUuidBufs[i] !== undefined; i ++) {
-			sql += '?,';
-		}
-
-		sql = sql.substring(0, sql.length - 1) + ');';
-
-		db.query(sql, productUuidBufs, cb);
-	});
-
-	// Delete product
-	tasks.push(function (cb) {
-		let	sql	= 'DELETE FROM product_products WHERE uuid IN (';
-
-		for (let i = 0; productUuidBufs[i] !== undefined; i ++) {
-			sql += '?,';
-		}
-
-		sql = sql.substring(0, sql.length - 1) + ');';
-
-		db.query(sql, productUuidBufs, cb);
-	});
-
-	async.series(tasks, function (err) {
+	es.bulk({'body': body}, function (err) {
 		exports.emitter.emit(msgUuid, err);
 	});
 }
@@ -271,162 +256,63 @@ function runDumpServer(cb) {
 	new amsync.SyncServer(options, cb);
 }
 
-function setAttribute(params, deliveryTag, msgUuid) {
-	const	tasks	= [];
-
-	if (params.productUuids.length === 0) {
-		exports.emitter.emit(msgUuid, null);
-		return;
-	}
-
-	// Remove this attribute from the given products
-	tasks.push(function (cb) {
-		const	dbFields	= [params.attributeName];
-
-		let	sql	= 'DELETE FROM product_product_attributes WHERE attributeUuid = (SELECT uuid FROM product_attributes WHERE name = ?) AND productUuid IN (';
-
-		for (let i = 0; params.productUuids[i] !== undefined; i ++) {
-			sql += '?,';
-			dbFields.push(lUtils.uuidToBuffer(params.productUuids[i]));
-		}
-
-		sql = sql.substring(0, sql.length - 1) + ');';
-
-		db.query(sql, dbFields, cb);
-	});
-
-	// Make sure the new attribute exists
-	tasks.push(function (cb) {
-		helpers.getAttributeUuidBuffers([params.attributeName], cb);
-	});
-
-	// Set the new attribute value
-	tasks.push(function (cb) {
-		const	dbFields	= [params.attributeName, params.attributeValue];
-
-		let	sql	= 'INSERT INTO product_product_attributes (productUuid, attributeUuid, data) ';
-
-		sql += 'SELECT uuid, (SELECT uuid FROM product_attributes WHERE name = ?), ? FROM product_products WHERE uuid IN (';
-
-		for (let i = 0; params.productUuids[i] !== undefined; i ++) {
-			sql += '?,';
-			dbFields.push(lUtils.uuidToBuffer(params.productUuids[i]));
-		}
-
-		sql = sql.substring(0, sql.length - 1) + ');';
-
-		db.query(sql, dbFields, cb);
-	});
-
-	// Update search index
-	tasks.push(function (cb) {
-		const	dbFields	= [];
-
-		let	sql	= 'REPLACE INTO product_search_index (productUuid, content) ';
-
-		sql += 'SELECT productUuid, GROUP_CONCAT(data SEPARATOR \' \') ';
-		sql += 'FROM product_product_attributes WHERE productUuid IN (';
-
-		for (let i = 0; params.productUuids[i] !== undefined; i ++) {
-			sql += '?,';
-			dbFields.push(lUtils.uuidToBuffer(params.productUuids[i]));
-		}
-
-		sql = sql.substring(0, sql.length - 1) + ') ';
-		sql += 'GROUP BY productUuid;';
-
-		db.query(sql, dbFields, cb);
-	});
-
-	async.series(tasks, function (err) {
-		exports.emitter.emit(msgUuid, err);
-	});
-}
-
 function writeProduct(params, deliveryTag, msgUuid) {
 	const	productAttributes	= params.attributes,
 		productUuid	= params.uuid,
-		productUuidBuf	= lUtils.uuidToBuffer(productUuid),
+		logPrefix	= topLogPrefix + 'writeProduct() - ',
 		created	= params.created,
 		tasks	= [];
 
-	let	attributeUuidsByName;
-
-	if (lUtils.formatUuid(productUuid) === false || productUuidBuf === false) {
+	if (lUtils.formatUuid(productUuid) === false) {
 		const err = new Error('Invalid productUuid: "' + productUuid + '"');
-		log.error('larvitproduct: ./dataWriter.js - writeProduct() - ' + err.message);
+		log.error(logPrefix + err.message);
 		exports.emitter.emit(productUuid, err);
 		return;
 	}
 
-	// Make sure the base product row exists
 	tasks.push(function (cb) {
-		const	sql	= 'INSERT IGNORE INTO product_products (uuid, created) VALUES(?,?)';
+		const	body	= {'created': created};
 
-		db.query(sql, [productUuidBuf, created], cb);
-	});
+		_.merge(body, productAttributes);
 
-	// Clean out old attribute data
-	tasks.push(function (cb) {
-		db.query('DELETE FROM product_product_attributes WHERE productUuid = ?', [productUuidBuf], cb);
-	});
+		// Make sure all attributes are arrays of strings
+		for (let attributeName of Object.keys(body)) {
+			if (attributeName === 'created') {
+				continue;
+			}
 
-	// By now we have a clean database, lets insert stuff!
+			// Clean BOM from attributeName
+			if (stripBom(attributeName) !== attributeName) {
+				body[stripBom(attributeName)] = body[attributeName];
+				delete body[attributeName];
+				attributeName = stripBom(attributeName);
+			}
 
-	// Get all attribute uuids
-	tasks.push(function (cb) {
-		helpers.getAttributeUuidBuffers(Object.keys(productAttributes), function (err, result) {
-			attributeUuidsByName = result;
-			cb(err);
+			if ( ! Array.isArray(body[attributeName])) {
+				body[attributeName] = [body[attributeName]];
+			}
+
+			body[attributeName] = body[attributeName].map(function (val) {
+				return String(val);
+			});
+		}
+
+		es.index({
+			'index':	'larvitproduct',
+			'id':	productUuid,
+			'type':	'product',
+			'body':	body
+		}, function (err) {
+			if (err) {
+				log.error(logPrefix + 'Could not write product to elasticsearch: ' + err.message);
+				return cb(err);
+			}
+
+			cb();
 		});
 	});
 
-	// Insert attributes
-	tasks.push(function (cb) {
-		const	dbFields	= [];
-
-		let	sql	= 'INSERT INTO product_product_attributes (productUuid, attributeUuid, `data`) VALUES';
-
-		for (const fieldName of Object.keys(productAttributes)) {
-			if ( ! (productAttributes[fieldName] instanceof Array)) {
-				productAttributes[fieldName] = [productAttributes[fieldName]];
-			}
-
-			for (let i = 0; productAttributes[fieldName][i] !== undefined; i ++) {
-				const	attributeData	= productAttributes[fieldName][i];
-				sql += '(?,?,?),';
-				dbFields.push(productUuidBuf);
-				dbFields.push(attributeUuidsByName[fieldName]);
-				dbFields.push(stripBom(String(attributeData)));
-			}
-		}
-
-		sql = sql.substring(0, sql.length - 1) + ';';
-
-		db.query(sql, dbFields, cb);
-	});
-
-	// Update search index
-	tasks.push(function (cb) {
-		let	sql	= 'REPLACE INTO product_search_index (productUuid, content) ';
-
-		sql += 'SELECT productUuid, GROUP_CONCAT(data SEPARATOR \' \') ';
-		sql += 'FROM product_product_attributes WHERE productUuid = ? ';
-		sql += 'GROUP BY productUuid;';
-
-		db.query(sql, productUuidBuf, cb);
-	});
-
 	async.series(tasks, function (err) {
-		exports.emitter.emit(msgUuid, err);
-	});
-}
-
-function writeAttribute(params, deliveryTag, msgUuid) {
-	const	uuid	= params.uuid,
-		name	= params.name;
-
-	db.query('INSERT IGNORE INTO product_attributes (uuid, name) VALUES(?,?)', [lUtils.uuidToBuffer(uuid), stripBom(String(name))], function (err) {
 		exports.emitter.emit(msgUuid, err);
 	});
 }
@@ -437,6 +323,4 @@ exports.listenToQueue	= listenToQueue;
 exports.mode	= 'slave'; // or "master"
 exports.ready	= ready;
 exports.rmProducts	= rmProducts;
-exports.setAttribute	= setAttribute;
-exports.writeAttribute	= writeAttribute;
 exports.writeProduct	= writeProduct;
