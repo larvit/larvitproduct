@@ -31,6 +31,7 @@
     "iconv-lite": "^0.4.15",
     "larvitamintercom": "^0.1.11",
     "larvitamsync": "^0.2.0",
+    "larvitdbmigration": "^2.0.0",
     "larvitutils": "^1.0.4",
     "lodash": "^4.17.2",
     "strip-bom": "^3.0.0",

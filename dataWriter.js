@@ -3,6 +3,7 @@
 const	EventEmitter	= require('events').EventEmitter,
 	eventEmitter	= new EventEmitter(),
 	topLogPrefix	= 'larvitproduct: dataWriter.js - ',
+	DbMigration	= require('larvitdbmigration'),
 	stripBom	= require('strip-bom'),
 	lUtils	= require('larvitutils'),
 	amsync	= require('larvitamsync'),
@@ -162,15 +163,19 @@ function ready(retries, cb) {
 		});
 	});
 
-	// Create elasticsearch index
+	// Run database migrations
 	tasks.push(function (cb) {
-		es.indices.create({'index': 'larvitproduct'}, function (err) {
-			if (err) {
-				log.error(logPrefix + 'es.indices.create() - ' + err.message);
-			}
+		const	options	= {};
 
-			cb(err);
-		});
+		let dbMigration;
+
+		options.dbType	= 'elasticsearch';
+		options.dbDriver	= es;
+		options.tableName	= 'larvitproduct_db_version';
+		options.migrationScriptsPath	= __dirname + '/dbmigration';
+		dbMigration	= new DbMigration(options);
+
+		dbMigration.run(cb);
 	});
 
 	if (exports.mode === 'slave') {
@@ -220,6 +225,7 @@ function rmProducts(params, deliveryTag, msgUuid) {
 }
 
 function runDumpServer(cb) {
+	return cb();
 	const	options	= {'exchange': exports.exchangeName + '_dataDump'},
 		args	= [];
 
