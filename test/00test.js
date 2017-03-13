@@ -4,6 +4,7 @@ const	elasticsearch	= require('elasticsearch'),
 	uuidValidate	= require('uuid-validate'),
 	productLib	= require(__dirname + '/../index.js'),
 	Intercom	= require('larvitamintercom'),
+	request	= require('request'),
 	assert	= require('assert'),
 	lUtils	= require('larvitutils'),
 	async	= require('async'),
@@ -12,6 +13,7 @@ const	elasticsearch	= require('elasticsearch'),
 	os	= require('os');
 
 let	esConf,
+	esUrl,
 	es;
 
 // Set up winston
@@ -119,6 +121,8 @@ before(function (done) {
 
 	// Put mappings to ES to match our tests
 	tasks.push(function (cb) {
+		esUrl	= 'http://' + esConf.clientOptions.host;
+
 		es.indices.putMapping({
 			'index':	'larvitproduct',
 			'type':	'product',
@@ -557,14 +561,42 @@ describe('Import', function () {
 		es.mget(body, cb);
 	}
 
-	it('very simple test case', function (done) {
-		const	productStr	= 'name,price,description\nball,100,it is round\ntv,55,"About 32"" in size"';
-
-		importFromStr(productStr, {}, function (err, uuids) {
+	function countProducts(cb) {
+		request({'url': esUrl + '/larvitproduct/product/_count', 'json': true}, function (err, response, body) {
 			if (err) throw err;
 
-			assert.deepStrictEqual(uuids.length,	2);
+			cb(err, body.count);
+		});
+	}
 
+	it('very simple test case', function (done) {
+		const	productStr	= 'name,price,description\nball,100,it is round\ntv,55,"About 32"" in size"',
+			tasks	= [];
+
+		let	uuids;
+
+		// Do a pre-count
+		tasks.push(function (cb) {
+			countProducts(function (err, count) {
+				assert.strictEqual(count,	9);
+				cb(err);
+			});
+		});
+
+		// Run importer
+		tasks.push(function (cb) {
+			importFromStr(productStr, {}, function (err, result) {
+				if (err) throw err;
+
+				uuids	= result;
+
+				assert.deepStrictEqual(uuids.length,	2);
+				cb();
+			});
+		});
+
+		// Get product data and check it
+		tasks.push(function (cb) {
 			getProductData(uuids, function (err, testProducts) {
 				if (err) throw err;
 
@@ -586,20 +618,51 @@ describe('Import', function () {
 					}
 				}
 
-				done();
+				cb();
 			});
 		});
+
+		// Count total number of products in database
+		tasks.push(function (cb) {
+			countProducts(function (err, count) {
+				assert.strictEqual(count,	11);
+				cb(err);
+			});
+		});
+
+		async.series(tasks, done);
 	});
 
 	it('Override static column data', function (done) {
 		const	productStr	= 'name,artNo,size,enabled\nball,abc01,3,true\ntv,abc02,14,false\nspoon,abc03,2,true',
-			options	= {'staticCols': { 'foul': 'nope', 'enabled': 'false'} };
+			options	= {'staticCols': { 'foul': 'nope', 'enabled': 'false'} },
+			tasks	= [];
 
-		importFromStr(productStr, options, function (err, uuids) {
-			if (err) throw err;
+		let	preNoProducts,
+			uuids;
 
-			assert.deepStrictEqual(uuids.length,	3);
+		// Pre-count products
+		tasks.push(function (cb) {
+			countProducts(function (err, count) {
+				preNoProducts	= count;
+				cb(err);
+			});
+		});
 
+		// Import
+		tasks.push(function (cb) {
+			importFromStr(productStr, options, function (err, result) {
+				if (err) throw err;
+
+				uuids	= result;
+
+				assert.deepStrictEqual(uuids.length,	3);
+				cb();
+			});
+		});
+
+		// Get and check product data
+		tasks.push(function (cb) {
 			getProductData(uuids, function (err, testProducts) {
 				if (err) throw err;
 
@@ -629,12 +692,95 @@ describe('Import', function () {
 						throw new Error('Unexpected product: ' + JSON.stringify(product));
 					}
 				}
-				done();
+
+				cb();
 			});
 		});
+
+		// Count products
+		tasks.push(function (cb) {
+			countProducts(function (err, count) {
+				assert.strictEqual(count - preNoProducts,	3);
+				cb(err);
+			});
+		});
+
+		async.series(tasks, done);
 	});
 
-	it('Replace by columns', function (done) {
+	it('Replace by one column', function (done) {
+		const	productStr	= 'name,artNo,size\nball,abc01,15\ntv,abc02,14\ncar,abc13,2',
+			options	= {'replaceByCols': 'artNo'},
+			tasks	= [];
+
+		let	preNoProducts,
+			uuids;
+
+		// Pre-count products
+		tasks.push(function (cb) {
+			countProducts(function (err, count) {
+				preNoProducts	= count;
+				cb(err);
+			});
+		});
+
+		// Run the import
+		tasks.push(function (cb) {
+			importFromStr(productStr, options, function (err, result) {
+				if (err) throw err;
+				uuids = result;
+				assert.deepStrictEqual(uuids.length,	3);
+				cb();
+			});
+		});
+
+		// Refresh index
+		tasks.push(function (cb) {
+			es.indices.refresh({'index': 'larvitproduct'}, cb);
+		});
+
+		// Count hits after index
+		tasks.push(function (cb) {
+			countProducts(function (err, count) {
+				if (err) throw err;
+				assert.strictEqual(preNoProducts, (count - 1));
+				cb();
+			});
+		});
+
+		// Check product data
+		tasks.push(function (cb) {
+			getProductData(uuids, function (err, testProducts) {
+				if (err) throw err;
+
+				assert.strictEqual(testProducts.docs.length,	3);
+
+				for (let i = 0; testProducts.docs[i] !== undefined; i ++) {
+					const	product	= testProducts.docs[i];
+
+					assert.deepStrictEqual(Object.keys(product._source).length,	4);
+
+					if (product._source.name[0] === 'ball') {
+						assert.deepStrictEqual(product._source.artNo[0],	'abc01');
+						assert.deepStrictEqual(product._source.size[0],	'15');
+					} else if (product._source.name[0] === 'tv') {
+						assert.deepStrictEqual(product._source.artNo[0],	'abc02');
+						assert.deepStrictEqual(product._source.size[0],	'14');
+					} else if (product._source.name[0] === 'car') {
+						assert.deepStrictEqual(product._source.artNo[0],	'abc13');
+						assert.deepStrictEqual(product._source.size[0],	'2');
+					} else {
+						throw new Error('Unexpected product: ' + JSON.stringify(product));
+					}
+				}
+				cb();
+			});
+		});
+
+		async.series(tasks, done);
+	});
+/*
+	it('Replace by two columns', function (done) {
 		const	productStr	= 'name,artNo,size\nball,abc01,15\ntv,abc02,14\ncar,abc13,2',
 			options	= {'replaceByCols': 'artNo'},
 			tasks	= [];
@@ -706,6 +852,7 @@ describe('Import', function () {
 
 		async.series(tasks, done);
 	});
+	*/
 });
 
 after(function (done) {

@@ -181,10 +181,11 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 					}
 
 					if (options.findByCols) {
-						const	terms	= {};
+						const	terms	= [];
 
 						for (let i = 0; options.findByCols[i] !== undefined; i ++) {
-							const	col	= options.findByCols[i];
+							const	term	= {'term': {}},
+								col	= options.findByCols[i];
 
 							if ( ! attributes[col]) {
 								const	err	= new Error('findByCols: "' + col + '" is entered, but product does not have this col');
@@ -192,7 +193,9 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 								return cb(err);
 							}
 
-							terms[col] = attributes[col];
+							term.term[col] = attributes[col];
+
+							terms.push(term);
 						}
 
 						es.search({
@@ -202,14 +205,16 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 								'query': {
 									'constant_score': {
 										'filter': {
-											'term': terms
+											'bool': {
+												'must': terms
+											}
 										}
 									}
 								}
 							}
 						}, function (err, result) {
 							if (err) {
-								log(logPrefix + 'findByCols es.search err: ' + err.message);
+								log.warn(logPrefix + 'findByCols es.search err: ' + err.message);
 								return cb(err);
 							}
 

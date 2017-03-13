@@ -90,7 +90,7 @@ Product.prototype.loadFromDb = function (cb) {
 			if (err && err.status === 404) {
 				log.debug(logPrefix + 'No product found in database');
 				esResult	= false;
-				cb();
+				return cb();
 			} else if (err) {
 				log.error(logPrefix + 'es.get() - err: ' + err.message);
 				return cb(err);
