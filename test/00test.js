@@ -142,7 +142,7 @@ before(function (done) {
 
 	async.series(tasks, done);
 });
-
+/*
 describe('Product', function () {
 	let	productUuid;
 
@@ -511,7 +511,7 @@ describe('Helpers', function () {
 		});
 	});
 });
-
+*/
 describe('Import', function () {
 
 	// Make sure the index is refreshed between each test
@@ -568,7 +568,7 @@ describe('Import', function () {
 			cb(err, body.count);
 		});
 	}
-
+/*
 	it('very simple test case', function (done) {
 		const	productStr	= 'name,price,description\nball,100,it is round\ntv,55,"About 32"" in size"',
 			tasks	= [];
@@ -779,30 +779,46 @@ describe('Import', function () {
 
 		async.series(tasks, done);
 	});
-/*
+*/
 	it('Replace by two columns', function (done) {
-		const	productStr	= 'name,artNo,size\nball,abc01,15\ntv,abc02,14\ncar,abc13,2',
-			options	= {'replaceByCols': 'artNo'},
+		const	productStr1	= 'supplier,artNo,name\nurkus ab,bb1,foo\nurkus ab,bb2,bar\nbleff ab,bb1,elk',
+			productStr2	= 'supplier,artNo,name\nurkus ab,bb1,MUU\nblimp 18,bb2,tefflon\nbleff ab,bb1,bolk',
+			options	= {'replaceByCols': ['artNo', 'supplier']},
 			tasks	= [];
 
 		let	preNoProducts,
-			uuids;
+			uuids1,
+			uuids2;
 
-		// Count hits in index before
+		// Run the import of productStr1
 		tasks.push(function (cb) {
-			es.count({'index': 'larvitproduct', 'type': 'product'}, function (err, result) {
+			importFromStr(productStr1, options, function (err, result) {
 				if (err) throw err;
-				preNoProducts = result.count;
+				uuids1 = result;
+				assert.deepStrictEqual(uuids1.length,	3);
 				cb();
 			});
 		});
 
-		// Run the import
+		// Refresh index
 		tasks.push(function (cb) {
-			importFromStr(productStr, options, function (err, result) {
+			es.indices.refresh({'index': 'larvitproduct'}, cb);
+		});
+
+		// Pre-count products
+		tasks.push(function (cb) {
+			countProducts(function (err, count) {
+				preNoProducts	= count;
+				cb(err);
+			});
+		});
+
+		// Run the import of productStr1
+		tasks.push(function (cb) {
+			importFromStr(productStr2, options, function (err, result) {
 				if (err) throw err;
-				uuids = result;
-				assert.deepStrictEqual(uuids.length,	3);
+				uuids2 = result;
+				assert.deepStrictEqual(uuids2.length,	3);
 				cb();
 			});
 		});
@@ -814,16 +830,16 @@ describe('Import', function () {
 
 		// Count hits after index
 		tasks.push(function (cb) {
-			es.count({'index': 'larvitproduct', 'type': 'product'}, function (err, result) {
+			countProducts(function (err, count) {
 				if (err) throw err;
-				assert.strictEqual(preNoProducts, (result.count - 1));
+				assert.strictEqual(preNoProducts, (count - 1));
 				cb();
 			});
 		});
 
 		// Check product data
 		tasks.push(function (cb) {
-			getProductData(uuids, function (err, testProducts) {
+			getProductData(uuids2, function (err, testProducts) {
 				if (err) throw err;
 
 				assert.strictEqual(testProducts.docs.length,	3);
@@ -833,15 +849,12 @@ describe('Import', function () {
 
 					assert.deepStrictEqual(Object.keys(product._source).length,	4);
 
-					if (product._source.name[0] === 'ball') {
-						assert.deepStrictEqual(product._source.artNo[0],	'abc01');
-						assert.deepStrictEqual(product._source.size[0],	'15');
-					} else if (product._source.name[0] === 'tv') {
-						assert.deepStrictEqual(product._source.artNo[0],	'abc02');
-						assert.deepStrictEqual(product._source.size[0],	'14');
-					} else if (product._source.name[0] === 'car') {
-						assert.deepStrictEqual(product._source.artNo[0],	'abc13');
-						assert.deepStrictEqual(product._source.size[0],	'2');
+					if (product._source.supplier[0] === 'urkus ab' && product._source.artNo === 'bb1') {
+						assert.deepStrictEqual(product._source.name[0],	'MUU');
+					} else if (product._source.supplier[0] === 'blimp 18' && product._source.artNo === 'bb2') {
+						assert.deepStrictEqual(product._source.name[0],	'tefflon');
+					} else if (product._source.supplier[0] === 'blimp 18' && product._source.artNo === 'bb2') {
+						assert.deepStrictEqual(product._source.name[0],	'bolk');
 					} else {
 						throw new Error('Unexpected product: ' + JSON.stringify(product));
 					}
@@ -852,7 +865,6 @@ describe('Import', function () {
 
 		async.series(tasks, done);
 	});
-	*/
 });
 
 after(function (done) {
