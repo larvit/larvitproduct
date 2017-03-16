@@ -181,6 +181,17 @@ function ready(retries, cb) {
 	if (exports.mode === 'slave') {
 		log.verbose(logPrefix + 'exports.mode: "' + exports.mode + '", so read');
 
+		// one callback for every command. 
+		new amsync.SyncClient({'exchange': exports.exchangeName + '_dataDump'}, [
+			function (err, res) {
+
+			}, function (err, res) {
+
+			}, function (err, res) {
+
+			}
+		]);
+
 		//tasks.push(function (cb) {
 		//	amsync.mariadb({'exchange': exports.exchangeName + '_dataDump'}, cb);
 		//});
@@ -225,39 +236,63 @@ function rmProducts(params, deliveryTag, msgUuid) {
 }
 
 function runDumpServer(cb) {
-	return cb();
+	//return cb();
 	const	options	= {'exchange': exports.exchangeName + '_dataDump'},
 		args	= [];
 
-	if (db.conf.host) {
-		args.push('-h');
-		args.push(db.conf.host);
+	options.dataDumpCmd = [];
+
+	if (lUtils.instances.elasticsearch !== undefined) {
+
+		options.dataDumpCmd.push({
+			'command': 'elasticdump',
+			'args': ['--input=http://' + lUtils.instances.elasticsearch.host + '/larvitproduct', '--output=$', '--type=mapping']
+		});
+
+		options.dataDumpCmd.push({
+			'command': 'elasticdump',
+			'args': ['--input=http://' + lUtils.instances.elasticsearch.host + '/larvitproduct', '--output=$', '--type=data']
+		});
+
+		options.dataDumpCmd.push({
+			'command': 'elasticdump',
+			'args': ['--input=http://' + lUtils.instances.elasticsearch.host + '/larvitproduct', '--output=$', '--type=analyzer']
+		});
+
+		options['Content-Type'] = 'application/json';
+
+	} else {
+
+		if (db.conf.host) {
+			args.push('-h');
+			args.push(db.conf.host);
+		}
+
+		args.push('-u');
+		args.push(db.conf.user);
+
+		if (db.conf.password) {
+			args.push('-p' + db.conf.password);
+		}
+
+		args.push('--single-transaction');
+		args.push('--hex-blob');
+		args.push(db.conf.database);
+
+		// Tables
+		args.push('product_attributes');
+		args.push('product_db_version');
+		args.push('product_products');
+		args.push('product_product_attributes');
+		args.push('product_search_index');
+
+		options.dataDumpCmd.push({
+			'command':	'mysqldump',
+			'args':	args
+		});
+
+		options['Content-Type'] = 'application/sql';
 	}
-
-	args.push('-u');
-	args.push(db.conf.user);
-
-	if (db.conf.password) {
-		args.push('-p' + db.conf.password);
-	}
-
-	args.push('--single-transaction');
-	args.push('--hex-blob');
-	args.push(db.conf.database);
-
-	// Tables
-	args.push('product_attributes');
-	args.push('product_db_version');
-	args.push('product_products');
-	args.push('product_product_attributes');
-	args.push('product_search_index');
-
-	options.dataDumpCmd = {
-		'command':	'mysqldump',
-		'args':	args
-	};
-
-	options['Content-Type'] = 'application/sql';
 
 	new amsync.SyncServer(options, cb);
 }
