@@ -9,6 +9,9 @@ const	EventEmitter	= require('events').EventEmitter,
 	amsync	= require('larvitamsync'),
 	async	= require('async'),
 	log	= require('winston'),
+	fs	= require('fs'),
+	tmpDir	= require('os').tmpdir(),
+	uuidLib	= require('uuid'),
 	_	= require('lodash');
 
 let	readyInProgress	= false,
@@ -181,16 +184,18 @@ function ready(retries, cb) {
 	if (exports.mode === 'slave') {
 		log.verbose(logPrefix + 'exports.mode: "' + exports.mode + '", so read');
 
-		// one callback for every command. 
-		new amsync.SyncClient({'exchange': exports.exchangeName + '_dataDump'}, [
-			function (err, res) {
+		tasks.push(function (cb) {
+			// one callback for every command. 
+			const client = new amsync.SyncClient({'exchange': exports.exchangeName + '_dataDump'}, function (err) { console.log(err) });
 
-			}, function (err, res) {
+			syncServer.handleHttpReq_original = syncServer.handleHttpReq;
 
-			}, function (err, res) {
+			syncServer.handleHttpReq = function (req, res) {
+				
+			};
 
-			}
-		]);
+			cb();
+		});
 
 		//tasks.push(function (cb) {
 		//	amsync.mariadb({'exchange': exports.exchangeName + '_dataDump'}, cb);
@@ -236,7 +241,7 @@ function rmProducts(params, deliveryTag, msgUuid) {
 }
 
 function runDumpServer(cb) {
-	//return cb();
+	return cb();
 	const	options	= {'exchange': exports.exchangeName + '_dataDump'},
 		args	= [];
 
@@ -244,23 +249,33 @@ function runDumpServer(cb) {
 
 	if (lUtils.instances.elasticsearch !== undefined) {
 
-		options.dataDumpCmd.push({
-			'command': 'elasticdump',
-			'args': ['--input=http://' + lUtils.instances.elasticsearch.host + '/larvitproduct', '--output=$', '--type=mapping']
-		});
+		let server = new amsync.SyncServer(options, cb);
+		
+		server.handleHttpReq_original = server.handleHttpReq;
 
-		options.dataDumpCmd.push({
-			'command': 'elasticdump',
-			'args': ['--input=http://' + lUtils.instances.elasticsearch.host + '/larvitproduct', '--output=$', '--type=data']
-		});
+		server.handleHttpReq = function(req, res) {
 
-		options.dataDumpCmd.push({
-			'command': 'elasticdump',
-			'args': ['--input=http://' + lUtils.instances.elasticsearch.host + '/larvitproduct', '--output=$', '--type=analyzer']
-		});
+			res.setHeader('Content-Type', 'application/json');
 
-		options['Content-Type'] = 'application/json';
+			syncServer.options.dataDumpCmd = {
+				'command': 'elasticdump',
+				'args': ['--input=http://' + lUtils.instances.elasticsearch.host + '/larvitproduct', '--output=$']
+			};
 
+			if (req.url === '/mapping') {
+				syncServer.options.dataDumpCmd.args.push('--type=mapping');
+			} else if (req.url === '/data') {
+				syncServer.options.dataDumpCmd.args.push('--type=data');
+			} else if (req.url === '/analyzer') {
+				syncServer.options.dataDumpCmd.args.push('--type=analyzer');
+			} else {
+				res.status(400);
+				res.send('Invalid url');
+			}
+
+			// Run the original request handler
+			syncServer.handleHttpReq_original(req, res);
+		};
 	} else {
 
 		if (db.conf.host) {
@@ -292,9 +307,9 @@ function runDumpServer(cb) {
 		});
 
 		options['Content-Type'] = 'application/sql';
-	}
 
-	new amsync.SyncServer(options, cb);
+		new amsync.SyncServer(options, cb);
+	}	
 }
 
 function writeProduct(params, deliveryTag, msgUuid) {
