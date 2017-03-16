@@ -30,7 +30,7 @@
     "fast-csv": "^2.3.0",
     "iconv-lite": "^0.4.15",
     "larvitamintercom": "^0.1.11",
-    "larvitamsync": "^0.2.0",
+    "larvitamsync": "git://github.com/larvit/larvitamsync.git#klas-wip",
     "larvitdbmigration": "^2.0.0",
     "larvitutils": "^1.0.4",
     "lodash": "^4.17.2",
