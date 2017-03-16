@@ -571,6 +571,15 @@ describe('Import', function () {
 		});
 	}
 
+	function uniqueConcat(array) {
+		for (let i = 0; i < array.length; ++ i) {
+			for (let j = i + 1; j < array.length; ++ j) {
+				if (array[i] === array[j]) array.splice(j --, 1);
+			}
+		}
+		return array;
+	};
+
 	it('very simple test case', function (done) {
 		const	productStr	= 'name,price,description\nball,100,it is round\ntv,55,"About 32"" in size"',
 			tasks	= [];
@@ -857,6 +866,98 @@ describe('Import', function () {
 						assert.deepStrictEqual(product._source.name[0],	'tefflon');
 					} else if (product._source.supplier[0] === 'bleff ab' && product._source.artNo[0] === 'bb1') {
 						assert.deepStrictEqual(product._source.name[0],	'bolk');
+					} else {
+						throw new Error('Unexpected product: ' + JSON.stringify(product));
+					}
+				}
+				cb();
+			});
+		});
+
+		async.series(tasks, done);
+	});
+
+	it('Update by two columns', function (done) {
+		const	productStr1	= 'supplier,artNo,name,size\nslam ab,rd1,foo,100\nslam ab,rd2,bar,200\nbang ab,hhv4,elk,300',
+			productStr2	= 'supplier,artNo,name\nslam ab,rd1,MUU\npaow,bb2,tefflon\nbang ab,hhv4,bolk',
+			options	= {'updateByCols': ['artNo', 'supplier']},
+			tasks	= [];
+
+		let	preNoProducts,
+			uuids1,
+			uuids2;
+
+		// Run the import of productStr1
+		tasks.push(function (cb) {
+			importFromStr(productStr1, options, function (err, result) {
+				if (err) throw err;
+				uuids1 = result;
+				assert.deepStrictEqual(uuids1.length,	3);
+				cb();
+			});
+		});
+
+		// Refresh index
+		tasks.push(function (cb) {
+			es.indices.refresh({'index': 'larvitproduct'}, cb);
+		});
+
+		// Pre-count products
+		tasks.push(function (cb) {
+			countProducts(function (err, count) {
+				preNoProducts	= count;
+				cb(err);
+			});
+		});
+
+		// Run the import of productStr1
+		tasks.push(function (cb) {
+			importFromStr(productStr2, options, function (err, result) {
+				if (err) throw err;
+				uuids2 = result;
+				assert.deepStrictEqual(uuids2.length,	3);
+				cb();
+			});
+
+		});
+
+		// Refresh index
+		tasks.push(function (cb) {
+			es.indices.refresh({'index': 'larvitproduct'}, cb);
+		});
+
+		// Count hits after index
+		tasks.push(function (cb) {
+			countProducts(function (err, count) {
+				if (err) throw err;
+				assert.strictEqual(preNoProducts, (count - 1));
+				cb();
+			});
+		});
+
+		// Check product data
+		tasks.push(function (cb) {
+			const uuids = uniqueConcat(uuids1.concat(uuids2));
+
+			getProductData(uuids, function (err, testProducts) {
+				if (err) throw err;
+
+				assert.strictEqual(testProducts.docs.length,	4);
+
+				for (let i = 0; testProducts.docs[i] !== undefined; i ++) {
+					const	product	= testProducts.docs[i];
+					if (product._source.supplier[0] === 'slam ab' && product._source.artNo[0] === 'rd1') {
+						assert.deepStrictEqual(product._source.name[0], 'MUU');
+						assert.deepStrictEqual(parseInt(product._source.size[0]), 100);
+					} else if (product._source.supplier[0] === 'paow' && product._source.artNo[0] === 'bb2') {
+						assert.deepStrictEqual(product._source.name[0], 'tefflon');
+						assert.deepStrictEqual(product._source.size, undefined);
+					} else if (product._source.supplier[0] === 'bang ab' && product._source.artNo[0] === 'hhv4') {
+						assert.deepStrictEqual(product._source.name[0], 'bolk');
+						assert.deepStrictEqual(parseInt(product._source.size[0]), 300);
+					} else if (product._source.supplier[0] === 'slam ab' && product._source.artNo[0] === 'rd2') {
+						assert.deepStrictEqual(product._source.name[0], 'bar');
+						assert.deepStrictEqual(parseInt(product._source.size[0]), 200);
 					} else {
 						throw new Error('Unexpected product: ' + JSON.stringify(product));
 					}
