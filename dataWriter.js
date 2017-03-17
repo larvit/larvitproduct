@@ -198,7 +198,24 @@ function ready(retries, cb) {
 						res.pipe(tmpFile);
 						
 						res.on('error', function (err) {
-							throw err; // Is logged upstream, but should stop app execution
+							throw err;
+						});
+
+						res.on('end', cb);
+					});
+
+				});
+
+				subTasks.push(function (cb) {
+
+					new amsync.SyncClient({'exchange': exchangeName + '_data' }, function (err, res) {
+						
+						const	tmpFile	= fs.createWriteStream(tmpDir + '/data.json');
+						
+						res.pipe(tmpFile);
+						
+						res.on('error', function (err) {
+							throw err;
 						});
 
 						res.on('end', cb);
