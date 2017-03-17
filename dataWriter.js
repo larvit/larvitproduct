@@ -265,7 +265,7 @@ function rmProducts(params, deliveryTag, msgUuid) {
 	for (let i = 0; productUuids[i] !== undefined; i ++) {
 		body.push({'delete': {'_index': 'larvitproduct', '_type': 'product', '_id': productUuids[i]}});
 	}
-
+/ Is logged upstream, but should stop app execution
 	es.bulk({'body': body}, function (err) {
 		exports.emitter.emit(msgUuid, err);
 	});
@@ -293,16 +293,6 @@ function runDumpServer(cb) {
 			options.exchange = exchangeName + '_mapping';
 			options.dataDumpCmd = _.cloneDeep(dataDumpCmd);
 			options.dataDumpCmd.args.push('--type=mapping');
-			options['Content-Type'] = 'application/json';
-			new amsync.SyncServer(options, cb);
-		});
-
-		subTasks.push(function (cb) {
-
-			const options = {};
-			options.exchange = exchangeName + '_analyzer';
-			options.dataDumpCmd = _.cloneDeep(dataDumpCmd);
-			options.dataDumpCmd.args.push('--type=analyzer');
 			options['Content-Type'] = 'application/json';
 			new amsync.SyncServer(options, cb);
 		});
