@@ -187,31 +187,12 @@ function ready(retries, cb) {
 		if (lUtils.instances.elasticsearch !== undefined) {
 
 			tasks.push(function (cb) {
-				const subTasks = [];
+				const subTasks = [],
+					exchangeName = exports.exchangeName;
 
 				subTasks.push(function (cb) {
 
-				});
-
-				async.series(subTasks, cb);
-
-			});
-
-			
-
-			tasks.push(function (cbx) {
-
-				const	options	= {'exchange': exports.exchangeName + '_dataDump', 'noOfTokens': 3},
-					syncClient = new amsync.SyncClient(options, function (err) {
-						cbx(err);
-					});
-
-				syncClient.handleMsg_original = syncClient.handleMsg;
-
-				syncClient.handleMsg = function (message, ack, cb) {
-					options.requestOptions	= {'path': '/mapping'};
-
-					syncClient.handleMsg_original(message, ack, function (err, res) {
+					new amsync.SyncClient({'exchange': exchangeName + '_mapping' }, function (err, res) {
 						
 						const	tmpFile	= fs.createWriteStream(tmpDir + '/mapping.json');
 						
@@ -223,7 +204,11 @@ function ready(retries, cb) {
 
 						res.on('end', cb);
 					});
-				};
+
+				});
+
+				async.series(subTasks, cb);
+
 			});
 		} else {
 			tasks.push(function (cb) {
@@ -314,41 +299,7 @@ function runDumpServer(cb) {
 		async.series(subTasks, cb);
 
 	} else {
-
-		const	options	= {'exchange': exports.exchangeName + '_dataDump', 'dataDumpCmd': []},
-			args	= [];
-
-		if (db.conf.host) {
-			args.push('-h');
-			args.push(db.conf.host);
-		}
-
-		args.push('-u');
-		args.push(db.conf.user);
-
-		if (db.conf.password) {
-			args.push('-p' + db.conf.password);
-		}
-
-		args.push('--single-transaction');
-		args.push('--hex-blob');
-		args.push(db.conf.database);
-
-		// Tables
-		args.push('product_attributes');
-		args.push('product_db_version');
-		args.push('product_products');
-		args.push('product_product_attributes');
-		args.push('product_search_index');
-
-		options.dataDumpCmd.push({
-			'command':	'mysqldump',
-			'args':	args
-		});
-
-		options['Content-Type'] = 'application/sql';
-
-		new amsync.SyncServer(options, cb);
+		log.warn(logPrefix + 'Elasticsearch must be configured!');
 	}	
 }
 
