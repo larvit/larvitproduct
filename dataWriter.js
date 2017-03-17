@@ -265,6 +265,11 @@ function runDumpServer(cb) {
 				'args': ['--input=http://' + lUtils.instances.elasticsearchHost + '/larvitproduct', '--output=$']
 			};
 
+		if (lUtils.instances.elasticsearchHost === undefined) {
+			log.warn(logPrefix + 'larvitutils.instances.elasticsearchHost not set!');
+			throw new Error('larvitutils.instances.elasticsearchHost not set!');
+		}
+
 		subTasks.push(function (cb) {
 
 			const options = {};
