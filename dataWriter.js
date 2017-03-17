@@ -184,22 +184,39 @@ function ready(retries, cb) {
 	if (exports.mode === 'slave') {
 		log.verbose(logPrefix + 'exports.mode: "' + exports.mode + '", so read');
 
-		tasks.push(function (cb) {
-			// one callback for every command. 
-			const client = new amsync.SyncClient({'exchange': exports.exchangeName + '_dataDump'}, function (err) { console.log(err) });
+		if (lUtils.instances.elasticsearch !== undefined) {
 
-			syncServer.handleHttpReq_original = syncServer.handleHttpReq;
+			tasks.push(function (cbx) {
 
-			syncServer.handleHttpReq = function (req, res) {
-				
-			};
+				const	options	= {'exchange': exports.exchangeName + '_dataDump', 'noOfTokens': 3},
+					syncClient = new amsync.SyncClient(options, function (err) {
+						cbx(err);
+					});
 
-			cb();
-		});
+				syncClient.handleMsg_original = syncClient.handleMsg;
 
-		//tasks.push(function (cb) {
-		//	amsync.mariadb({'exchange': exports.exchangeName + '_dataDump'}, cb);
-		//});
+				syncClient.handleMsg = function (message, ack, cb) {
+					options.requestOptions	= {'path': '/mapping'};
+
+					syncClient.handleMsg_original(message, ack, function (err, res) {
+						
+						const	tmpFile	= fs.createWriteStream(tmpDir + '/mapping.json');
+						
+						res.pipe(tmpFile);
+						
+						res.on('error', function (err) {
+							throw err; // Is logged upstream, but should stop app execution
+						});
+
+						res.on('end', cb);
+					});
+				};
+			});
+		} else {
+			tasks.push(function (cb) {
+				amsync.mariadb({'exchange': exports.exchangeName + '_dataDump'}, cb);
+			});
+		}
 	}
 
 	if (exports.mode === 'noSync') {
@@ -253,7 +270,7 @@ function runDumpServer(cb) {
 		
 		server.handleHttpReq_original = server.handleHttpReq;
 
-		server.handleHttpReq = function(req, res) {
+		server.handleHttpReq = function (req, res) {
 
 			res.setHeader('Content-Type', 'application/json');
 
