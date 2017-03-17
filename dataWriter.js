@@ -186,6 +186,19 @@ function ready(retries, cb) {
 
 		if (lUtils.instances.elasticsearch !== undefined) {
 
+			tasks.push(function (cb) {
+				const subTasks = [];
+
+				subTasks.push(function (cb) {
+
+				});
+
+				async.series(subTasks, cb);
+
+			});
+
+			
+
 			tasks.push(function (cbx) {
 
 				const	options	= {'exchange': exports.exchangeName + '_dataDump', 'noOfTokens': 3},
@@ -258,42 +271,52 @@ function rmProducts(params, deliveryTag, msgUuid) {
 }
 
 function runDumpServer(cb) {
-	return cb();
-	const	options	= {'exchange': exports.exchangeName + '_dataDump'},
-		args	= [];
-
-	options.dataDumpCmd = [];
 
 	if (lUtils.instances.elasticsearch !== undefined) {
 
-		let server = new amsync.SyncServer(options, cb);
-		
-		server.handleHttpReq_original = server.handleHttpReq;
-
-		server.handleHttpReq = function (req, res) {
-
-			res.setHeader('Content-Type', 'application/json');
-
-			syncServer.options.dataDumpCmd = {
+		const subTasks = [],
+			exchangeName	=  exports.exchangeName + '_dataDump',
+			dataDumpCmd = {
 				'command': 'elasticdump',
 				'args': ['--input=http://' + lUtils.instances.elasticsearch.host + '/larvitproduct', '--output=$']
 			};
 
-			if (req.url === '/mapping') {
-				syncServer.options.dataDumpCmd.args.push('--type=mapping');
-			} else if (req.url === '/data') {
-				syncServer.options.dataDumpCmd.args.push('--type=data');
-			} else if (req.url === '/analyzer') {
-				syncServer.options.dataDumpCmd.args.push('--type=analyzer');
-			} else {
-				res.status(400);
-				res.send('Invalid url');
-			}
+		subTasks.push(function (cb) {
 
-			// Run the original request handler
-			syncServer.handleHttpReq_original(req, res);
-		};
+			const options = {};
+			options.exchange = exchangeName + '_mapping';
+			options.dataDumpCmd = _.cloneDeep(dataDumpCmd);
+			options.dataDumpCmd.args.push('--type=mapping');
+			options['Content-Type'] = 'application/json';
+			new amsync.SyncServer(options, cb);
+		});
+
+		subTasks.push(function (cb) {
+
+			const options = {};
+			options.exchange = exchangeName + '_analyzer';
+			options.dataDumpCmd = _.cloneDeep(dataDumpCmd);
+			options.dataDumpCmd.args.push('--type=analyzer');
+			options['Content-Type'] = 'application/json';
+			new amsync.SyncServer(options, cb);
+		});
+
+		subTasks.push(function (cb) {
+
+			const options = {};
+			options.exchange = exchangeName + '_data';
+			options.dataDumpCmd = _.cloneDeep(dataDumpCmd);
+			options.dataDumpCmd.args.push('--type=data');
+			options['Content-Type'] = 'application/json';
+			new amsync.SyncServer(options, cb);
+		});
+
+		async.series(subTasks, cb);
+
 	} else {
+
+		const	options	= {'exchange': exports.exchangeName + '_dataDump', 'dataDumpCmd': []},
+			args	= [];
 
 		if (db.conf.host) {
 			args.push('-h');
