@@ -188,7 +188,7 @@ function ready(retries, cb) {
 
 			tasks.push(function (cb) {
 				const subTasks = [],
-					exchangeName = exports.exchangeName;
+					exchangeName = exports.exchangeName + '_dataDump';
 
 				subTasks.push(function (cb) {
 
