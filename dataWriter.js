@@ -11,7 +11,6 @@ const	EventEmitter	= require('events').EventEmitter,
 	log	= require('winston'),
 	fs	= require('fs'),
 	tmpDir	= require('os').tmpdir(),
-	uuidLib	= require('uuid'),
 	_	= require('lodash');
 
 let	readyInProgress	= false,
@@ -263,7 +262,7 @@ function runDumpServer(cb) {
 			exchangeName	=  exports.exchangeName + '_dataDump',
 			dataDumpCmd = {
 				'command': 'elasticdump',
-				'args': ['--input=http://' + lUtils.instances.elasticsearch.host + '/larvitproduct', '--output=$']
+				'args': ['--input=http://' + lUtils.instances.elasticsearchHost + '/larvitproduct', '--output=$']
 			};
 
 		subTasks.push(function (cb) {
