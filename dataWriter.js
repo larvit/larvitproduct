@@ -1,6 +1,7 @@
 'use strict';
 
-const	EventEmitter	= require('events').EventEmitter,
+const	elasticdumpPath	= require('larvitfs').getPathSync('.bin/elasticdump') + '/.bin/elasticdump',
+	EventEmitter	= require('events').EventEmitter,
 	eventEmitter	= new EventEmitter(),
 	topLogPrefix	= 'larvitproduct: dataWriter.js - ',
 	DbMigration	= require('larvitdbmigration'),
@@ -158,6 +159,7 @@ function ready(retries, cb) {
 
 	readyInProgress = true;
 
+	// Check so elasticsearch is answering ping
 	tasks.push(function (cb) {
 		es.ping(function (err) {
 			if (err) {
@@ -192,7 +194,7 @@ function ready(retries, cb) {
 
 			subTasks.push(function (cb) {
 				new amsync.SyncClient({'exchange': exchangeName + '_mapping' }, function (err, res) {
-					const ed = spawn('elasticdump', ['--input=$', '--output=http://' + lUtils.instances.elasticsearch.transport._config.host + '/larvitproduct', '--type=mapping']);
+					const ed = spawn(elasticdumpPath, ['--input=$', '--output=http://' + lUtils.instances.elasticsearch.transport._config.host + '/larvitproduct', '--type=mapping']);
 
 					if (err) {
 						log.warn(logPrefix + 'Sync failed for mapping: ' + err.message);
@@ -215,7 +217,7 @@ function ready(retries, cb) {
 
 			subTasks.push(function (cb) {
 				new amsync.SyncClient({'exchange': exchangeName + '_data' }, function (err, res) {
-					const ed = spawn('elasticdump', ['--input=$', '--output=http://' + lUtils.instances.elasticsearch.transport._config.host + '/larvitproduct', '--type=data']);
+					const ed = spawn(elasticdumpPath, ['--input=$', '--output=http://' + lUtils.instances.elasticsearch.transport._config.host + '/larvitproduct', '--type=data']);
 
 					if (err) {
 						log.warn(logPrefix + 'Sync failed for data: ' + err.message);
@@ -283,7 +285,7 @@ function runDumpServer(cb) {
 		const	subTasks	= [],
 			exchangeName	= exports.exchangeName + '_dataDump',
 			dataDumpCmd = {
-				'command': 'elasticdump',
+				'command': elasticdumpPath,
 				'args': ['--input=http://' + lUtils.instances.elasticsearch.transport._config.host + '/larvitproduct', '--output=$']
 			};
 
