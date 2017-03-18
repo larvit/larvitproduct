@@ -142,7 +142,7 @@ before(function (done) {
 
 	async.series(tasks, done);
 });
-/*
+
 describe('Product', function () {
 	let	productUuid;
 
@@ -511,7 +511,7 @@ describe('Helpers', function () {
 		});
 	});
 });
-*/
+
 describe('Import', function () {
 
 	// Make sure the index is refreshed between each test
@@ -568,7 +568,7 @@ describe('Import', function () {
 			cb(err, body.count);
 		});
 	}
-/*
+
 	it('very simple test case', function (done) {
 		const	productStr	= 'name,price,description\nball,100,it is round\ntv,55,"About 32"" in size"',
 			tasks	= [];
@@ -779,7 +779,7 @@ describe('Import', function () {
 
 		async.series(tasks, done);
 	});
-*/
+
 	it('Replace by two columns', function (done) {
 		const	productStr1	= 'supplier,artNo,name\nurkus ab,bb1,foo\nurkus ab,bb2,bar\nbleff ab,bb1,elk',
 			productStr2	= 'supplier,artNo,name\nurkus ab,bb1,MUU\nblimp 18,bb2,tefflon\nbleff ab,bb1,bolk',
