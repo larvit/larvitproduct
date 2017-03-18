@@ -27,6 +27,8 @@ log.remove(log.transports.Console);
 	'humanReadableUnhandledException':	true
 }); /**/
 
+productLib.dataWriter.mode = 'noSync';
+
 before(function (done) {
 	this.timeout(10000);
 	const	tasks	= [];
@@ -100,6 +102,7 @@ before(function (done) {
 
 				// Then look for this string in the config folder
 				confFile = __dirname + '/../config/' + confFile;
+
 				fs.stat(confFile, function (err) {
 					if (err) throw err;
 					log.verbose('Intercom config: ' + JSON.stringify(require(confFile)));
@@ -138,9 +141,6 @@ before(function (done) {
 			}
 		}, cb);
 	});
-
-	// Preload caches etc
-	// We do this so the timing of the rest of the tests gets more correct
 
 	async.series(tasks, done);
 });

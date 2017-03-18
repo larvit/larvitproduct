@@ -48,8 +48,7 @@ function listenToQueue(retries, cb) {
 	} else {
 		const	err	= new Error('Invalid exports.mode. Must be either "master", "slave" or "noSync"');
 		log.error(logPrefix + err.message);
-		cb(err);
-		return;
+		return cb(err);
 	}
 
 	intercom	= require('larvitutils').instances.intercom;
@@ -118,7 +117,13 @@ function ready(retries, cb) {
 		retries	= 0;
 	}
 
-	if (isReady === true) { cb(); return; }
+	if (exports.mode !== 'slave' && exports.mode !== 'master' && exports.mode !== 'noSync') {
+		const	err	= new Error('dataWriter.mode must be "slave", "master" or "noSync"');
+		log.error(logPrefix + err.message);
+		return cb(err);
+	}
+
+	if (isReady === true) return cb();
 
 	if (readyInProgress === true) {
 		eventEmitter.on('ready', cb);
@@ -181,58 +186,58 @@ function ready(retries, cb) {
 	if (exports.mode === 'slave') {
 		log.verbose(logPrefix + 'exports.mode: "' + exports.mode + '", so read');
 
-		if (lUtils.instances.elasticsearch !== undefined) {
+		tasks.push(function (cb) {
+			const	exchangeName	= exports.exchangeName + '_dataDump',
+				subTasks	= [];
 
-			tasks.push(function (cb) {
-				const subTasks = [],
-					exchangeName = exports.exchangeName + '_dataDump';
+			subTasks.push(function (cb) {
+				new amsync.SyncClient({'exchange': exchangeName + '_mapping' }, function (err, res) {
+					const ed = spawn('elasticdump', ['--input=$', '--output=http://' + lUtils.instances.elasticsearch.transport._config.host + '/larvitproduct', '--type=mapping']);
 
-				subTasks.push(function (cb) {
+					if (err) {
+						log.warn(logPrefix + 'Sync failed for mapping: ' + err.message);
+						return cb(err);
+					}
 
-					new amsync.SyncClient({'exchange': exchangeName + '_mapping' }, function (err, res) {
+					ed.stdin.setEncoding('utf-8');
+					res.pipe(ed.stdin);
 
-						if (err) { log.warn(logPrefix + 'Sync failed for mapping: ' + err.message); cb(err); return; }
-
-						const ed = spawn('elasticdump', ['--input=$', '--output=http://' + lUtils.instances.elasticsearchHost + '/larvitproduct', '--type=mapping']);
-						ed.stdin.setEncoding('utf-8');
-						res.pipe(ed.stdin);
-
-						res.on('error', function (err) {
-							throw err; // Is logged upstream, but should stop app execution
-						});
-
-						res.on('end', function (err) { ed.stdin.end(); cb(err);});
+					res.on('error', function (err) {
+						throw err; // Is logged upstream, but should stop app execution
 					});
 
+					res.on('end', function (err) {
+						ed.stdin.end();
+						cb(err);
+					});
 				});
+			});
 
-				subTasks.push(function (cb) {
+			subTasks.push(function (cb) {
+				new amsync.SyncClient({'exchange': exchangeName + '_data' }, function (err, res) {
+					const ed = spawn('elasticdump', ['--input=$', '--output=http://' + lUtils.instances.elasticsearch.transport._config.host + '/larvitproduct', '--type=data']);
 
-					new amsync.SyncClient({'exchange': exchangeName + '_data' }, function (err, res) {
+					if (err) {
+						log.warn(logPrefix + 'Sync failed for data: ' + err.message);
+						return cb(err);
+					}
 
-						if (err) { log.warn(logPrefix + 'Sync failed for data: ' + err.message); cb(err); return; }
+					ed.stdin.setEncoding('utf-8');
+					res.pipe(ed.stdin);
 
-						const ed = spawn('elasticdump', ['--input=$', '--output=http://' + lUtils.instances.elasticsearchHost + '/larvitproduct', '--type=data']);
-						ed.stdin.setEncoding('utf-8');
-						res.pipe(ed.stdin);
-
-						res.on('error', function (err) {
-							throw err; // Is logged upstream, but should stop app execution
-						});
-
-						res.on('end', function (err) { ed.stdin.end(); cb(err);});
+					res.on('error', function (err) {
+						throw err; // Is logged upstream, but should stop app execution
 					});
 
+					res.on('end', function (err) {
+						ed.stdin.end();
+						cb(err);
+					});
 				});
-
-				async.series(subTasks, cb);
 			});
 
-		} else {
-			tasks.push(function (cb) {
-				amsync.mariadb({'exchange': exports.exchangeName + '_dataDump'}, cb);
-			});
-		}
+			async.series(subTasks, cb);
+		});
 	}
 
 	if (exports.mode === 'noSync') {
@@ -240,9 +245,7 @@ function ready(retries, cb) {
 	}
 
 	async.series(tasks, function (err) {
-		if (err) {
-			return;
-		}
+		if (err) return;
 
 		isReady	= true;
 		eventEmitter.emit('ready');
@@ -374,7 +377,7 @@ function writeProduct(params, deliveryTag, msgUuid) {
 exports.emitter	= new EventEmitter();
 exports.exchangeName	= 'larvitproduct';
 exports.listenToQueue	= listenToQueue;
-exports.mode	= 'slave'; // or "master"
+exports.mode	= false; // 'slave' or 'master' or 'noSync'
 exports.ready	= ready;
 exports.rmProducts	= rmProducts;
 exports.writeProduct	= writeProduct;
