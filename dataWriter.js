@@ -1,6 +1,6 @@
 'use strict';
 
-const	elasticdumpPath	= require('larvitfs').getPathSync('.bin/elasticdump') + '/.bin/elasticdump',
+const	elasticdumpPath	= require('larvitfs').getPathSync('bin/elasticdump'),
 	EventEmitter	= require('events').EventEmitter,
 	eventEmitter	= new EventEmitter(),
 	topLogPrefix	= 'larvitproduct: dataWriter.js - ',
