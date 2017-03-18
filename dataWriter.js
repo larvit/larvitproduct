@@ -8,6 +8,7 @@ const	elasticdumpPath	= require('larvitfs').getPathSync('bin/elasticdump'),
 	stripBom	= require('strip-bom'),
 	lUtils	= require('larvitutils'),
 	amsync	= require('larvitamsync'),
+	spawn	= require('child_process').spawn,
 	async	= require('async'),
 	log	= require('winston'),
 	_	= require('lodash');
