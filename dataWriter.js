@@ -9,8 +9,6 @@ const	EventEmitter	= require('events').EventEmitter,
 	amsync	= require('larvitamsync'),
 	async	= require('async'),
 	log	= require('winston'),
-	fs	= require('fs'),
-	tmpDir	= require('os').tmpdir(),
 	_	= require('lodash');
 
 let	readyInProgress	= false,
@@ -229,7 +227,7 @@ function ready(retries, cb) {
 
 				async.series(subTasks, cb);
 			});
-			
+
 		} else {
 			tasks.push(function (cb) {
 				amsync.mariadb({'exchange': exports.exchangeName + '_dataDump'}, cb);
@@ -276,6 +274,8 @@ function rmProducts(params, deliveryTag, msgUuid) {
 }
 
 function runDumpServer(cb) {
+
+	const logPrefix = topLogPrefix + ' runDumpServer() - ';
 
 	if (lUtils.instances.elasticsearch !== undefined) {
 
