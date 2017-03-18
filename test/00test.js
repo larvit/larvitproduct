@@ -512,6 +512,39 @@ describe('Helpers', function () {
 			});
 		});
 	});
+
+	it('should get all keywords', function (done) {
+		const	expectedKeywords	= [];
+
+		expectedKeywords.push('active.keyword');
+		expectedKeywords.push('artNo');
+		expectedKeywords.push('bacon.keyword');
+		expectedKeywords.push('boll.keyword');
+		expectedKeywords.push('color.keyword');
+		expectedKeywords.push('country.keyword');
+		expectedKeywords.push('country2.keyword');
+		expectedKeywords.push('enabled.keyword');
+		expectedKeywords.push('enabled2.keyword');
+		expectedKeywords.push('foo.keyword');
+		expectedKeywords.push('name.keyword');
+		expectedKeywords.push('nisse.keyword');
+		expectedKeywords.push('p.keyword');
+		expectedKeywords.push('price.keyword');
+		expectedKeywords.push('supplier');
+		expectedKeywords.push('trams.keyword');
+		expectedKeywords.push('weight.keyword');
+
+		productLib.helpers.getKeywords(function (err, keywords) {
+			if (err) throw err;
+
+			expectedKeywords.sort();
+			keywords.sort();
+
+			assert.deepStrictEqual(expectedKeywords,	keywords);
+
+			done();
+		});
+	});
 });
 
 describe('Import', function () {

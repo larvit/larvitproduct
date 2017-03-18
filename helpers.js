@@ -2,11 +2,13 @@
 
 const	topLogPrefix	= 'larvitproduct: helpers.js - ',
 	dataWriter	= require(__dirname + '/dataWriter.js'),
+	request	= require('request'),
 	lUtils	= require('larvitutils'),
 	log	= require('winston'),
 	_	= require('lodash');
 
-let	es;
+let	esUrl,
+	es;
 
 function formatEsResult(esResult, cb) {
 	const	logPrefix	= topLogPrefix + 'formatEsResult() - ',
@@ -71,9 +73,42 @@ function getAttributeValues(attributeName, cb) {
 	});
 }
 
+function getKeywords(cb) {
+	const	logPrefix	= topLogPrefix + 'getKeywords() - url: "' + esUrl + '/larvitproduct/_mapping/product"',
+		url	= esUrl + '/larvitproduct/_mapping/product';
+
+	request({'url': url, 'json': true}, function (err, response, body) {
+		const	keywords	= [];
+
+		if (err) {
+			log.warn(logPrefix + 'Could not get mappings when calling. err: ' + err.message);
+			return cb(err);
+		}
+
+		if (response.statusCode !== 200) {
+			const	err	= new Error('non-200 statusCode: ' + response.statusCode);
+			log.warn(logPrefix + err.message);
+			return cb(err);
+		}
+
+		for (const fieldName of Object.keys(body.larvitproduct.mappings.product.properties)) {
+			const	fieldProps	= body.larvitproduct.mappings.product.properties[fieldName];
+
+			if (fieldProps.type === 'keyword') {
+				keywords.push(fieldName);
+			} else if (fieldProps.fields && fieldProps.fields.keyword && fieldProps.fields.keyword.type === 'keyword') {
+				keywords.push(fieldName + '.keyword');
+			}
+		}
+
+		cb(null, keywords);
+	});
+}
+
 function ready(cb) {
 	dataWriter.ready(function (err) {
 		es	= lUtils.instances.elasticsearch;
+		esUrl	= 'http://' + es.transport._config.host;
 		cb(err);
 	});
 }
@@ -81,3 +116,4 @@ function ready(cb) {
 exports.attributes	= [];
 exports.formatEsResult	= formatEsResult;
 exports.getAttributeValues	= getAttributeValues;
+exports.getKeywords	= getKeywords;
