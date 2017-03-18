@@ -192,16 +192,18 @@ function ready(retries, cb) {
 				subTasks.push(function (cb) {
 
 					new amsync.SyncClient({'exchange': exchangeName + '_mapping' }, function (err, res) {
+
+						if (err) { log.warn(logPrefix + 'Sync failed for mapping: ' + err.message); cb(err); return; }
 						
-						const	tmpFile	= fs.createWriteStream(tmpDir + '/mapping.json');
-						
-						res.pipe(tmpFile);
-						
+						const ed = spawn('elasticdump', ['--input=$', '--output=http://' + lUtils.instances.elasticsearchHost + '/larvitproduct', '--type=mapping']);
+						ed.stdin.setEncoding('utf-8');
+						res.pipe(ed.stdin);
+
 						res.on('error', function (err) {
-							throw err;
+							throw err; // Is logged upstream, but should stop app execution
 						});
 
-						res.on('end', cb);
+						res.on('end', function (err) { ed.stdin.end(); cb(err);});
 					});
 
 				});
@@ -209,23 +211,25 @@ function ready(retries, cb) {
 				subTasks.push(function (cb) {
 
 					new amsync.SyncClient({'exchange': exchangeName + '_data' }, function (err, res) {
+
+						if (err) { log.warn(logPrefix + 'Sync failed for data: ' + err.message); cb(err); return; }
 						
-						const	tmpFile	= fs.createWriteStream(tmpDir + '/data.json');
-						
-						res.pipe(tmpFile);
-						
+						const ed = spawn('elasticdump', ['--input=$', '--output=http://' + lUtils.instances.elasticsearchHost + '/larvitproduct', '--type=data']);
+						ed.stdin.setEncoding('utf-8');
+						res.pipe(ed.stdin);
+
 						res.on('error', function (err) {
-							throw err;
+							throw err; // Is logged upstream, but should stop app execution
 						});
 
-						res.on('end', cb);
+						res.on('end', function (err) { ed.stdin.end(); cb(err);});
 					});
 
 				});
 
 				async.series(subTasks, cb);
-
 			});
+			
 		} else {
 			tasks.push(function (cb) {
 				amsync.mariadb({'exchange': exports.exchangeName + '_dataDump'}, cb);
@@ -265,7 +269,7 @@ function rmProducts(params, deliveryTag, msgUuid) {
 	for (let i = 0; productUuids[i] !== undefined; i ++) {
 		body.push({'delete': {'_index': 'larvitproduct', '_type': 'product', '_id': productUuids[i]}});
 	}
-/ Is logged upstream, but should stop app execution
+	// Is logged upstream, but should stop app execution
 	es.bulk({'body': body}, function (err) {
 		exports.emitter.emit(msgUuid, err);
 	});

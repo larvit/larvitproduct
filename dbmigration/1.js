@@ -1,6 +1,7 @@
 'use strict';
 
-const	log	= require('winston');
+const	log	= require('winston'),
+	logPrefix = 'larvitproduct ./dbmigration/1.js - ';
 
 exports = module.exports = function (cb) {
 	const	es	= this.options.dbDriver;
