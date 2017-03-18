@@ -192,7 +192,7 @@ function ready(retries, cb) {
 					new amsync.SyncClient({'exchange': exchangeName + '_mapping' }, function (err, res) {
 
 						if (err) { log.warn(logPrefix + 'Sync failed for mapping: ' + err.message); cb(err); return; }
-						
+
 						const ed = spawn('elasticdump', ['--input=$', '--output=http://' + lUtils.instances.elasticsearchHost + '/larvitproduct', '--type=mapping']);
 						ed.stdin.setEncoding('utf-8');
 						res.pipe(ed.stdin);
@@ -211,7 +211,7 @@ function ready(retries, cb) {
 					new amsync.SyncClient({'exchange': exchangeName + '_data' }, function (err, res) {
 
 						if (err) { log.warn(logPrefix + 'Sync failed for data: ' + err.message); cb(err); return; }
-						
+
 						const ed = spawn('elasticdump', ['--input=$', '--output=http://' + lUtils.instances.elasticsearchHost + '/larvitproduct', '--type=data']);
 						ed.stdin.setEncoding('utf-8');
 						res.pipe(ed.stdin);
@@ -274,48 +274,40 @@ function rmProducts(params, deliveryTag, msgUuid) {
 }
 
 function runDumpServer(cb) {
-
 	const logPrefix = topLogPrefix + ' runDumpServer() - ';
 
 	if (lUtils.instances.elasticsearch !== undefined) {
-
-		const subTasks = [],
-			exchangeName	=  exports.exchangeName + '_dataDump',
+		const	subTasks	= [],
+			exchangeName	= exports.exchangeName + '_dataDump',
 			dataDumpCmd = {
 				'command': 'elasticdump',
-				'args': ['--input=http://' + lUtils.instances.elasticsearchHost + '/larvitproduct', '--output=$']
+				'args': ['--input=http://' + lUtils.instances.elasticsearch.transport._config.host + '/larvitproduct', '--output=$']
 			};
 
-		if (lUtils.instances.elasticsearchHost === undefined) {
-			log.warn(logPrefix + 'larvitutils.instances.elasticsearchHost not set!');
-			throw new Error('larvitutils.instances.elasticsearchHost not set!');
-		}
-
 		subTasks.push(function (cb) {
+			const	options	= {};
 
-			const options = {};
-			options.exchange = exchangeName + '_mapping';
-			options.dataDumpCmd = _.cloneDeep(dataDumpCmd);
+			options.exchange	= exchangeName + '_mapping';
+			options.dataDumpCmd	= _.cloneDeep(dataDumpCmd);
+			options['Content-Type']	= 'application/json';
 			options.dataDumpCmd.args.push('--type=mapping');
-			options['Content-Type'] = 'application/json';
 			new amsync.SyncServer(options, cb);
 		});
 
 		subTasks.push(function (cb) {
+			const	options	= {};
 
-			const options = {};
-			options.exchange = exchangeName + '_data';
-			options.dataDumpCmd = _.cloneDeep(dataDumpCmd);
+			options.exchange	= exchangeName + '_data';
+			options.dataDumpCmd	= _.cloneDeep(dataDumpCmd);
+			options['Content-Type']	= 'application/json';
 			options.dataDumpCmd.args.push('--type=data');
-			options['Content-Type'] = 'application/json';
 			new amsync.SyncServer(options, cb);
 		});
 
 		async.series(subTasks, cb);
-
 	} else {
 		log.warn(logPrefix + 'Elasticsearch must be configured!');
-	}	
+	}
 }
 
 function writeProduct(params, deliveryTag, msgUuid) {
