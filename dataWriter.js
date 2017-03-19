@@ -6,11 +6,14 @@ const	elasticdumpPath	= require('larvitfs').getPathSync('bin/elasticdump'),
 	topLogPrefix	= 'larvitproduct: dataWriter.js - ',
 	DbMigration	= require('larvitdbmigration'),
 	stripBom	= require('strip-bom'),
+	uuidLib	= require('uuid'),
 	lUtils	= require('larvitutils'),
 	amsync	= require('larvitamsync'),
 	spawn	= require('child_process').spawn,
 	async	= require('async'),
 	log	= require('winston'),
+	fs	= require('fs'),
+	os	= require('os'),
 	_	= require('lodash');
 
 let	readyInProgress	= false,
@@ -191,9 +194,11 @@ function ready(retries, cb) {
 
 		tasks.push(function (cb) {
 			const	exchangeName	= exports.exchangeName + '_dataDump',
-				subTasks	= [];
+				tmpFileName	= os.tmpdir() + '/larvitproduct_data_' + uuidLib.v4(),
+				tasks	= [];
 
-			subTasks.push(function (cb) {
+			// Pipe mapping directly to elasticdump
+			tasks.push(function (cb) {
 				new amsync.SyncClient({'exchange': exchangeName + '_mapping' }, function (err, res) {
 					const ed = spawn(elasticdumpPath, ['--input=$', '--output=http://' + lUtils.instances.elasticsearch.transport._config.host + '/larvitproduct', '--type=mapping']);
 
@@ -211,35 +216,68 @@ function ready(retries, cb) {
 
 					res.on('end', function (err) {
 						ed.stdin.end();
+						if (err) {
+							log.warn(logPrefix + 'Error while res.on(close): ' + err.message);
+						}
 						cb(err);
 					});
 				});
 			});
 
-			subTasks.push(function (cb) {
+			// Save data to file first, since it stops mid-way when piped directly for some reason
+			tasks.push(function (cb) {
 				new amsync.SyncClient({'exchange': exchangeName + '_data' }, function (err, res) {
-					const ed = spawn(elasticdumpPath, ['--input=$', '--output=http://' + lUtils.instances.elasticsearch.transport._config.host + '/larvitproduct', '--type=data']);
-
 					if (err) {
 						log.warn(logPrefix + 'Sync failed for data: ' + err.message);
 						return cb(err);
 					}
 
-					ed.stdin.setEncoding('utf-8');
-					res.pipe(ed.stdin);
+					res.pipe(fs.createWriteStream(tmpFileName));
 
 					res.on('error', function (err) {
 						throw err; // Is logged upstream, but should stop app execution
 					});
 
 					res.on('end', function (err) {
-						ed.stdin.end();
+						if (err) {
+							log.warn(logPrefix + 'Error while res.on(close): ' + err.message);
+						}
 						cb(err);
 					});
 				});
 			});
 
-			async.series(subTasks, cb);
+			tasks.push(function (cb) {
+				const ed = spawn(elasticdumpPath, ['--input=' + tmpFileName, '--output=http://' + lUtils.instances.elasticsearch.transport._config.host + '/larvitproduct', '--type=data']);
+
+				ed.stdout.on('data', function (chunk) {
+					log.verbose(logPrefix + 'stdout: ' + chunk);
+				});
+
+				ed.stderr.on('data', function (chunk) {
+					log.warn(logPrefix + 'stderr: ' + chunk);
+				});
+
+				ed.on('error', function (err) {
+					log.warn(logPrefix + 'Error on reading data to elasticsearch: ' + err.message);
+				});
+
+				ed.on('close', cb);
+			});
+
+			// Remove temp file
+			tasks.push(function (cb) {
+				fs.unlink(tmpFileName, function (err) {
+					if (err) {
+						log.warn(logPrefix + 'Could not remove file: "' + tmpFileName + '", err: ' + err.message);
+					} else {
+						log.verbose(logPrefix + 'Removed file: "' + tmpFileName + '"');
+					}
+					cb(err);
+				});
+			});
+
+			async.series(tasks, cb);
 		});
 	}
 
@@ -280,7 +318,7 @@ function rmProducts(params, deliveryTag, msgUuid) {
 }
 
 function runDumpServer(cb) {
-	const logPrefix = topLogPrefix + ' runDumpServer() - ';
+	const	logPrefix	= topLogPrefix + 'runDumpServer() - ';
 
 	if (lUtils.instances.elasticsearch !== undefined) {
 		const	subTasks	= [],
