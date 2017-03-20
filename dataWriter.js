@@ -376,9 +376,6 @@ function updateByQuery(params, deliveryTag, msgUuid) {
 			return;
 		}
 
-console.log('ran...');
-console.log(body);
-
 		log.verbose(logPrefix + 'ran with updateBody: "' + JSON.stringify(params.updateBody) + '"');
 		exports.emitter.emit(msgUuid);
 	});
