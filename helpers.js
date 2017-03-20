@@ -40,15 +40,15 @@ function formatEsResult(esResult, cb) {
 }
 
 function getAttributeValues(attributeName, cb) {
-	const	searchBody	= {'size':0, 'aggs':{'thingie':{'terms':{'field':attributeName}}}, 'query':{'bool':{'must':[]}}},
-		logPrefix	= topLogPrefix + 'getAttributeValues() - url: ' + esUrl + '/larvitproduct/product/_search',
-		values	= [],
-		url	= esUrl + '/larvitproduct/product/_search';
-
-	searchBody.aggs.thingie.terms.size = 2147483647; // http://stackoverflow.com/questions/22927098/show-all-elasticsearch-aggregation-results-buckets-and-not-just-10
-
 	ready(function (err) {
+		const	searchBody	= {'size':0, 'aggs':{'thingie':{'terms':{'field':attributeName}}}, 'query':{'bool':{'must':[]}}},
+			logPrefix	= topLogPrefix + 'getAttributeValues() - url: ' + esUrl + '/larvitproduct/product/_search',
+			values	= [],
+			url	= esUrl + '/larvitproduct/product/_search';
+
 		if (err) return cb(err);
+
+		searchBody.aggs.thingie.terms.size = 2147483647; // http://stackoverflow.com/questions/22927098/show-all-elasticsearch-aggregation-results-buckets-and-not-just-10
 
 		request({'url': url, 'body': searchBody, 'json': true}, function (err, response, body) {
 			if (err) {
