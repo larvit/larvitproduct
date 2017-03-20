@@ -50,7 +50,7 @@ function getAttributeValues(attributeName, cb) {
 	ready(function (err) {
 		if (err) return cb(err);
 
-		require({'url': url, 'body': searchBody, 'json': true}, function (err, response, body) {
+		request({'url': url, 'body': searchBody, 'json': true}, function (err, response, body) {
 			if (err) {
 				log.error(logPrefix + err.message);
 				return cb(err);
