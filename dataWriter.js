@@ -7,6 +7,7 @@ const	elasticdumpPath	= require('larvitfs').getPathSync('bin/elasticdump'),
 	DbMigration	= require('larvitdbmigration'),
 	stripBom	= require('strip-bom'),
 	uuidLib	= require('uuid'),
+	request	= require('request'),
 	lUtils	= require('larvitutils'),
 	amsync	= require('larvitamsync'),
 	spawn	= require('child_process').spawn,
@@ -19,6 +20,7 @@ const	elasticdumpPath	= require('larvitfs').getPathSync('bin/elasticdump'),
 let	readyInProgress	= false,
 	isReady	= false,
 	intercom,
+	esUrl,
 	es;
 
 eventEmitter.setMaxListeners(30);
@@ -160,6 +162,8 @@ function ready(retries, cb) {
 		log.error(logPrefix + 'Elasticsearch is not set!');
 		return;
 	}
+
+	esUrl	= 'http://' + lUtils.instances.elasticsearch.transport._config.host + '/larvitproduct/product/';
 
 	readyInProgress = true;
 
@@ -354,6 +358,32 @@ function runDumpServer(cb) {
 	}
 }
 
+function updateByQuery(params, deliveryTag, msgUuid) {
+	const	logPrefix	= topLogPrefix + 'updateByQuery() - Url: "' + esUrl + '_update_by_query" - ',
+		url	= esUrl + '_update_by_query';
+
+	request.post({'url': url, 'body': params.updateBody, 'json': true}, function (err, response, body) {
+		if (err) {
+			log.error(logPrefix + 'err: ' + err.message);
+			exports.emitter.emit(msgUuid, err);
+			return;
+		}
+
+		if (response.statusCode !== 200) {
+			const	err	= new Error('non-200 statusCode: ' + response.statusCode + ' response body: "' + JSON.stringify(body) + '"');
+			log.error(logPrefix + err.message);
+			exports.emitter.emit(msgUuid, err);
+			return;
+		}
+
+console.log('ran...');
+console.log(body);
+
+		log.verbose(logPrefix + 'ran with updateBody: "' + JSON.stringify(params.updateBody) + '"');
+		exports.emitter.emit(msgUuid);
+	});
+}
+
 function writeProduct(params, deliveryTag, msgUuid) {
 	const	productAttributes	= params.attributes,
 		productUuid	= params.uuid,
@@ -364,7 +394,7 @@ function writeProduct(params, deliveryTag, msgUuid) {
 	if (lUtils.formatUuid(productUuid) === false) {
 		const err = new Error('Invalid productUuid: "' + productUuid + '"');
 		log.error(logPrefix + err.message);
-		exports.emitter.emit(productUuid, err);
+		exports.emitter.emit(msgUuid, err);
 		return;
 	}
 
@@ -421,4 +451,5 @@ exports.listenToQueue	= listenToQueue;
 exports.mode	= false; // 'slave' or 'master' or 'noSync'
 exports.ready	= ready;
 exports.rmProducts	= rmProducts;
+exports.updateByQuery	= updateByQuery;
 exports.writeProduct	= writeProduct;

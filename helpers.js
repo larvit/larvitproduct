@@ -7,7 +7,8 @@ const	topLogPrefix	= 'larvitproduct: helpers.js - ',
 	log	= require('winston'),
 	_	= require('lodash');
 
-let	esUrl,
+let	intercom,
+	esUrl,
 	es;
 
 function formatEsResult(esResult, cb) {
@@ -107,9 +108,26 @@ function getKeywords(cb) {
 
 function ready(cb) {
 	dataWriter.ready(function (err) {
+		intercom	= lUtils.instances.intercom;
 		es	= lUtils.instances.elasticsearch;
 		esUrl	= 'http://' + es.transport._config.host;
 		cb(err);
+	});
+}
+
+function updateByQuery(updateBody, cb) {
+	const	options	= {'exchange': dataWriter.exchangeName},
+		message	= {};
+
+	message.action	= 'updateByQuery';
+	message.params	= {};
+
+	message.params.updateBody	= updateBody;
+
+	intercom.send(message, options, function (err, msgUuid) {
+		if (err) return cb(err);
+
+		dataWriter.emitter.once(msgUuid, cb);
 	});
 }
 
@@ -117,3 +135,4 @@ exports.attributes	= [];
 exports.formatEsResult	= formatEsResult;
 exports.getAttributeValues	= getAttributeValues;
 exports.getKeywords	= getKeywords;
+exports.updateByQuery	= updateByQuery;
