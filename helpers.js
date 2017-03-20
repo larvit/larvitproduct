@@ -75,34 +75,39 @@ function getAttributeValues(attributeName, cb) {
 }
 
 function getKeywords(cb) {
-	const	logPrefix	= topLogPrefix + 'getKeywords() - url: "' + esUrl + '/larvitproduct/_mapping/product"',
-		url	= esUrl + '/larvitproduct/_mapping/product';
 
-	request({'url': url, 'json': true}, function (err, response, body) {
-		const	keywords	= [];
+	ready(function (err) {
+		const	logPrefix	= topLogPrefix + 'getKeywords() - url: "' + esUrl + '/larvitproduct/_mapping/product"',
+			url	= esUrl + '/larvitproduct/_mapping/product';
 
-		if (err) {
-			log.warn(logPrefix + 'Could not get mappings when calling. err: ' + err.message);
-			return cb(err);
-		}
+		if (err) { return cb(err); }
 
-		if (response.statusCode !== 200) {
-			const	err	= new Error('non-200 statusCode: ' + response.statusCode);
-			log.warn(logPrefix + err.message);
-			return cb(err);
-		}
+		request({'url': url, 'json': true}, function (err, response, body) {
+			const	keywords	= [];
 
-		for (const fieldName of Object.keys(body.larvitproduct.mappings.product.properties)) {
-			const	fieldProps	= body.larvitproduct.mappings.product.properties[fieldName];
-
-			if (fieldProps.type === 'keyword') {
-				keywords.push(fieldName);
-			} else if (fieldProps.fields && fieldProps.fields.keyword && fieldProps.fields.keyword.type === 'keyword') {
-				keywords.push(fieldName + '.keyword');
+			if (err) {
+				log.warn(logPrefix + 'Could not get mappings when calling. err: ' + err.message);
+				return cb(err);
 			}
-		}
 
-		cb(null, keywords);
+			if (response.statusCode !== 200) {
+				const	err	= new Error('non-200 statusCode: ' + response.statusCode);
+				log.warn(logPrefix + err.message);
+				return cb(err);
+			}
+
+			for (const fieldName of Object.keys(body.larvitproduct.mappings.product.properties)) {
+				const	fieldProps	= body.larvitproduct.mappings.product.properties[fieldName];
+
+				if (fieldProps.type === 'keyword') {
+					keywords.push(fieldName);
+				} else if (fieldProps.fields && fieldProps.fields.keyword && fieldProps.fields.keyword.type === 'keyword') {
+					keywords.push(fieldName + '.keyword');
+				}
+			}
+
+			cb(null, keywords);
+		});
 	});
 }
 
