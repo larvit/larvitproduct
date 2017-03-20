@@ -56,6 +56,16 @@ function getAttributeValues(attributeName, cb) {
 				return cb(err);
 			}
 
+			if (response.statusCode === 400 && body.error && body.error.root_cause && body.error.root_cause.reason === 'Fielddata is disabled on text fields by default. Set fielddata=true on [trams] in order to load fielddata in memory by uninverting the inverted index. Note that this can however use significant memory.') {
+				const	err	= new Error('Can not get attribute values on non-key fields. Have you tried appending .keyword to your field name?');
+				log.warn(logPrefix + err.message);
+				return cb(err);
+			} else if (response.statusCode !== 200 || ! body || ! body.aggregations || ! body.aggregations.thingie || ! body.aggregations.thingie.buckets) {
+				const	err	= new Error('Invalid response from Elasticsearch. statusCode: ' + response.statusCode + ' response body: "' + JSON.stringify(body) + '" search body: "' + JSON.stringify(searchBody) + '"');
+				log.warn(logPrefix + err.message);
+				return cb(err);
+			}
+
 			for (let i = 0; body.aggregations.thingie.buckets[i] !== undefined; i ++) {
 				values.push(body.aggregations.thingie.buckets[i].key);
 			}

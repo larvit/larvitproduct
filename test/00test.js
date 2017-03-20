@@ -475,7 +475,7 @@ describe('Helpers', function () {
 	});
 
 	it('should get attribute values', function (done) {
-		productLib.helpers.getAttributeValues('foo', function (err, result) {
+		productLib.helpers.getAttributeValues('foo.keyword', function (err, result) {
 			if (err) throw err;
 
 			assert.deepStrictEqual(result,	['bar', 'baz']);
@@ -484,7 +484,7 @@ describe('Helpers', function () {
 	});
 
 	it('should get empty array on non existing attribute name', function (done) {
-		productLib.helpers.getAttributeValues('trams', function (err, result) {
+		productLib.helpers.getAttributeValues('trams.keyword', function (err, result) {
 			if (err) throw err;
 
 			assert.deepStrictEqual(result,	[]);
