@@ -40,36 +40,27 @@ function formatEsResult(esResult, cb) {
 }
 
 function getAttributeValues(attributeName, cb) {
-	const	logPrefix	= topLogPrefix + 'getAttributeValues() - ';
+	const	searchBody	= {'size':0, 'aggs':{'thingie':{'terms':{'field':attributeName}}}, 'query':{'bool':{'must':[]}}},
+		logPrefix	= topLogPrefix + 'getAttributeValues() - url: ' + esUrl + '/larvitproduct/product/_search',
+		values	= [],
+		url	= esUrl + '/larvitproduct/product/_search';
+
+	searchBody.aggs.thingie.terms.size = 2147483647; // http://stackoverflow.com/questions/22927098/show-all-elasticsearch-aggregation-results-buckets-and-not-just-10
 
 	ready(function (err) {
-		const	values	= [];
-
 		if (err) return cb(err);
 
-		es.search({
-			'index':	'larvitproduct',
-			'type':	'product',
-			'body': {
-				'aggs': {
-					'thingie': {
-						'terms': {
-							'field': attributeName + '.keyword'
-						}
-					}
-				}
-			}
-		}, function (err, result) {
+		require({'url': url, 'body': searchBody, 'json': true}, function (err, response, body) {
 			if (err) {
 				log.error(logPrefix + err.message);
 				return cb(err);
 			}
 
-			for (let i = 0; result.aggregations.thingie.buckets[i] !== undefined; i ++) {
-				values.push(result.aggregations.thingie.buckets[i].key);
+			for (let i = 0; body.aggregations.thingie.buckets[i] !== undefined; i ++) {
+				values.push(body.aggregations.thingie.buckets[i].key);
 			}
 
-			cb(null, values);
+			cb(null, values, body.aggregations.thingie.buckets);
 		});
 	});
 }
