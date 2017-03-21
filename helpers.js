@@ -42,7 +42,7 @@ function formatEsResult(esResult, cb) {
 function getAttributeValues(attributeName, cb) {
 	ready(function (err) {
 		const	searchBody	= {'size':0, 'aggs':{'thingie':{'terms':{'field':attributeName}}}, 'query':{'bool':{'must':[]}}},
-			logPrefix	= topLogPrefix + 'getAttributeValues() - url: ' + esUrl + '/larvitproduct/product/_search',
+			logPrefix	= topLogPrefix + 'getAttributeValues() - url: ' + esUrl + '/larvitproduct/product/_search - ',
 			values	= [],
 			url	= esUrl + '/larvitproduct/product/_search';
 
@@ -76,12 +76,11 @@ function getAttributeValues(attributeName, cb) {
 }
 
 function getKeywords(cb) {
-
 	ready(function (err) {
 		const	logPrefix	= topLogPrefix + 'getKeywords() - url: "' + esUrl + '/larvitproduct/_mapping/product"',
 			url	= esUrl + '/larvitproduct/_mapping/product';
 
-		if (err) { return cb(err); }
+		if (err) return cb(err);
 
 		request({'url': url, 'json': true}, function (err, response, body) {
 			const	keywords	= [];
