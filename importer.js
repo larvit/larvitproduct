@@ -254,7 +254,9 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 						}
 
 						for (const colName of Object.keys(attributes)) {
-							product.attributes[colName] = attributes[colName];
+							if (attributes[colName] !== undefined) {
+								product.attributes[colName] = attributes[colName];
+							}
 						}
 					} else {
 						product.attributes = attributes;
