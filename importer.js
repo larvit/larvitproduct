@@ -150,7 +150,17 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 							log.warn(logPrefix + 'options.formatCols[' + colName + '] is not a function');
 							continue;
 						}
-						attributes[colName] = options.formatCols[colName](attributes[colName], attributes);
+
+						tasks.push(function (cb) {
+							options.formatCols[colName](attributes[colName], attributes, function (err, result) {
+								if (err) {
+									log.warn(logPrefix + 'options.formatCols[' + colName + '] err: ' + err.message);
+								}
+
+								attributes[colName] = result;
+								cb(err);
+							});
+						});
 					}
 				}
 
