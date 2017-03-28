@@ -84,6 +84,42 @@ function getAttributeValues(attributeName, options, cb) {
 	});
 }
 
+function getBooleans(cb) {
+	ready (function (err) {
+		const	logPrefix	= topLogPrefix + 'getBooleans() - url: "' + esUrl + '/larvitproduct/_mapping/product"',
+			url	= esUrl + '/larvitproduct/_mapping/product';
+
+		if (err) { return cb(err); }
+
+		request({'url': url, 'json': true}, function (err, response, body) {
+			const	booleans	= [];
+
+			if (err) {
+				log.warn(logPrefix + 'Could not get mappings when calling. err: ' + err.message);
+				return cb(err);
+			}
+
+			if (response.statusCode !== 200) {
+				const	err	= new Error('non-200 statusCode: ' + response.statusCode);
+				log.warn(logPrefix + err.message);
+				return cb(err);
+			}
+
+			for (const fieldName of Object.keys(body.larvitproduct.mappings.product.properties)) {
+				const	fieldProps	= body.larvitproduct.mappings.product.properties[fieldName];
+
+				if (fieldProps.type === 'keyword') {
+					booleans.push(fieldName);
+				} else if (fieldProps.fields && fieldProps.fields.keyword && fieldProps.fields.keyword.type === 'keyword') {
+					booleans.push(fieldName + '.keyword');
+				}
+			}
+
+			cb(null, booleans);
+		});
+	});
+}
+
 function getKeywords(cb) {
 
 	ready(function (err) {
@@ -149,5 +185,6 @@ function updateByQuery(updateBody, cb) {
 exports.attributes	= [];
 exports.formatEsResult	= formatEsResult;
 exports.getAttributeValues	= getAttributeValues;
+exports.getBooleans	= getBooleans;
 exports.getKeywords	= getKeywords;
 exports.updateByQuery	= updateByQuery;
