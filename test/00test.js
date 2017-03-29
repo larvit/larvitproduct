@@ -135,7 +135,9 @@ before(function (done) {
 						'trams':	{ 'type': 'text', 'fields': { 'keyword': { 'type': 'keyword' } } },
 						'foo':	{ 'type': 'text', 'fields': { 'keyword': { 'type': 'keyword' } } },
 						'artNo':	{	'type': 'keyword'},
-						'supplier':	{ 'type': 'keyword'}
+						'supplier':	{ 'type': 'keyword'},
+						'boolTest':	{ 'type': 'boolean'},
+						'ragg':	{ 'type': 'boolean'}
 					}
 				}
 			}
@@ -541,6 +543,21 @@ describe('Helpers', function () {
 			keywords.sort();
 
 			assert.deepStrictEqual(expectedKeywords,	keywords);
+
+			done();
+		});
+	});
+
+	it('should get all booleans', function (done) {
+
+		const expectedBools = ['ragg', 'boolTest'];
+
+		productLib.helpers.getBooleans(function (err, booleans) {
+
+			expectedBools.sort();
+			booleans.sort();
+
+			assert.deepEqual(booleans, expectedBools);
 
 			done();
 		});
