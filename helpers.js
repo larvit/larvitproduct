@@ -108,10 +108,8 @@ function getBooleans(cb) {
 			for (const fieldName of Object.keys(body.larvitproduct.mappings.product.properties)) {
 				const	fieldProps	= body.larvitproduct.mappings.product.properties[fieldName];
 
-				if (fieldProps.type === 'keyword') {
+				if (fieldProps.type === 'boolean') {
 					booleans.push(fieldName);
-				} else if (fieldProps.fields && fieldProps.fields.keyword && fieldProps.fields.keyword.type === 'keyword') {
-					booleans.push(fieldName + '.keyword');
 				}
 			}
 
