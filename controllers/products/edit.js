@@ -77,10 +77,12 @@ exports.run = function (req, res, cb) {
 				slugs.push('product_' + data.product.uuid + '_' + leftPad(i, 2, '0') + '.png');
 				slugs.push('product_' + data.product.uuid + '_' + leftPad(i, 2, '0') + '.gif');
 			}
-console.log('first slugs:');
+
+console.log('first slugs');
 console.log(slugs[0]);
 console.log(slugs[1]);
 console.log(slugs[2]);
+
 			imgLib.getImages({'slugs': slugs, 'limit': 100}, function (err, list) {
 				if (err) return cb(err);
 
@@ -98,16 +100,13 @@ console.log('found images:');
 			if ( ! req.formFiles || ! req.formFiles.newImage) {
 				return cb();
 			}
-
+console.log('setting slug: ' + missingImgSlug);
 			// Set new image slug etc
 			imgOptions.slug	= missingImgSlug;
 			imgOptions.metadata	= [{ 'name': 'description', 'data': data.global.formFields.newImageDesc }];
 			imgOptions.file	= req.formFiles.newImage;
 
-			if	(req.formFiles.newImage.type === 'image/jpeg')	{ imgOptions.slug += '.jpg'; }
-			else if	(req.formFiles.newImage.type === 'image/png')	{ imgOptions.slug += '.png'; }
-			else if	(req.formFiles.newImage.type === 'image/gif')	{ imgOptions.slug += '.gif'; }
-			else {
+			if (['image/jpeg', 'image/png', 'image/gif'].indexOf(req.formFiles.newImage.type) === - 1) {
 				data.global.errors.push('Invalid image type, must be jpeg, png or gif');
 
 				if (res.statusCode === 302) {
@@ -116,7 +115,7 @@ console.log('found images:');
 
 				return cb();
 			}
-
+console.log('slug just before save: ' + imgOptions.slug);
 			imgLib.saveImage(imgOptions, cb);
 		});
 	}
