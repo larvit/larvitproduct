@@ -1,6 +1,6 @@
 <%= _.render('inc/head', obj) %>
 <%= _.render('inc/pageTop', obj) %>
-<form method="post">
+<form method="post" enctype="multipart/form-data">
 
 	<div class="row">
 		<div class="six columns">
@@ -40,6 +40,15 @@
 		<div class="six columns">
 			<label for="attributeValue[]">Field Value</label>
 			<input class="u-full-width" type="text" name="attributeValue[]" value="" />
+		</div>
+	</div>
+
+	<h2>Images</h2>
+
+	<div class="row">
+		<div class="three columns">
+			<p class="u-full-width">Add new image <input type="file" name="newImage" /></p>
+			<input type="text" class="u-full-width" name="newImageDesc" placeholder="Description" />
 		</div>
 	</div>
 
