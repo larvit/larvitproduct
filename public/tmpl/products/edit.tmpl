@@ -45,6 +45,48 @@
 
 	<h2>Images</h2>
 
+	<% if (obj.imageList && Object.keys(obj.imageList).length) { %>
+		<% let rowNr = 1; %>
+		<% let colNr = 1; %>
+
+		<% for (const imgUuid of Object.keys(obj.imageList)) { %>
+			<% const	img	= obj.imageList[imgUuid]; %>
+			<% if (colNr === 1) { %>
+	<div class="row">
+			<% } %>
+
+		<div class="three columns parent">
+			<img class="u-full-width" src="/uploaded/images/<%= img.slug %>?width=360" alt="" />
+			<p class="u-full-width"><%
+				if (img.metadata && Array.isArray(img.metadata)) {
+					for (let i = 0; img.metadata[i] !== undefined; i ++) {
+						if (img.metadata[i].name === 'description') {
+							print(img.metadata[i].data);
+						}
+					}
+				}
+			%></p>
+			<p style="text-align: center;" class="u-full-width"><button type="submit" name="rmImage" class="button warning rmParent noPageReload" value="<%= imgUuid %>">Delete image</button></p>
+		</div>
+
+			<% if (colNr === 4) { %>
+	</div>
+			<% } %>
+
+			<%
+				colNr ++;
+
+				if (colNr === 5) {
+					rowNr ++;
+					colNr = 1;
+				}
+			%>
+		<% } %>
+		<% if (colNr !== 5) { %>
+	</div>
+		<% } %>
+	<% } %>
+
 	<div class="row">
 		<div class="three columns">
 			<p class="u-full-width">Add new image <input type="file" name="newImage" /></p>
