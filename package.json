@@ -1,6 +1,6 @@
 {
   "name": "larvitproduct",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Generic product database for use in webshops or other places",
   "main": "index.js",
   "scripts": {
@@ -32,6 +32,7 @@
     "iconv-lite": "^0.4.15",
     "larvitamintercom": "^0.2.1",
     "larvitamsync": "^0.3.0",
+    "larvitdb": "^1.2.7",
     "larvitdbmigration": "^2.0.0",
     "larvitfs": "^1.0.1",
     "larvitimages": "^0.6.1",
