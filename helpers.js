@@ -259,5 +259,6 @@ exports.attributes	= [];
 exports.formatEsResult	= formatEsResult;
 exports.getAttributeValues	= getAttributeValues;
 exports.getBooleans	= getBooleans;
+exports.getImagesForProducts	= getImagesForProducts;
 exports.getKeywords	= getKeywords;
 exports.updateByQuery	= updateByQuery;
