@@ -285,10 +285,6 @@ function ready(retries, cb) {
 		});
 	}
 
-	if (exports.mode === 'noSync') {
-		log.warn(logPrefix + 'exports.mode: "' + exports.mode + '", never run this mode in production!');
-	}
-
 	async.series(tasks, function (err) {
 		if (err) return;
 

@@ -19,11 +19,16 @@ before_install:
   - $CXX --version
   - curl -O https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.1.1.deb && sudo dpkg -i --force-confnew elasticsearch-5.1.1.deb && sudo service elasticsearch start
 
+before_script:
+  - mysql -e 'CREATE DATABASE test'
+  - sleep 15
+
 install:
   - if [[ $TRAVIS_OS_NAME == "linux" ]]; then export CXX=g++-4.8; fi
   - npm i
 
 services:
+  - mysql
   - rabbitmq
 
 addons:
@@ -34,7 +39,4 @@ addons:
     - g++-4.8
     - oracle-java8-set-default
 
-before_script:
-  - sleep 15
-
-script: ESCONFFILE=es_travis.json INTCONFFILE=amqp_travis.json npm test
+script: DBCONFFILE=db_travis.json ESCONFFILE=es_travis.json INTCONFFILE=amqp_travis.json npm test

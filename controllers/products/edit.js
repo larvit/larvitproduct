@@ -19,18 +19,6 @@ exports.run = function (req, res, cb) {
 	data.global.messages	= [];
 	data.global.errors	= [];
 
-	function getImageList(cb) {
-		const	slugs	= [];
-
-		for (let i = 1; i !== 25; i ++) {
-			slugs.push('product_' + data.product.uuid + '_' + leftPad(i, 2, '0') + '.jpg');
-			slugs.push('product_' + data.product.uuid + '_' + leftPad(i, 2, '0') + '.png');
-			slugs.push('product_' + data.product.uuid + '_' + leftPad(i, 2, '0') + '.gif');
-		}
-
-		imgLib.getImages({'slugs': slugs, 'limit': 100}, cb);
-	}
-
 	tasks.push(function (cb) {
 		data.product	= new productLib.Product(data.global.urlParsed.query.uuid);
 		data.product.loadFromDb(cb);
@@ -76,31 +64,28 @@ exports.run = function (req, res, cb) {
 
 		// Save images - find out last image number
 		tasks.push(function (cb) {
+			const	takenNumbers	= [];
+
+			let	testNum	= 1;
+
 			if ( ! req.formFiles || ! req.formFiles.newImage) {
 				return cb();
 			}
 
-			getImageList(function (err, list) {
-				const	takenNumbers	= [];
+			for (let i = 0; data.product.images[i] !== undefined; i ++) {
+				const	img	= data.product.images[i],
+					curNum	= Number(img.slug.substring(45, img.slug.length - 4));
 
-				let	testNum	= 1;
+				takenNumbers.push(curNum);
+			}
 
-				if (err) return cb(err);
+			while (takenNumbers.indexOf(testNum) !== - 1) {
+				testNum ++;
+			}
 
-				for (const imgUuid of Object.keys(list)) {
-					const	curNum	= Number(list[imgUuid].slug.substring(45, list[imgUuid].slug.length - 4));
+			missingImgSlug = 'product_' + data.product.uuid + '_' + leftPad(testNum, 2, '0');
 
-					takenNumbers.push(curNum);
-				}
-
-				while (takenNumbers.indexOf(testNum) !== - 1) {
-					testNum ++;
-				}
-
-				missingImgSlug = 'product_' + data.product.uuid + '_' + leftPad(testNum, 2, '0');
-
-				cb();
-			});
+			cb();
 		});
 
 		// Save images - write to disk
@@ -134,6 +119,11 @@ exports.run = function (req, res, cb) {
 
 			imgLib.saveImage(imgOptions, cb);
 		});
+
+		// Reload from database
+		tasks.push(function (cb) {
+			data.product.loadFromDb(cb);
+		});
 	}
 
 	if (data.global.formFields.rmProduct !== undefined) {
@@ -157,14 +147,18 @@ exports.run = function (req, res, cb) {
 	}
 
 	// Load images
-	if (data.global.urlParsed.query.uuid) {
-		tasks.push(function (cb) {
-			getImageList(function (err, imageList) {
-				data.imageList	= imageList;
-				cb(err);
-			});
-		});
-	}
+//	if (data.global.urlParsed.query.uuid) {
+//		tasks.push(function (cb) {
+//			productLib.getImagesForEsResult(data.product)
+//
+//
+//
+//			getImageList(function (err, imageList) {
+//				data.imageList	= imageList;
+//				cb(err);
+//			});
+//		});
+//	}
 
 	async.series(tasks, function (err) {
 		cb(err, req, res, data);

@@ -3,7 +3,10 @@
 const	topLogPrefix	= 'larvitproduct: helpers.js - ',
 	dataWriter	= require(__dirname + '/dataWriter.js'),
 	request	= require('request'),
+	leftPad	= require('left-pad'),
 	lUtils	= require('larvitutils'),
+	imgLib	= require('larvitimages'),
+	async	= require('async'),
 	log	= require('winston'),
 	_	= require('lodash');
 
@@ -36,26 +39,33 @@ function formatEsResult(esResult, cb) {
 		}
 	}
 
-	cb(null, product);
+	getImagesForProducts([product], function (err) {
+		cb(err, product);
+	});
 }
 
 function getAttributeValues(attributeName, options, cb) {
+	const	values	= [],
+		tasks	= [];
+
+	let	valueList,
+		buckets;
+
 	if (typeof options === 'function') {
 		cb	= options;
 		options	= {};
 	}
 
-	ready(function (err) {
+	if (options.query) {
+		searchBody.query = options.query;
+	}
+
+	tasks.push(ready);
+
+	tasks.push(function (cb) {
 		const	searchBody	= {'size':0, 'aggs':{'thingie':{'terms':{'field':attributeName}}}, 'query':{'bool':{'must':[]}}},
 			logPrefix	= topLogPrefix + 'getAttributeValues() - url: ' + esUrl + '/larvitproduct/product/_search',
-			values	= [],
 			url	= esUrl + '/larvitproduct/product/_search';
-
-		if (err) return cb(err);
-
-		if (options.query) {
-			searchBody.query = options.query;
-		}
 
 		searchBody.aggs.thingie.terms.size = 2147483647; // http://stackoverflow.com/questions/22927098/show-all-elasticsearch-aggregation-results-buckets-and-not-just-10
 
@@ -79,21 +89,28 @@ function getAttributeValues(attributeName, options, cb) {
 				values.push(body.aggregations.thingie.buckets[i].key);
 			}
 
-			cb(null, values, body.aggregations.thingie.buckets);
+			valueList	= values;
+			buckets	= body.aggregations.thingie.buckets;
+			cb();
 		});
+	});
+
+	async.series(tasks, function (err) {
+		cb(err, valueList, buckets);
 	});
 }
 
 function getBooleans(cb) {
-	ready (function (err) {
+	const	booleans	= [],
+		tasks	= [];
+
+	tasks.push(ready);
+
+	tasks.push(function (cb) {
 		const	logPrefix	= topLogPrefix + 'getBooleans() - url: "' + esUrl + '/larvitproduct/_mapping/product"',
 			url	= esUrl + '/larvitproduct/_mapping/product';
 
-		if (err) { return cb(err); }
-
 		request({'url': url, 'json': true}, function (err, response, body) {
-			const	booleans	= [];
-
 			if (err) {
 				log.warn(logPrefix + 'Could not get mappings when calling. err: ' + err.message);
 				return cb(err);
@@ -113,22 +130,71 @@ function getBooleans(cb) {
 				}
 			}
 
-			cb(null, booleans);
+			cb();
 		});
+	});
+
+	async.series(tasks, function (err) {
+		if (err) return cb(err);
+		cb(null, booleans);
+	});
+}
+
+function getImagesForProducts(products, cb) {
+	const	logPrefix	= topLogPrefix + 'getImagesForProducts() - ',
+		slugs	= [];
+
+	if ( ! Array.isArray(products)) {
+		return cb(new Error('Inavlid input, is not an array'));
+	}
+
+	for (let i = 0; products[i] !== undefined; i ++) {
+		const	product	= products[i];
+
+		if ( ! product.uuid) {
+			const	err	= new Error('Invalid input, product have no uuid');
+			log.warn(logPrefix + err.message);
+			return cb(err);
+		}
+
+		for (let i = 1; i !== 25; i ++) {
+			slugs.push('product_' + product.uuid + '_' + leftPad(i, 2, '0') + '.jpg');
+			slugs.push('product_' + product.uuid + '_' + leftPad(i, 2, '0') + '.png');
+			slugs.push('product_' + product.uuid + '_' + leftPad(i, 2, '0') + '.gif');
+		}
+	}
+
+	imgLib.getImages({'slugs': slugs, 'limit': 10000}, function (err, result) {
+		if (err) return cb(err);
+
+		for (let i = 0; products[i] !== undefined; i ++) {
+			const	product	= products[i];
+
+			product.images	= [];
+
+			for (const imgUuid of Object.keys(result)) {
+				if (product.uuid === result[imgUuid].slug.substring(8, 44)) {
+					product.images.push(result[imgUuid]);
+					delete result[imgUuid];
+				}
+			}
+		}
+
+		cb(null, products);
 	});
 }
 
 function getKeywords(cb) {
+	const	keywords	= [],
+		tasks	= [];
 
-	ready(function (err) {
+	tasks.push(ready);
+
+	tasks.push(function (cb) {
 		const	logPrefix	= topLogPrefix + 'getKeywords() - url: "' + esUrl + '/larvitproduct/_mapping/product"',
 			url	= esUrl + '/larvitproduct/_mapping/product';
 
-		if (err) { return cb(err); }
-
 		request({'url': url, 'json': true}, function (err, response, body) {
-			const	keywords	= [];
-
 			if (err) {
 				log.warn(logPrefix + 'Could not get mappings when calling. err: ' + err.message);
 				return cb(err);
@@ -150,8 +216,13 @@ function getKeywords(cb) {
 				}
 			}
 
-			cb(null, keywords);
+			cb();
 		});
+	});
+
+	async.series(tasks, function (err) {
+		if (err) return cb(err);
+		cb(null, keywords);
 	});
 }
 
@@ -165,18 +236,22 @@ function ready(cb) {
 }
 
 function updateByQuery(updateBody, cb) {
-	const	options	= {'exchange': dataWriter.exchangeName},
-		message	= {};
+	ready(function (err) {
+		const	options	= {'exchange': dataWriter.exchangeName},
+			message	= {};
 
-	message.action	= 'updateByQuery';
-	message.params	= {};
-
-	message.params.updateBody	= updateBody;
-
-	intercom.send(message, options, function (err, msgUuid) {
 		if (err) return cb(err);
 
-		dataWriter.emitter.once(msgUuid, cb);
+		message.action	= 'updateByQuery';
+		message.params	= {};
+
+		message.params.updateBody	= updateBody;
+
+		intercom.send(message, options, function (err, msgUuid) {
+			if (err) return cb(err);
+
+			dataWriter.emitter.once(msgUuid, cb);
+		});
 	});
 }
 

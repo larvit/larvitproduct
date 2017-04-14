@@ -5,10 +5,12 @@ const	elasticsearch	= require('elasticsearch'),
 	productLib	= require(__dirname + '/../index.js'),
 	Intercom	= require('larvitamintercom'),
 	request	= require('request'),
+	imgLib	= require('larvitimages'),
 	assert	= require('assert'),
 	lUtils	= require('larvitutils'),
 	async	= require('async'),
 	log	= require('winston'),
+	db	= require('larvitdb'),
 	fs	= require('fs'),
 	os	= require('os');
 
@@ -27,11 +29,57 @@ log.remove(log.transports.Console);
 	'humanReadableUnhandledException':	true
 }); /**/
 
-productLib.dataWriter.mode = 'noSync';
+productLib.dataWriter.mode	= 'noSync';
+imgLib.dataWriter.mode	= 'noSync';
 
 before(function (done) {
 	this.timeout(10000);
 	const	tasks	= [];
+
+	// Run DB Setup
+	tasks.push(function (cb) {
+		let confFile;
+
+		if (process.env.DBCONFFILE === undefined) {
+			confFile = __dirname + '/../config/db_test.json';
+		} else {
+			confFile = process.env.DBCONFFILE;
+		}
+
+		log.verbose('DB config file: "' + confFile + '"');
+
+		// First look for absolute path
+		fs.stat(confFile, function (err) {
+			if (err) {
+
+				// Then look for this string in the config folder
+				confFile = __dirname + '/../config/' + confFile;
+				fs.stat(confFile, function (err) {
+					if (err) throw err;
+					log.verbose('DB config: ' + JSON.stringify(require(confFile)));
+					db.setup(require(confFile), cb);
+				});
+
+				return;
+			}
+
+			log.verbose('DB config: ' + JSON.stringify(require(confFile)));
+			db.setup(require(confFile), cb);
+		});
+	});
+
+	// Check for empty db
+	tasks.push(function (cb) {
+		db.query('SHOW TABLES', function (err, rows) {
+			if (err) throw err;
+
+			if (rows.length) {
+				throw new Error('SQL Database is not empty. To make a test, you must supply an empty database!');
+			}
+
+			cb();
+		});
+	});
 
 	// Run ES Setup
 	tasks.push(function (cb) {
@@ -70,14 +118,14 @@ before(function (done) {
 		});
 	});
 
-	// Check for empty db
+	// Check for empty ES
 	tasks.push(function (cb) {
 		es.cat.indices({'v': true}, function (err, result) {
 			if (err) throw err;
 
 			// Source: https://www.elastic.co/guide/en/elasticsearch/reference/1.4/_list_all_indexes.html
 			if (result !== 'health status index uuid pri rep docs.count docs.deleted store.size pri.store.size\n') {
-				throw new Error('Database is not empty. To make a test, you must supply an empty database!');
+				throw new Error('ES Database is not empty. To make a test, you must supply an empty database!');
 			}
 
 			cb(err);
@@ -1021,6 +1069,17 @@ describe('Import', function () {
 });
 
 after(function (done) {
+	const	tasks	= [];
+
 	// Remove all data from elasticsearch
-	es.indices.delete({'index': '*'}, done);
+	tasks.push(function (cb) {
+		es.indices.delete({'index': '*'}, cb);
+	});
+
+	// Clean up SQL database
+	tasks.push(function (cb) {
+		db.removeAllTables(cb);
+	});
+
+	async.parallel(tasks, done);
 });

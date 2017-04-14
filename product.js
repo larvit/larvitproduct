@@ -117,6 +117,10 @@ Product.prototype.loadFromDb = function (cb) {
 				that.attributes	= result.attributes;
 			}
 
+			if (result && result.images) {
+				that.images	= result.images;
+			}
+
 			cb();
 		});
 	});

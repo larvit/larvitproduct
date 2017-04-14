@@ -45,12 +45,12 @@
 
 	<h2>Images</h2>
 
-	<% if (obj.imageList && Object.keys(obj.imageList).length) { %>
+	<% if (obj.product.images && obj.product.images.length) { %>
 		<% let rowNr = 1; %>
 		<% let colNr = 1; %>
 
-		<% for (const imgUuid of Object.keys(obj.imageList)) { %>
-			<% const	img	= obj.imageList[imgUuid]; %>
+		<% for (let i = 0; obj.product.images[i] !== undefined; i ++) { %>
+			<% const img = obj.product.images[i]; %>
 			<% if (colNr === 1) { %>
 	<div class="row">
 			<% } %>
@@ -66,7 +66,7 @@
 					}
 				}
 			%></p>
-			<p style="text-align: center;" class="u-full-width"><button type="submit" name="rmImage" class="button warning rmParent noPageReload" value="<%= imgUuid %>">Delete image</button></p>
+			<p style="text-align: center;" class="u-full-width"><button type="submit" name="rmImage" class="button warning rmParent noPageReload" value="<%= img.uuid %>">Delete image</button></p>
 		</div>
 
 			<% if (colNr === 4) { %>
