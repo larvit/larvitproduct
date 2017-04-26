@@ -45,7 +45,8 @@ function formatEsResult(esResult, cb) {
 }
 
 function getAttributeValues(attributeName, options, cb) {
-	const	values	= [],
+	const	searchBody	= {'size':0, 'aggs':{'thingie':{'terms':{'field':attributeName}}}, 'query':{'bool':{'must':[]}}},
+		values	= [],
 		tasks	= [];
 
 	let	valueList,
@@ -63,8 +64,7 @@ function getAttributeValues(attributeName, options, cb) {
 	tasks.push(ready);
 
 	tasks.push(function (cb) {
-		const	searchBody	= {'size':0, 'aggs':{'thingie':{'terms':{'field':attributeName}}}, 'query':{'bool':{'must':[]}}},
-			logPrefix	= topLogPrefix + 'getAttributeValues() - url: ' + esUrl + '/larvitproduct/product/_search',
+		const	logPrefix	= topLogPrefix + 'getAttributeValues() - url: ' + esUrl + '/larvitproduct/product/_search',
 			url	= esUrl + '/larvitproduct/product/_search';
 
 		searchBody.aggs.thingie.terms.size = 2147483647; // http://stackoverflow.com/questions/22927098/show-all-elasticsearch-aggregation-results-buckets-and-not-just-10
