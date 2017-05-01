@@ -151,6 +151,10 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 							continue;
 						}
 
+						if (colHeads.indexOf(colName) === - 1) {
+							continue;
+						}
+
 						tasks.push(function (cb) {
 							options.formatCols[colName](attributes[colName], attributes, function (err, result) {
 								if (err) {
