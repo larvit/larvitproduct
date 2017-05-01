@@ -272,6 +272,19 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 						product.attributes = attributes;
 					}
 
+					// Trim all attributes
+					for (const attributeName of Object.keys(product.attributes)) {
+						if (Array.isArray(product.attributes[attributeName])) {
+							for (let i = 0; product.attributes[attributeName][i] !== undefined; i ++) {
+								if (typeof product.attributes[attributeName][i] === 'string') {
+									product.attributes[attributeName][i] = product.attributes[attributeName][i].trim();
+								}
+							}
+						} else if (typeof product.attributes[attributeName] === 'string') {
+							product.attributes[attributeName] = product.attributes[attributeName].trim();
+						}
+					}
+
 					product.save(function (err) {
 						if (err) {
 							log.warn(logPrefix + 'Could not save product: ' + err.message);
