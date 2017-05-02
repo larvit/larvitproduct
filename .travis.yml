@@ -29,7 +29,6 @@ install:
 
 services:
   - mysql
-  - rabbitmq
 
 addons:
   apt:
@@ -39,4 +38,4 @@ addons:
     - g++-4.8
     - oracle-java8-set-default
 
-script: DBCONFFILE=db_travis.json ESCONFFILE=es_travis.json INTCONFFILE=amqp_travis.json npm test
+script: DBCONFFILE=db_travis.json ESCONFFILE=es_travis.json npm test

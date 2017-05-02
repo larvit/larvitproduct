@@ -25,6 +25,29 @@ let	readyInProgress	= false,
 
 eventEmitter.setMaxListeners(30);
 
+function deleteByQuery(params, deliveryTag, msgUuid) {
+	const	logPrefix	= topLogPrefix + 'deleteByQuery() - Url: "' + esUrl + '_delete_by_query" - ',
+		url	= esUrl + '_delete_by_query';
+
+	request.post({'url': url, 'body': params.deleteBody, 'json': true}, function (err, response, body) {
+		if (err) {
+			log.error(logPrefix + 'err: ' + err.message);
+			exports.emitter.emit(msgUuid, err);
+			return;
+		}
+
+		if (response.statusCode !== 200) {
+			const	err	= new Error('non-200 statusCode: ' + response.statusCode + ' response body: "' + JSON.stringify(body) + '"');
+			log.error(logPrefix + err.message);
+			exports.emitter.emit(msgUuid, err);
+			return;
+		}
+
+		log.verbose(logPrefix + 'ran with updateBody: "' + JSON.stringify(params.updateBody) + '"');
+		exports.emitter.emit(msgUuid);
+	});
+}
+
 function listenToQueue(retries, cb) {
 	const	logPrefix	= topLogPrefix + 'listenToQueue() - ',
 		options	= {'exchange': exports.exchangeName};
@@ -438,6 +461,7 @@ function writeProduct(params, deliveryTag, msgUuid) {
 	});
 }
 
+exports.deleteByQuery	= deleteByQuery;
 exports.emitter	= new EventEmitter();
 exports.exchangeName	= 'larvitproduct';
 exports.listenToQueue	= listenToQueue;
