@@ -670,7 +670,7 @@ describe('Import', function () {
 
 				uuids	= result;
 
-				assert.deepStrictEqual(uuids.length,	2);
+				assert.strictEqual(uuids.length,	2);
 				cb();
 			});
 		});
@@ -685,14 +685,14 @@ describe('Import', function () {
 				for (let i = 0; testProducts[i] !== undefined; i ++) {
 					const	product	= testProducts[i];
 
-					assert.deepStrictEqual(Object.keys(product._source).length,	4);
+					assert.strictEqual(Object.keys(product._source).length,	4);
 
 					if (product._source.name[0] === 'ball') {
-						assert.deepStrictEqual(product._source.price[0],	'100');
-						assert.deepStrictEqual(product._source.description[0],	'it is round');
+						assert.strictEqual(product._source.price[0],	'100');
+						assert.strictEqual(product._source.description[0],	'it is round');
 					} else if (product._source.name[0] === 'tv') {
-						assert.deepStrictEqual(product._source.price[0],	'55');
-						assert.deepStrictEqual(product._source.description[0],	'About 32" in size');
+						assert.strictEqual(product._source.price[0],	'55');
+						assert.strictEqual(product._source.description[0],	'About 32" in size');
 					} else {
 						throw new Error('Unexpected product: ' + JSON.stringify(product));
 					}
@@ -736,7 +736,7 @@ describe('Import', function () {
 
 				uuids	= result;
 
-				assert.deepStrictEqual(uuids.length,	3);
+				assert.strictEqual(uuids.length,	3);
 				cb();
 			});
 		});
@@ -751,23 +751,23 @@ describe('Import', function () {
 				for (let i = 0; testProducts.docs[i] !== undefined; i ++) {
 					const	product	= testProducts.docs[i];
 
-					assert.deepStrictEqual(Object.keys(product._source).length,	6);
+					assert.strictEqual(Object.keys(product._source).length,	6);
 
 					if (product._source.name[0] === 'ball') {
-						assert.deepStrictEqual(product._source.artNo[0],	'abc01');
-						assert.deepStrictEqual(product._source.size[0],	'3');
-						assert.deepStrictEqual(product._source.enabled[0],	'true');
-						assert.deepStrictEqual(product._source.foul[0],	'nope');
+						assert.strictEqual(product._source.artNo[0],	'abc01');
+						assert.strictEqual(product._source.size[0],	'3');
+						assert.strictEqual(product._source.enabled[0],	'true');
+						assert.strictEqual(product._source.foul[0],	'nope');
 					} else if (product._source.name[0] === 'tv') {
-						assert.deepStrictEqual(product._source.artNo[0],	'abc02');
-						assert.deepStrictEqual(product._source.size[0],	'14');
-						assert.deepStrictEqual(product._source.enabled[0],	'false');
-						assert.deepStrictEqual(product._source.foul[0],	'nope');
+						assert.strictEqual(product._source.artNo[0],	'abc02');
+						assert.strictEqual(product._source.size[0],	'14');
+						assert.strictEqual(product._source.enabled[0],	'false');
+						assert.strictEqual(product._source.foul[0],	'nope');
 					} else if (product._source.name[0] === 'spoon') {
-						assert.deepStrictEqual(product._source.artNo[0],	'abc03');
-						assert.deepStrictEqual(product._source.size[0],	'2');
-						assert.deepStrictEqual(product._source.enabled[0],	'true');
-						assert.deepStrictEqual(product._source.foul[0],	'nope');
+						assert.strictEqual(product._source.artNo[0],	'abc03');
+						assert.strictEqual(product._source.size[0],	'2');
+						assert.strictEqual(product._source.enabled[0],	'true');
+						assert.strictEqual(product._source.foul[0],	'nope');
 					} else {
 						throw new Error('Unexpected product: ' + JSON.stringify(product));
 					}
@@ -809,7 +809,7 @@ describe('Import', function () {
 			importFromStr(productStr, options, function (err, result) {
 				if (err) throw err;
 				uuids = result;
-				assert.deepStrictEqual(uuids.length,	3);
+				assert.strictEqual(uuids.length,	3);
 				cb();
 			});
 		});
@@ -838,17 +838,17 @@ describe('Import', function () {
 				for (let i = 0; testProducts.docs[i] !== undefined; i ++) {
 					const	product	= testProducts.docs[i];
 
-					assert.deepStrictEqual(Object.keys(product._source).length,	4);
+					assert.strictEqual(Object.keys(product._source).length,	4);
 
 					if (product._source.name[0] === 'ball') {
-						assert.deepStrictEqual(product._source.artNo[0],	'abc01');
-						assert.deepStrictEqual(product._source.size[0],	'15');
+						assert.strictEqual(product._source.artNo[0],	'abc01');
+						assert.strictEqual(product._source.size[0],	'15');
 					} else if (product._source.name[0] === 'tv') {
-						assert.deepStrictEqual(product._source.artNo[0],	'abc02');
-						assert.deepStrictEqual(product._source.size[0],	'14');
+						assert.strictEqual(product._source.artNo[0],	'abc02');
+						assert.strictEqual(product._source.size[0],	'14');
 					} else if (product._source.name[0] === 'car') {
-						assert.deepStrictEqual(product._source.artNo[0],	'abc13');
-						assert.deepStrictEqual(product._source.size[0],	'2');
+						assert.strictEqual(product._source.artNo[0],	'abc13');
+						assert.strictEqual(product._source.size[0],	'2');
 					} else {
 						throw new Error('Unexpected product: ' + JSON.stringify(product));
 					}
@@ -875,7 +875,7 @@ describe('Import', function () {
 			importFromStr(productStr1, options, function (err, result) {
 				if (err) throw err;
 				uuids1 = result;
-				assert.deepStrictEqual(uuids1.length,	3);
+				assert.strictEqual(uuids1.length,	3);
 				cb();
 			});
 		});
@@ -898,7 +898,7 @@ describe('Import', function () {
 			importFromStr(productStr2, options, function (err, result) {
 				if (err) throw err;
 				uuids2 = result;
-				assert.deepStrictEqual(uuids2.length,	3);
+				assert.strictEqual(uuids2.length,	3);
 				cb();
 			});
 		});
@@ -927,14 +927,14 @@ describe('Import', function () {
 				for (let i = 0; testProducts.docs[i] !== undefined; i ++) {
 					const	product	= testProducts.docs[i];
 
-					assert.deepStrictEqual(Object.keys(product._source).length,	4);
+					assert.strictEqual(Object.keys(product._source).length,	4);
 
 					if (product._source.supplier[0] === 'urkus ab' && product._source.artNo[0] === 'bb1') {
-						assert.deepStrictEqual(product._source.name[0],	'MUU');
+						assert.strictEqual(product._source.name[0],	'MUU');
 					} else if (product._source.supplier[0] === 'blimp 18' && product._source.artNo[0] === 'bb2') {
-						assert.deepStrictEqual(product._source.name[0],	'tefflon');
+						assert.strictEqual(product._source.name[0],	'tefflon');
 					} else if (product._source.supplier[0] === 'bleff ab' && product._source.artNo[0] === 'bb1') {
-						assert.deepStrictEqual(product._source.name[0],	'bolk');
+						assert.strictEqual(product._source.name[0],	'bolk');
 					} else {
 						throw new Error('Unexpected product: ' + JSON.stringify(product));
 					}
@@ -961,7 +961,7 @@ describe('Import', function () {
 			importFromStr(productStr1, options, function (err, result) {
 				if (err) throw err;
 				uuids1 = result;
-				assert.deepStrictEqual(uuids1.length,	3);
+				assert.strictEqual(uuids1.length,	3);
 				cb();
 			});
 		});
@@ -984,7 +984,7 @@ describe('Import', function () {
 			importFromStr(productStr2, options, function (err, result) {
 				if (err) throw err;
 				uuids2 = result;
-				assert.deepStrictEqual(uuids2.length,	3);
+				assert.strictEqual(uuids2.length,	3);
 				cb();
 			});
 
@@ -1006,7 +1006,7 @@ describe('Import', function () {
 
 		// Check product data
 		tasks.push(function (cb) {
-			const uuids = uniqueConcat(uuids1.concat(uuids2));
+			const	uuids	= uniqueConcat(uuids1.concat(uuids2));
 
 			getProductData(uuids, function (err, testProducts) {
 				if (err) throw err;
@@ -1016,17 +1016,17 @@ describe('Import', function () {
 				for (let i = 0; testProducts.docs[i] !== undefined; i ++) {
 					const	product	= testProducts.docs[i];
 					if (product._source.supplier[0] === 'slam ab' && product._source.artNo[0] === 'rd1') {
-						assert.deepStrictEqual(product._source.name[0], 'MUU');
-						assert.deepStrictEqual(parseInt(product._source.size[0]), 100);
+						assert.strictEqual(product._source.name[0],	'MUU');
+						assert.strictEqual(parseInt(product._source.size[0]),	100);
 					} else if (product._source.supplier[0] === 'paow' && product._source.artNo[0] === 'bb2') {
-						assert.deepStrictEqual(product._source.name[0], 'tefflon');
-						assert.deepStrictEqual(product._source.size, undefined);
+						assert.strictEqual(product._source.name[0],	'tefflon');
+						assert.strictEqual(product._source.size,	undefined);
 					} else if (product._source.supplier[0] === 'bang ab' && product._source.artNo[0] === 'hhv4') {
-						assert.deepStrictEqual(product._source.name[0], 'bolk');
-						assert.deepStrictEqual(parseInt(product._source.size[0]), 300);
+						assert.strictEqual(product._source.name[0],	'bolk');
+						assert.strictEqual(parseInt(product._source.size[0]),	300);
 					} else if (product._source.supplier[0] === 'slam ab' && product._source.artNo[0] === 'rd2') {
-						assert.deepStrictEqual(product._source.name[0], 'bar');
-						assert.deepStrictEqual(parseInt(product._source.size[0]), 200);
+						assert.strictEqual(product._source.name[0],	'bar');
+						assert.strictEqual(parseInt(product._source.size[0]),	200);
 					} else {
 						throw new Error('Unexpected product: ' + JSON.stringify(product));
 					}
@@ -1059,7 +1059,7 @@ describe('Import', function () {
 
 				uuids	= result;
 
-				assert.deepStrictEqual(uuids.length,	4);
+				assert.strictEqual(uuids.length,	4);
 				cb();
 			});
 		});
@@ -1074,24 +1074,24 @@ describe('Import', function () {
 				for (let i = 0; testProducts[i] !== undefined; i ++) {
 					const	product	= testProducts[i];
 
-					assert.deepStrictEqual(Object.keys(product._source).length,	5);
+					assert.strictEqual(Object.keys(product._source).length,	5);
 
 					if (product._source.name[0] === 'ball') {
-						assert.deepStrictEqual(product._source.price[0],	'100');
-						assert.deepStrictEqual(product._source.description[0],	'it is round');
-						assert.deepStrictEqual(product._source.foo,	undefined);
+						assert.strictEqual(product._source.price[0],	'100');
+						assert.strictEqual(product._source.description[0],	'it is round');
+						assert.strictEqual(product._source.foo,	undefined);
 					} else if (product._source.name[0] === 'tv') {
-						assert.deepStrictEqual(product._source.price[0],	'55');
-						assert.deepStrictEqual(product._source.description[0],	'About 32" in size');
-						assert.deepStrictEqual(product._source.foo[0],	'bar');
+						assert.strictEqual(product._source.price[0],	'55');
+						assert.strictEqual(product._source.description[0],	'About 32" in size');
+						assert.strictEqual(product._source.foo[0],	'bar');
 					} else if (product._source.name[0] === 'soffa') {
-						assert.deepStrictEqual(product._source.price[0],	'1200');
-						assert.deepStrictEqual(product._source.description[0],	'n/a');
-						assert.deepStrictEqual(product._source.foo,	undefined);
+						assert.strictEqual(product._source.price[0],	'1200');
+						assert.strictEqual(product._source.description[0],	'n/a');
+						assert.strictEqual(product._source.foo,	undefined);
 					} else if (product._source.name[0] === 'bord') {
-						assert.deepStrictEqual(product._source.price[0],	'20');
-						assert.deepStrictEqual(product._source.description,	undefined);
-						assert.deepStrictEqual(product._source.foo[0],	'n/a');
+						assert.strictEqual(product._source.price[0],	'20');
+						assert.strictEqual(product._source.description,	undefined);
+						assert.strictEqual(product._source.foo[0],	'n/a');
 					} else {
 						throw new Error('Unexpected product: ' + JSON.stringify(product));
 					}
@@ -1110,7 +1110,6 @@ describe('Import', function () {
 		});
 
 		async.series(tasks, done);
-
 	});
 });
 
