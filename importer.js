@@ -184,7 +184,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 						if ( ! attributes[options.findByCols[i]]) {
 							const err = new Error('Missing attribute value for "' + options.findByCols[i] + '" rowNr: ' + currentRowNr);
 
-							log.verbose('fromFile() - ' + err.message);
+							log.verbose(logPrefix + err.message);
 							return cb(err);
 						}
 					}
@@ -196,7 +196,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 				tasks.push(function (cb) {
 					if ( ! options.findByCols && options.noNew === true) {
 						const	err	= new Error('findByCols is not set and we should not create any new products. This means no product will ever be created.');
-						log.verbose(logPrefix + '' + err.message);
+						log.verbose(logPrefix + err.message);
 						return cb(err);
 					}
 
