@@ -1037,6 +1037,81 @@ describe('Import', function () {
 
 		async.series(tasks, done);
 	});
+
+	it('Ignore column values', function (done) {
+		const	productStr	= 'name,price,description,foo\nball,100,it is round,N/A\ntv,55,Large sized,bar\nsoffa,1200,n/a,N/A\nbord,20,,n/a',
+			tasks	= [];
+
+		let	uuids;
+
+		// Do a pre-count
+		tasks.push(function (cb) {
+			countProducts(function (err, count) {
+				assert.strictEqual(count,	23);
+				cb(err);
+			});
+		});
+
+		// Run importer
+		tasks.push(function (cb) {
+			importFromStr(productStr, {'removeColValsContaining': ['N/A', '']}, function (err, result) {
+				if (err) throw err;
+
+				uuids	= result;
+
+				assert.deepStrictEqual(uuids.length,	4);
+				cb();
+			});
+		});
+
+		// Get product data and check it
+		tasks.push(function (cb) {
+			getProductData(uuids, function (err, testProducts) {
+				if (err) throw err;
+
+				assert.strictEqual(testProducts.docs.length,	4);
+
+				for (let i = 0; testProducts[i] !== undefined; i ++) {
+					const	product	= testProducts[i];
+
+					assert.deepStrictEqual(Object.keys(product._source).length,	5);
+
+					if (product._source.name[0] === 'ball') {
+						assert.deepStrictEqual(product._source.price[0],	'100');
+						assert.deepStrictEqual(product._source.description[0],	'it is round');
+						assert.deepStrictEqual(product._source.foo,	undefined);
+					} else if (product._source.name[0] === 'tv') {
+						assert.deepStrictEqual(product._source.price[0],	'55');
+						assert.deepStrictEqual(product._source.description[0],	'About 32" in size');
+						assert.deepStrictEqual(product._source.foo[0],	'bar');
+					} else if (product._source.name[0] === 'soffa') {
+						assert.deepStrictEqual(product._source.price[0],	'1200');
+						assert.deepStrictEqual(product._source.description[0],	'n/a');
+						assert.deepStrictEqual(product._source.foo,	undefined);
+					} else if (product._source.name[0] === 'bord') {
+						assert.deepStrictEqual(product._source.price[0],	'20');
+						assert.deepStrictEqual(product._source.description,	undefined);
+						assert.deepStrictEqual(product._source.foo[0],	'n/a');
+					} else {
+						throw new Error('Unexpected product: ' + JSON.stringify(product));
+					}
+				}
+
+				cb();
+			});
+		});
+
+		// Count total number of products in database
+		tasks.push(function (cb) {
+			countProducts(function (err, count) {
+				assert.strictEqual(count,	27);
+				cb(err);
+			});
+		});
+
+		async.series(tasks, done);
+
+	});
 });
 
 after(function (done) {

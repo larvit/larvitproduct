@@ -26,6 +26,7 @@ let	es;
  *		'staticColHeads':	{'4': 'foo', '7': 'bar'},	// Manually set the column names for 4 to "foo" and 7 to "bar". Counting starts at 0
  *		'staticCols':	{'colName': colValues, 'colName2': colValues ...},	// Will extend the columns with this
  *		'updateByCols':	['col1', 'col2'],	// With update product data where BOTH these attributes/columns matches
+ *		'removeColValsContaining':	['N/A', ''],	// Will remove the column value if it exactly matches one or more options in the array
  *	}
  * @param func cb(err, [productUuid1, productUuid2]) the second array is a list of all added/altered products
  */
@@ -61,22 +62,27 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 		if (options.ignoreCols	=== undefined) { options.ignoreCols	= [];	}
 		if (options.ignoreTopRows	=== undefined) { options.ignoreTopRows	= 0;	}
+		if (options.removeColValsContaining	=== undefined) { options.removeColValsContaining	= [];	}
 		if (options.renameCols	=== undefined) { options.renameCols	= {};	}
 		if (options.staticColHeads	=== undefined) { options.staticColHeads	= {};	}
 
-		if ( ! (options.ignoreCols instanceof Array)) {
+		if ( ! Array.isArray(options.ignoreCols)) {
 			options.ignoreCols = [options.ignoreCols];
 		}
 
+		if ( ! Array.isArray(options.removeColValsContaining)) {
+			options.removeColValsContaining	= [options.removeColValsContaining];
+		}
+
 		if (options.replaceByCols) {
-			if ( ! (options.replaceByCols instanceof Array)) {
+			if ( ! Array.isArray(options.replaceByCols)) {
 				options.replaceByCols = [options.replaceByCols];
 			}
 			options.findByCols	= options.replaceByCols;
 		}
 
 		if (options.updateByCols) {
-			if ( ! (options.updateByCols instanceof Array)) {
+			if ( ! Array.isArray(options.updateByCols)) {
 				options.updateByCols = [options.updateByCols];
 			}
 			options.findByCols	= options.updateByCols;
@@ -138,7 +144,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 						colVal = options.staticCols[colHeads[i]];
 					}
 
-					if (options.ignoreCols.indexOf(colHeads[i]) === - 1) {
+					if (options.ignoreCols.indexOf(colHeads[i]) === - 1 && options.removeColValsContaining.indexOf(colVal) === - 1) {
 						attributes[colHeads[i]] = colVal;
 					}
 				}
