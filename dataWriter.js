@@ -201,21 +201,6 @@ function ready(retries, cb) {
 		});
 	});
 
-	// Run database migrations
-	tasks.push(function (cb) {
-		const	options	= {};
-
-		let dbMigration;
-
-		options.dbType	= 'elasticsearch';
-		options.dbDriver	= es;
-		options.tableName	= 'larvitproduct_db_version';
-		options.migrationScriptsPath	= __dirname + '/dbmigration';
-		dbMigration	= new DbMigration(options);
-
-		dbMigration.run(cb);
-	});
-
 	if (exports.mode === 'slave') {
 		log.verbose(logPrefix + 'exports.mode: "' + exports.mode + '", so read');
 
@@ -307,6 +292,40 @@ function ready(retries, cb) {
 			async.series(tasks, cb);
 		});
 	}
+
+	// Run database migrations
+	tasks.push(function (cb) {
+		const	options	= {};
+
+		let dbMigration;
+
+		options.dbType	= 'elasticsearch';
+		options.dbDriver	= es;
+		options.tableName	= 'larvitproduct_db_version';
+		options.migrationScriptsPath	= __dirname + '/dbmigration';
+		dbMigration	= new DbMigration(options);
+
+		dbMigration.run(cb);
+	});
+
+	// Make sure elasticsearch index is up to date
+	tasks.push(function (cb) {
+		request.post('http://' + lUtils.instances.elasticsearch.transport._config.host + '/_refresh', function (err, response, body) {
+			if (err) {
+				log.error(logPrefix + 'Could not refresh elasticsearch index, err: ' + err.message);
+				return cb(err);
+			}
+
+			if (response.statusCode !== 200) {
+				const	err	= new Error('Could not refresh elasticsearch index, got statusCode: "' + response.statusCode + '"');
+				log.error(logPrefix + err.message);
+				console.log(body);
+				return cb(err);
+			}
+
+			cb(err);
+		});
+	});
 
 	async.series(tasks, function (err) {
 		if (err) return;
