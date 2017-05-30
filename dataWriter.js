@@ -20,33 +20,9 @@ const	elasticdumpPath	= require('larvitfs').getPathSync('bin/elasticdump'),
 let	readyInProgress	= false,
 	isReady	= false,
 	intercom,
-	esUrl,
 	es;
 
 eventEmitter.setMaxListeners(30);
-
-function deleteByQuery(params, deliveryTag, msgUuid) {
-	const	logPrefix	= topLogPrefix + 'deleteByQuery() - Url: "' + esUrl + '_delete_by_query" - ',
-		url	= esUrl + '_delete_by_query';
-
-	request.post({'url': url, 'body': params.deleteBody, 'json': true}, function (err, response, body) {
-		if (err) {
-			log.error(logPrefix + 'err: ' + err.message);
-			exports.emitter.emit(msgUuid, err);
-			return;
-		}
-
-		if (response.statusCode !== 200) {
-			const	err	= new Error('non-200 statusCode: ' + response.statusCode + ' response body: "' + JSON.stringify(body) + '"');
-			log.error(logPrefix + err.message);
-			exports.emitter.emit(msgUuid, err);
-			return;
-		}
-
-		log.verbose(logPrefix + 'ran with updateBody: "' + JSON.stringify(params.updateBody) + '"');
-		exports.emitter.emit(msgUuid);
-	});
-}
 
 function listenToQueue(retries, cb) {
 	const	logPrefix	= topLogPrefix + 'listenToQueue() - ',
@@ -185,8 +161,6 @@ function ready(retries, cb) {
 		log.error(logPrefix + 'Elasticsearch is not set!');
 		return;
 	}
-
-	esUrl	= 'http://' + lUtils.instances.elasticsearch.transport._config.host + '/larvitproduct/product/';
 
 	readyInProgress = true;
 
@@ -396,29 +370,6 @@ function runDumpServer(cb) {
 	}
 }
 
-function updateByQuery(params, deliveryTag, msgUuid) {
-	const	logPrefix	= topLogPrefix + 'updateByQuery() - Url: "' + esUrl + '_update_by_query" - ',
-		url	= esUrl + '_update_by_query';
-
-	request.post({'url': url, 'body': params.updateBody, 'json': true}, function (err, response, body) {
-		if (err) {
-			log.error(logPrefix + 'err: ' + err.message);
-			exports.emitter.emit(msgUuid, err);
-			return;
-		}
-
-		if (response.statusCode !== 200) {
-			const	err	= new Error('non-200 statusCode: ' + response.statusCode + ' response body: "' + JSON.stringify(body) + '"');
-			log.error(logPrefix + err.message);
-			exports.emitter.emit(msgUuid, err);
-			return;
-		}
-
-		log.verbose(logPrefix + 'ran with updateBody: "' + JSON.stringify(params.updateBody) + '"');
-		exports.emitter.emit(msgUuid);
-	});
-}
-
 function writeProduct(params, deliveryTag, msgUuid) {
 	const	productAttributes	= params.attributes,
 		productUuid	= params.uuid,
@@ -480,12 +431,10 @@ function writeProduct(params, deliveryTag, msgUuid) {
 	});
 }
 
-exports.deleteByQuery	= deleteByQuery;
 exports.emitter	= new EventEmitter();
 exports.exchangeName	= 'larvitproduct';
 exports.listenToQueue	= listenToQueue;
 exports.mode	= false; // 'slave' or 'master' or 'noSync'
 exports.ready	= ready;
 exports.rmProducts	= rmProducts;
-exports.updateByQuery	= updateByQuery;
 exports.writeProduct	= writeProduct;

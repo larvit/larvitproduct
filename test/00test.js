@@ -568,16 +568,86 @@ describe('Helpers', function () {
 	});
 
 	it('should get all booleans', function (done) {
-
-		const expectedBools = ['ragg', 'boolTest'];
+		const	expectedBools	= ['ragg', 'boolTest'];
 
 		productLib.helpers.getBooleans(function (err, booleans) {
-
 			expectedBools.sort();
 			booleans.sort();
 
 			assert.deepEqual(booleans, expectedBools);
 
+			done();
+		});
+	});
+
+	it('update by query', function (done) {
+		const	tasks	= [];
+
+		tasks.push(function (cb) {
+			const	queryBody	= {},
+				updates	= {};
+
+			queryBody.query	= {'bool': {'filter': {'term': {'active': 'true'}}}};
+			updates.enabled	= ['true'];
+
+			productLib.helpers.updateByQuery(queryBody, updates, cb);
+		});
+
+		tasks.push(function (cb) {
+			es.indices.refresh({'index': 'larvitproduct'}, cb);
+		});
+
+		tasks.push(function (cb) {
+			request({'url': esUrl + '/larvitproduct/product/_search', 'json': true}, function (err, response, body) {
+				if (err) throw err;
+
+				for (let i = 0; body.hits.hits[i] !== undefined; i ++) {
+					const	source	= body.hits.hits[i]._source;
+
+					if (Array.isArray(source.active) && source.active[0] === 'true') {
+						assert.strictEqual(source.enabled[0],	'true');
+					}
+				}
+
+				cb();
+			});
+		});
+
+		async.series(tasks, function (err) {
+			if (err) throw err;
+			done();
+		});
+	});
+
+	it('delete by query', function (done) {
+		const	tasks	= [];
+
+		tasks.push(function (cb) {
+			const	queryBody	= {};
+
+			queryBody.query	= {'bool': {'filter': {'term': {'foo': 'bar'}}}};
+
+			productLib.helpers.deleteByQuery(queryBody, cb);
+		});
+
+		tasks.push(function (cb) {
+			setTimeout(function () {
+				es.indices.refresh({'index': 'larvitproduct'}, cb);
+			}, 20);
+		});
+
+		tasks.push(function (cb) {
+			request({'url': esUrl + '/larvitproduct/product/_search', 'json': true}, function (err, response, body) {
+				if (err) throw err;
+
+				assert.strictEqual(body.hits.hits.length,	7);
+
+				cb();
+			});
+		});
+
+		async.series(tasks, function (err) {
+			if (err) throw err;
 			done();
 		});
 	});
@@ -658,7 +728,7 @@ describe('Import', function () {
 		// Do a pre-count
 		tasks.push(function (cb) {
 			countProducts(function (err, count) {
-				assert.strictEqual(count,	9);
+				assert.strictEqual(count,	7);
 				cb(err);
 			});
 		});
@@ -705,7 +775,7 @@ describe('Import', function () {
 		// Count total number of products in database
 		tasks.push(function (cb) {
 			countProducts(function (err, count) {
-				assert.strictEqual(count,	11);
+				assert.strictEqual(count,	9);
 				cb(err);
 			});
 		});
@@ -1047,7 +1117,7 @@ describe('Import', function () {
 		// Do a pre-count
 		tasks.push(function (cb) {
 			countProducts(function (err, count) {
-				assert.strictEqual(count,	23);
+				assert.strictEqual(count,	21);
 				cb(err);
 			});
 		});
@@ -1104,7 +1174,7 @@ describe('Import', function () {
 		// Count total number of products in database
 		tasks.push(function (cb) {
 			countProducts(function (err, count) {
-				assert.strictEqual(count,	27);
+				assert.strictEqual(count,	25);
 				cb(err);
 			});
 		});

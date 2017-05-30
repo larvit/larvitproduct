@@ -2,6 +2,7 @@
 
 const	topLogPrefix	= 'larvitproduct: helpers.js - ',
 	dataWriter	= require(__dirname + '/dataWriter.js'),
+	Product	= require(__dirname + '/product.js'),
 	request	= require('request'),
 	leftPad	= require('left-pad'),
 	lUtils	= require('larvitutils'),
@@ -13,6 +14,62 @@ const	topLogPrefix	= 'larvitproduct: helpers.js - ',
 let	intercom,
 	esUrl,
 	es;
+
+function deleteByQuery(queryBody, cb) {
+	const	logPrefix	= topLogPrefix + 'deleteByQuery() - ',
+		uuids	= [],
+		tasks	= [];
+
+	tasks.push(ready);
+
+	// Get products to delete
+	tasks.push(function (cb) {
+		const	reqOptions	= {};
+
+		reqOptions.url	= esUrl + '/larvitproduct/product/_search';
+		reqOptions.json	= true;
+		reqOptions.body	= queryBody;
+
+		request(reqOptions, function (err, response, body) {
+			if (err) {
+				log.warn(logPrefix + 'Could not get products to delete, err: ' + err.message);
+				return cb(err);
+			}
+
+			if (response.statusCode !== 200) {
+				const	err	= new Error('non-200 response code: ' + response.statusCode);
+				log.warn(logPrefix + err.message);
+				return cb(err);
+			}
+
+			for (let i = 0; body.hits.hits[i] !== undefined; i ++) {
+				const	hit	= body.hits.hits[i];
+
+				uuids.push(hit._id);
+			}
+
+			cb();
+		});
+	});
+
+	// Remove products
+	tasks.push(function (cb) {
+		const	message	= {};
+
+		message.action	= 'rmProducts';
+		message.params	= {'uuids': uuids};
+
+		intercom.send(message, {'exchange': 'larvitproduct'}, function (err) {
+			if (err) {
+				log.error(logPrefix + 'Could not send to queue, err: ' + err.message);
+			}
+
+			cb(err);
+		});
+	});
+
+	async.series(tasks, cb);
+}
 
 function formatEsResult(esResult, cb) {
 	const	logPrefix	= topLogPrefix + 'formatEsResult() - ',
@@ -235,27 +292,73 @@ function ready(cb) {
 	});
 }
 
-function updateByQuery(updateBody, cb) {
-	ready(function (err) {
-		const	options	= {'exchange': dataWriter.exchangeName},
-			message	= {};
+function updateByQuery(queryBody, updates, cb) {
+	const	logPrefix	= topLogPrefix + 'updateByQuery() - ',
+		uuids	= [],
+		tasks	= [];
 
-		if (err) return cb(err);
+	tasks.push(ready);
 
-		message.action	= 'updateByQuery';
-		message.params	= {};
+	// Get products to update
+	tasks.push(function (cb) {
+		const	reqOptions	= {};
 
-		message.params.updateBody	= updateBody;
+		reqOptions.url	= esUrl + '/larvitproduct/product/_search';
+		reqOptions.json	= true;
+		reqOptions.body	= queryBody;
 
-		intercom.send(message, options, function (err, msgUuid) {
-			if (err) return cb(err);
+		request(reqOptions, function (err, response, body) {
+			if (err) {
+				log.warn(logPrefix + 'Could not get products to update, err: ' + err.message);
+				return cb(err);
+			}
 
-			dataWriter.emitter.once(msgUuid, cb);
+			if (response.statusCode !== 200) {
+				const	err	= new Error('non-200 response code: ' + response.statusCode);
+				log.warn(logPrefix + err.message);
+				return cb(err);
+			}
+
+			for (let i = 0; body.hits.hits[i] !== undefined; i ++) {
+				const	hit	= body.hits.hits[i];
+
+				uuids.push(hit._id);
+			}
+
+			cb();
 		});
 	});
+
+	// Run updates
+	tasks.push(function (cb) {
+		const	tasks	= [];
+
+		for (let i = 0; uuids[i] !== undefined; i ++) {
+			const	uuid	= uuids[i];
+
+			tasks.push(function (cb) {
+				const	product	= new Product(uuid);
+
+				product.loadFromDb(function (err) {
+					if (err) return cb(err);
+
+					for (const attributeName of Object.keys(updates)) {
+						product.attributes[attributeName] = updates[attributeName];
+					}
+
+					product.save(cb);
+				});
+			});
+		}
+
+		async.parallelLimit(tasks, 100, cb);
+	});
+
+	async.series(tasks, cb);
 }
 
 exports.attributes	= [];
+exports.deleteByQuery	= deleteByQuery;
 exports.formatEsResult	= formatEsResult;
 exports.getAttributeValues	= getAttributeValues;
 exports.getBooleans	= getBooleans;
