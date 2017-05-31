@@ -43,20 +43,6 @@ function listenToQueue(retries, cb) {
 		retries = 0;
 	}
 
-	if (exports.mode === 'master') {
-		listenMethod	= 'consume';
-		options.exclusive	= true;	// It is important no other client tries to sneak
-				// out messages from us, and we want "consume"
-				// since we want the queue to persist even if this
-				// minion goes offline.
-	} else if (exports.mode === 'slave' || exports.mode === 'noSync') {
-		listenMethod = 'subscribe';
-	} else {
-		const	err	= new Error('Invalid exports.mode. Must be either "master", "slave" or "noSync"');
-		log.error(logPrefix + err.message);
-		return cb(err);
-	}
-
 	intercom	= require('larvitutils').instances.intercom;
 
 	if ( ! (intercom instanceof require('larvitamintercom')) && retries < 10) {
@@ -71,6 +57,20 @@ function listenToQueue(retries, cb) {
 	}
 
 	log.info(logPrefix + 'listenMethod: ' + listenMethod);
+
+	if (exports.mode === 'master') {
+		listenMethod	= 'consume';
+		options.exclusive	= true;	// It is important no other client tries to sneak
+				// out messages from us, and we want "consume"
+				// since we want the queue to persist even if this
+				// minion goes offline.
+	} else if (exports.mode === 'slave' || exports.mode === 'noSync') {
+		listenMethod = 'subscribe';
+	} else {
+		const	err	= new Error('Invalid exports.mode. Must be either "master", "slave" or "noSync"');
+		log.error(logPrefix + err.message);
+		return cb(err);
+	}
 
 	intercom.ready(function (err) {
 		if (err) {
@@ -123,12 +123,6 @@ function ready(retries, cb) {
 		retries	= 0;
 	}
 
-	if (exports.mode !== 'slave' && exports.mode !== 'master' && exports.mode !== 'noSync') {
-		const	err	= new Error('dataWriter.mode must be "slave", "master" or "noSync"');
-		log.error(logPrefix + err.message);
-		return cb(err);
-	}
-
 	if (isReady === true) return cb();
 
 	if (readyInProgress === true) {
@@ -147,6 +141,12 @@ function ready(retries, cb) {
 	} else if ( ! (intercom instanceof require('larvitamintercom'))) {
 		log.error(logPrefix + 'Intercom is not set!');
 		return;
+	}
+
+	if (exports.mode !== 'slave' && exports.mode !== 'master' && exports.mode !== 'noSync') {
+		const	err	= new Error('dataWriter.mode must be "slave", "master" or "noSync"');
+		log.error(logPrefix + err.message);
+		return cb(err);
 	}
 
 	es	= lUtils.instances.elasticsearch;
