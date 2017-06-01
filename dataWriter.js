@@ -175,6 +175,22 @@ function ready(retries, cb) {
 		});
 	});
 
+	// Make sure index exists
+	tasks.push(function (cb) {
+		es.indices.create({'index': 'larvitproduct'}, function (err) {
+			if (err) {
+				if (err.message.substring(0, 32) === '[index_already_exists_exception]') {
+					log.debug(logPrefix + 'Index alreaxy exists, is cool');
+					return cb();
+				}
+
+				log.error(logPrefix + 'es.indices.create() - ' + err.message);
+			}
+
+			cb(err);
+		});
+	});
+
 	if (exports.mode === 'slave') {
 		log.verbose(logPrefix + 'exports.mode: "' + exports.mode + '", so read');
 
