@@ -29,6 +29,7 @@ function deleteByQuery(queryBody, cb) {
 		reqOptions.url	= esUrl + '/larvitproduct/product/_search';
 		reqOptions.json	= true;
 		reqOptions.body	= queryBody;
+		reqOptions.body.size	= 10000;
 
 		request(reqOptions, function (err, response, body) {
 			if (err) {
@@ -37,7 +38,7 @@ function deleteByQuery(queryBody, cb) {
 			}
 
 			if (response.statusCode !== 200) {
-				const	err	= new Error('non-200 response code: ' + response.statusCode);
+				const	err	= new Error('non-200 response code: ' + response.statusCode + ', query: ' + JSON.stringify(reqOptions.body) + ', response body: ' + JSON.stringify(body));
 				log.warn(logPrefix + err.message);
 				return cb(err);
 			}
@@ -66,6 +67,20 @@ function deleteByQuery(queryBody, cb) {
 
 			cb(err);
 		});
+	});
+
+	// Refreesh ES index
+	tasks.push(function (cb) {
+		request.post(esUrl + '/larvitproduct/_refresh', cb);
+	});
+
+	// Run this function again if any uuids was encountered
+	tasks.push(function (cb) {
+		if (uuids.length) {
+			deleteByQuery(queryBody, cb);
+		} else {
+			cb();
+		}
 	});
 
 	async.series(tasks, cb);
@@ -292,6 +307,7 @@ function ready(cb) {
 	});
 }
 
+// LIMITED TO 10000 PRODUCTS!1!!!
 function updateByQuery(queryBody, updates, cb) {
 	const	logPrefix	= topLogPrefix + 'updateByQuery() - ',
 		uuids	= [],
@@ -306,6 +322,7 @@ function updateByQuery(queryBody, updates, cb) {
 		reqOptions.url	= esUrl + '/larvitproduct/product/_search';
 		reqOptions.json	= true;
 		reqOptions.body	= queryBody;
+		reqOptions.body.size	= 10000;
 
 		request(reqOptions, function (err, response, body) {
 			if (err) {
@@ -314,7 +331,7 @@ function updateByQuery(queryBody, updates, cb) {
 			}
 
 			if (response.statusCode !== 200) {
-				const	err	= new Error('non-200 response code: ' + response.statusCode);
+				const	err	= new Error('non-200 response code: ' + response.statusCode + ', query: ' + JSON.stringify(reqOptions.body) + ', response body: ' + JSON.stringify(body));
 				log.warn(logPrefix + err.message);
 				return cb(err);
 			}
@@ -323,6 +340,10 @@ function updateByQuery(queryBody, updates, cb) {
 				const	hit	= body.hits.hits[i];
 
 				uuids.push(hit._id);
+			}
+
+			if (uuids.length > 9999) {
+				log.warn(logPrefix + 'query cap on 10,000 records reached! Several records was probably not updated.');
 			}
 
 			cb();
