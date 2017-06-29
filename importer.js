@@ -105,7 +105,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 				// Set colHeads and rename cols if applicable
 				if (currentRowNr === options.ignoreTopRows) {
 					for (let i = 0; csvRow[i] !== undefined; i ++) {
-						let	colName	= csvRow[i];
+						let	colName	= String(csvRow[i]).trim();
 
 						if (options.staticColHeads[i] !== undefined) {
 							colName = options.staticColHeads[i];
