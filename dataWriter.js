@@ -177,7 +177,7 @@ function ready(retries, cb) {
 
 	// Make sure index exists
 	tasks.push(function (cb) {
-		es.indices.create({'index': 'larvitproduct'}, function (err) {
+		es.indices.create({'index': exports.esIndexName}, function (err) {
 			if (err) {
 				if (err.message.substring(0, 32) === '[index_already_exists_exception]') {
 					log.debug(logPrefix + 'Index alreaxy exists, is cool');
@@ -202,7 +202,7 @@ function ready(retries, cb) {
 			// Pipe mapping directly to elasticdump
 			tasks.push(function (cb) {
 				new amsync.SyncClient({'exchange': exchangeName + '_mapping' }, function (err, res) {
-					const ed = spawn(elasticdumpPath, ['--input=$', '--output=http://' + lUtils.instances.elasticsearch.transport._config.host + '/larvitproduct', '--type=mapping']);
+					const ed = spawn(elasticdumpPath, ['--input=$', '--output=http://' + lUtils.instances.elasticsearch.transport._config.host + '/' + exports.esIndexName, '--type=mapping']);
 
 					if (err) {
 						log.warn(logPrefix + 'Sync failed for mapping: ' + err.message);
@@ -250,7 +250,7 @@ function ready(retries, cb) {
 			});
 
 			tasks.push(function (cb) {
-				const ed = spawn(elasticdumpPath, ['--input=' + tmpFileName, '--output=http://' + lUtils.instances.elasticsearch.transport._config.host + '/larvitproduct', '--type=data']);
+				const ed = spawn(elasticdumpPath, ['--input=' + tmpFileName, '--output=http://' + lUtils.instances.elasticsearch.transport._config.host + '/' + exports.esIndexName, '--type=data']);
 
 				ed.stdout.on('data', function (chunk) {
 					log.verbose(logPrefix + 'stdout: ' + chunk);
@@ -291,7 +291,7 @@ function ready(retries, cb) {
 
 		options.dbType	= 'elasticsearch';
 		options.dbDriver	= es;
-		options.tableName	= 'larvitproduct_db_version';
+		options.tableName	= exports.esIndexName + '_db_version';
 		options.migrationScriptsPath	= __dirname + '/dbmigration';
 		dbMigration	= new DbMigration(options);
 
@@ -341,7 +341,7 @@ function rmProducts(params, deliveryTag, msgUuid) {
 	}
 
 	for (let i = 0; productUuids[i] !== undefined; i ++) {
-		body.push({'delete': {'_index': 'larvitproduct', '_type': 'product', '_id': productUuids[i]}});
+		body.push({'delete': {'_index': exports.esIndexName, '_type': 'product', '_id': productUuids[i]}});
 	}
 	// Is logged upstream, but should stop app execution
 	es.bulk({'body': body}, function (err) {
@@ -357,7 +357,7 @@ function runDumpServer(cb) {
 			exchangeName	= exports.exchangeName + '_dataDump',
 			dataDumpCmd = {
 				'command': elasticdumpPath,
-				'args': ['--input=http://' + lUtils.instances.elasticsearch.transport._config.host + '/larvitproduct', '--output=$']
+				'args': ['--input=http://' + lUtils.instances.elasticsearch.transport._config.host + '/' + exports.esIndexName, '--output=$']
 			};
 
 		subTasks.push(function (cb) {
@@ -428,7 +428,7 @@ function writeProduct(params, deliveryTag, msgUuid) {
 		}
 
 		es.index({
-			'index':	'larvitproduct',
+			'index':	exports.esIndexName,
 			'id':	productUuid,
 			'type':	'product',
 			'body':	body

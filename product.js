@@ -83,7 +83,7 @@ Product.prototype.loadFromDb = function (cb) {
 
 	tasks.push(function (cb) {
 		es.get({
-			'index':	'larvitproduct',
+			'index':	dataWriter.esIndexName,
 			'type':	'product',
 			'id':	that.uuid
 		}, function (err, result) {

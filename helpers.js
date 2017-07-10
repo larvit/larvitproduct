@@ -26,7 +26,7 @@ function deleteByQuery(queryBody, cb) {
 	tasks.push(function (cb) {
 		const	reqOptions	= {};
 
-		reqOptions.url	= esUrl + '/larvitproduct/product/_search';
+		reqOptions.url	= esUrl + '/' + dataWriter.esIndexName + '/product/_search';
 		reqOptions.json	= true;
 		reqOptions.body	= queryBody;
 		reqOptions.body.size	= 10000;
@@ -71,7 +71,7 @@ function deleteByQuery(queryBody, cb) {
 
 	// Refreesh ES index
 	tasks.push(function (cb) {
-		request.post(esUrl + '/larvitproduct/_refresh', cb);
+		request.post(esUrl + '/' + dataWriter.esIndexName + '/_refresh', cb);
 	});
 
 	// Run this function again if any uuids was encountered
@@ -136,8 +136,8 @@ function getAttributeValues(attributeName, options, cb) {
 	tasks.push(ready);
 
 	tasks.push(function (cb) {
-		const	logPrefix	= topLogPrefix + 'getAttributeValues() - url: ' + esUrl + '/larvitproduct/product/_search',
-			url	= esUrl + '/larvitproduct/product/_search';
+		const	logPrefix	= topLogPrefix + 'getAttributeValues() - url: ' + esUrl + '/' + dataWriter.esIndexName + '/product/_search',
+			url	= esUrl + '/' + dataWriter.esIndexName + '/product/_search';
 
 		searchBody.aggs.thingie.terms.size = 2147483647; // http://stackoverflow.com/questions/22927098/show-all-elasticsearch-aggregation-results-buckets-and-not-just-10
 
@@ -179,8 +179,8 @@ function getBooleans(cb) {
 	tasks.push(ready);
 
 	tasks.push(function (cb) {
-		const	logPrefix	= topLogPrefix + 'getBooleans() - url: "' + esUrl + '/larvitproduct/_mapping/product"',
-			url	= esUrl + '/larvitproduct/_mapping/product';
+		const	logPrefix	= topLogPrefix + 'getBooleans() - url: "' + esUrl + '/' + dataWriter.esIndexName + '/_mapping/product"',
+			url	= esUrl + '/' + dataWriter.esIndexName + '/_mapping/product';
 
 		request({'url': url, 'json': true}, function (err, response, body) {
 			if (err) {
@@ -194,8 +194,8 @@ function getBooleans(cb) {
 				return cb(err);
 			}
 
-			for (const fieldName of Object.keys(body.larvitproduct.mappings.product.properties)) {
-				const	fieldProps	= body.larvitproduct.mappings.product.properties[fieldName];
+			for (const fieldName of Object.keys(body[dataWriter.esIndexName].mappings.product.properties)) {
+				const	fieldProps	= body[dataWriter.esIndexName].mappings.product.properties[fieldName];
 
 				if (fieldProps.type === 'boolean') {
 					booleans.push(fieldName);
@@ -263,8 +263,8 @@ function getKeywords(cb) {
 	tasks.push(ready);
 
 	tasks.push(function (cb) {
-		const	logPrefix	= topLogPrefix + 'getKeywords() - url: "' + esUrl + '/larvitproduct/_mapping/product"',
-			url	= esUrl + '/larvitproduct/_mapping/product';
+		const	logPrefix	= topLogPrefix + 'getKeywords() - url: "' + esUrl + '/' + dataWriter.esIndexName + '/_mapping/product"',
+			url	= esUrl + '/' + dataWriter.esIndexName + '/_mapping/product';
 
 		request({'url': url, 'json': true}, function (err, response, body) {
 			if (err) {
@@ -278,8 +278,8 @@ function getKeywords(cb) {
 				return cb(err);
 			}
 
-			for (const fieldName of Object.keys(body.larvitproduct.mappings.product.properties)) {
-				const	fieldProps	= body.larvitproduct.mappings.product.properties[fieldName];
+			for (const fieldName of Object.keys(body[dataWriter.esIndexName].mappings.product.properties)) {
+				const	fieldProps	= body[dataWriter.esIndexName].mappings.product.properties[fieldName];
 
 				if (fieldProps.type === 'keyword') {
 					keywords.push(fieldName);
@@ -319,7 +319,7 @@ function updateByQuery(queryBody, updates, cb) {
 	tasks.push(function (cb) {
 		const	reqOptions	= {};
 
-		reqOptions.url	= esUrl + '/larvitproduct/product/_search';
+		reqOptions.url	= esUrl + '/' + dataWriter.esIndexName + '/product/_search';
 		reqOptions.json	= true;
 		reqOptions.body	= queryBody;
 		reqOptions.body.size	= 10000;

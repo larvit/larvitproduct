@@ -18,6 +18,9 @@ let	esConf,
 	esUrl,
 	es;
 
+// Test with non-standard esIndexName
+productLib.dataWriter.esIndexName	= 'something';
+
 // Set up winston
 log.remove(log.transports.Console);
 /**/log.add(log.transports.Console, {
@@ -146,7 +149,7 @@ before(function (done) {
 		esUrl	= 'http://' + esConf.clientOptions.host;
 
 		es.indices.putMapping({
-			'index':	'larvitproduct',
+			'index':	productLib.dataWriter.esIndexName,
 			'type':	'product',
 			'body': {
 				'product': {
@@ -257,7 +260,7 @@ describe('Product', function () {
 
 		function checkProduct(cb) {
 			es.get({
-				'index':	'larvitproduct',
+				'index':	productLib.dataWriter.esIndexName,
 				'type':	'product',
 				'id':	productUuid
 			}, function (err, result) {
@@ -382,7 +385,7 @@ describe('Product', function () {
 		// Get all products before
 		tasks.push(function (cb) {
 			es.search({
-				'index':	'larvitproduct',
+				'index':	productLib.dataWriter.esIndexName,
 				'type':	'product'
 			}, function (err, result) {
 				if (err) throw err;
@@ -402,13 +405,13 @@ describe('Product', function () {
 
 		// Refresh the index
 		tasks.push(function (cb) {
-			es.indices.refresh({'index': 'larvitproduct'}, cb);
+			es.indices.refresh({'index': productLib.dataWriter.esIndexName}, cb);
 		});
 
 		// Get all products after
 		tasks.push(function (cb) {
 			es.search({
-				'index':	'larvitproduct',
+				'index':	productLib.dataWriter.esIndexName,
 				'type':	'product'
 			}, function (err, result) {
 				if (err) throw err;
@@ -488,7 +491,7 @@ describe('Helpers', function () {
 			if (err) throw err;
 
 			// Refresh the index
-			es.indices.refresh({'index': 'larvitproduct'}, function (err) {
+			es.indices.refresh({'index': productLib.dataWriter.esIndexName}, function (err) {
 				if (err) throw err;
 				done();
 			});
@@ -521,7 +524,7 @@ describe('Helpers', function () {
 			if (err) throw err;
 
 			es.get({
-				'index':	'larvitproduct',
+				'index':	productLib.dataWriter.esIndexName,
 				'type':	'product',
 				'id':	product.uuid
 			}, function (err, result) {
@@ -594,11 +597,11 @@ describe('Helpers', function () {
 		});
 
 		tasks.push(function (cb) {
-			es.indices.refresh({'index': 'larvitproduct'}, cb);
+			es.indices.refresh({'index': productLib.dataWriter.esIndexName}, cb);
 		});
 
 		tasks.push(function (cb) {
-			request({'url': esUrl + '/larvitproduct/product/_search', 'json': true}, function (err, response, body) {
+			request({'url': esUrl + '/' + productLib.dataWriter.esIndexName + '/product/_search', 'json': true}, function (err, response, body) {
 				if (err) throw err;
 
 				for (let i = 0; body.hits.hits[i] !== undefined; i ++) {
@@ -632,12 +635,12 @@ describe('Helpers', function () {
 
 		tasks.push(function (cb) {
 			setTimeout(function () {
-				es.indices.refresh({'index': 'larvitproduct'}, cb);
+				es.indices.refresh({'index': productLib.dataWriter.esIndexName}, cb);
 			}, 20);
 		});
 
 		tasks.push(function (cb) {
-			request({'url': esUrl + '/larvitproduct/product/_search', 'json': true}, function (err, response, body) {
+			request({'url': esUrl + '/' + productLib.dataWriter.esIndexName + '/product/_search', 'json': true}, function (err, response, body) {
 				if (err) throw err;
 
 				assert.strictEqual(body.hits.hits.length,	7);
@@ -657,7 +660,7 @@ describe('Import', function () {
 
 	// Make sure the index is refreshed between each test
 	beforeEach(function (done) {
-		es.indices.refresh({'index': 'larvitproduct'}, done);
+		es.indices.refresh({'index': productLib.dataWriter.esIndexName}, done);
 	});
 
 	function importFromStr(str, options, cb) {
@@ -696,14 +699,14 @@ describe('Import', function () {
 		const	body	= {'body':{'docs':[]}};
 
 		for (const uuid of uuids) {
-			body.body.docs.push({'_index': 'larvitproduct', '_type': 'product', '_id': uuid});
+			body.body.docs.push({'_index': productLib.dataWriter.esIndexName, '_type': 'product', '_id': uuid});
 		}
 
 		es.mget(body, cb);
 	}
 
 	function countProducts(cb) {
-		request({'url': esUrl + '/larvitproduct/product/_count', 'json': true}, function (err, response, body) {
+		request({'url': esUrl + '/' + productLib.dataWriter.esIndexName + '/product/_count', 'json': true}, function (err, response, body) {
 			if (err) throw err;
 
 			cb(err, body.count);
@@ -886,7 +889,7 @@ describe('Import', function () {
 
 		// Refresh index
 		tasks.push(function (cb) {
-			es.indices.refresh({'index': 'larvitproduct'}, cb);
+			es.indices.refresh({'index': productLib.dataWriter.esIndexName}, cb);
 		});
 
 		// Count hits after index
@@ -952,7 +955,7 @@ describe('Import', function () {
 
 		// Refresh index
 		tasks.push(function (cb) {
-			es.indices.refresh({'index': 'larvitproduct'}, cb);
+			es.indices.refresh({'index': productLib.dataWriter.esIndexName}, cb);
 		});
 
 		// Pre-count products
@@ -975,7 +978,7 @@ describe('Import', function () {
 
 		// Refresh index
 		tasks.push(function (cb) {
-			es.indices.refresh({'index': 'larvitproduct'}, cb);
+			es.indices.refresh({'index': productLib.dataWriter.esIndexName}, cb);
 		});
 
 		// Count hits after index
@@ -1038,7 +1041,7 @@ describe('Import', function () {
 
 		// Refresh index
 		tasks.push(function (cb) {
-			es.indices.refresh({'index': 'larvitproduct'}, cb);
+			es.indices.refresh({'index': productLib.dataWriter.esIndexName}, cb);
 		});
 
 		// Pre-count products
@@ -1062,7 +1065,7 @@ describe('Import', function () {
 
 		// Refresh index
 		tasks.push(function (cb) {
-			es.indices.refresh({'index': 'larvitproduct'}, cb);
+			es.indices.refresh({'index': productLib.dataWriter.esIndexName}, cb);
 		});
 
 		// Count hits after index

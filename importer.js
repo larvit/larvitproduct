@@ -219,7 +219,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 						}
 
 						es.search({
-							'index':	'larvitproduct',
+							'index':	dataWriter.esIndexName,
 							'type':	'product',
 							'body': {
 								'query': {
