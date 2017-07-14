@@ -173,7 +173,7 @@ describe('Product', function () {
 	let	productUuid;
 
 	it('should instantiate a new plain product object', function (done) {
-		const product = new productLib.Product();
+		const	product	= new productLib.Product();
 
 		assert.deepStrictEqual(toString.call(product),	'[object Object]');
 		assert.deepStrictEqual(toString.call(product.attributes),	'[object Object]');
@@ -184,7 +184,7 @@ describe('Product', function () {
 	});
 
 	it('should instantiate a new plain product object, with empty object as option', function (done) {
-		const product = new productLib.Product({});
+		const	product	= new productLib.Product({});
 
 		assert.deepStrictEqual(toString.call(product),	'[object Object]');
 		assert.deepStrictEqual(toString.call(product.attributes),	'[object Object]');
@@ -195,7 +195,7 @@ describe('Product', function () {
 	});
 
 	it('should instantiate a new plain product object, with custom uuid', function (done) {
-		const product = new productLib.Product('6a7c9adc-9b73-11e6-9f33-a24fc0d9649c');
+		const	product	= new productLib.Product('6a7c9adc-9b73-11e6-9f33-a24fc0d9649c');
 
 		product.loadFromDb(function (err) {
 			if (err) throw err;
@@ -211,7 +211,7 @@ describe('Product', function () {
 	});
 
 	it('should instantiate a new plain product object, with custom uuid as explicit option', function (done) {
-		const product = new productLib.Product({'uuid': '6a7c9adc-9b73-11e6-9f33-a24fc0d9649c'});
+		const	product	= new productLib.Product({'uuid': '6a7c9adc-9b73-11e6-9f33-a24fc0d9649c'});
 
 		product.loadFromDb(function (err) {
 			if (err) throw err;
@@ -244,7 +244,7 @@ describe('Product', function () {
 
 	it('should save a product', function (done) {
 		function createProduct(cb) {
-			const product = new productLib.Product();
+			const	product	= new productLib.Product();
 
 			productUuid = product.uuid;
 
@@ -285,7 +285,7 @@ describe('Product', function () {
 	});
 
 	it('should load saved product from db', function (done) {
-		const product = new productLib.Product(productUuid);
+		const	product	= new productLib.Product(productUuid);
 
 		product.loadFromDb(function (err) {
 			if (err) throw err;
@@ -1178,6 +1178,63 @@ describe('Import', function () {
 		tasks.push(function (cb) {
 			countProducts(function (err, count) {
 				assert.strictEqual(count,	25);
+				cb(err);
+			});
+		});
+
+		async.series(tasks, done);
+	});
+
+	it('Hook: afterEachCsvRow', function (done) {
+		const	productStr	= 'name,price,description,foo\nball,100,it is round,N/A\ntv,55,Large sized,bar\nsoffa,1200,n/a,N/A\nbord,20,,n/a',
+			prodNames	= [],
+			tasks	= [];
+
+		let	uuids;
+
+		// Do a pre-count
+		tasks.push(function (cb) {
+			countProducts(function (err, count) {
+				assert.strictEqual(count,	25);
+				cb(err);
+			});
+		});
+
+		// Run importer
+		tasks.push(function (cb) {
+			const	options	= {};
+
+			options.hooks = {
+				'afterEachCsvRow': function (stuff, cb) {
+					prodNames.push(stuff.product.attributes.name[0]);
+					cb();
+				}
+			};
+
+			importFromStr(productStr, options, function (err, result) {
+				if (err) throw err;
+
+				uuids	= result;
+
+				assert.strictEqual(uuids.length,	4);
+				cb();
+			});
+		});
+
+		// Check prodNames
+		tasks.push(function (cb) {
+			assert.strictEqual(prodNames.length,	4);
+			assert.notStrictEqual(prodNames.indexOf('tv'),	- 1);
+			assert.notStrictEqual(prodNames.indexOf('bord'),	- 1);
+			assert.notStrictEqual(prodNames.indexOf('soffa'),	- 1);
+			assert.notStrictEqual(prodNames.indexOf('ball'),	- 1);
+			cb();
+		});
+
+		// Count total number of products in database
+		tasks.push(function (cb) {
+			countProducts(function (err, count) {
+				assert.strictEqual(count,	29);
 				cb(err);
 			});
 		});

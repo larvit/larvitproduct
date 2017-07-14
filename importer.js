@@ -65,6 +65,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 		if (options.removeColValsContaining	=== undefined) { options.removeColValsContaining	= [];	}
 		if (options.renameCols	=== undefined) { options.renameCols	= {};	}
 		if (options.staticColHeads	=== undefined) { options.staticColHeads	= {};	}
+		if (options.hooks	=== undefined) { options.hooks	= {};	}
 
 		if ( ! Array.isArray(options.ignoreCols)) {
 			options.ignoreCols = [options.ignoreCols];
@@ -253,11 +254,11 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 								return cb(err);
 							}
 
-							product = new Product(result.hits.hits[0]._id);
+							product	= new Product(result.hits.hits[0]._id);
 							product.loadFromDb(cb);
 						});
 					} else if (options.noNew !== true) {
-						product = new Product();
+						product	= new Product();
 						cb();
 					} else {
 						const	err	= new Error('No product found to be updated or replaced and no new products should be created due to noNew !== true');
@@ -270,16 +271,16 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 				tasks.push(function (cb) {
 					if (options.updateByCols) {
 						if ( ! product.attributes) {
-							product.attributes = {};
+							product.attributes	= {};
 						}
 
 						for (const colName of Object.keys(attributes)) {
 							if (attributes[colName] !== undefined) {
-								product.attributes[colName] = attributes[colName];
+								product.attributes[colName]	= attributes[colName];
 							}
 						}
 					} else {
-						product.attributes = attributes;
+						product.attributes	= attributes;
 					}
 
 					// Trim all attributes
@@ -287,11 +288,11 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 						if (Array.isArray(product.attributes[attributeName])) {
 							for (let i = 0; product.attributes[attributeName][i] !== undefined; i ++) {
 								if (typeof product.attributes[attributeName][i] === 'string') {
-									product.attributes[attributeName][i] = product.attributes[attributeName][i].trim();
+									product.attributes[attributeName][i]	= product.attributes[attributeName][i].trim();
 								}
 							}
 						} else if (typeof product.attributes[attributeName] === 'string') {
-							product.attributes[attributeName] = product.attributes[attributeName].trim();
+							product.attributes[attributeName]	= product.attributes[attributeName].trim();
 						}
 					}
 
@@ -305,6 +306,17 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 						cb(err);
 					});
 				});
+
+				if (typeof options.hooks.afterEachCsvRow === 'function') {
+					tasks.push(function (cb) {
+						options.hooks.afterEachCsvRow({
+							'currentRowNr':	currentRowNr,
+							'colHeads':	colHeads,
+							'product':	product,
+							'csvRow':	csvRow
+						}, cb);
+					});
+				}
 
 				async.series(tasks, function (err) {
 					if ( ! err) {
