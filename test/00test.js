@@ -89,9 +89,9 @@ before(function (done) {
 		let	confFile;
 
 		if (process.env.ESCONFFILE === undefined) {
-			confFile = __dirname + '/../config/es_test.json';
+			confFile	= __dirname + '/../config/es_test.json';
 		} else {
-			confFile = process.env.ESCONFFILE;
+			confFile	= process.env.ESCONFFILE;
 		}
 
 		log.verbose('ES config file: "' + confFile + '"');
@@ -123,12 +123,17 @@ before(function (done) {
 
 	// Check for empty ES
 	tasks.push(function (cb) {
-		es.cat.indices({'v': true}, function (err, result) {
+		esUrl	= 'http://' + esConf.clientOptions.host;
+
+		request({'url': esUrl + '/_cat/indices?v', 'json': true}, function (err, response, body) {
 			if (err) throw err;
 
-			// Source: https://www.elastic.co/guide/en/elasticsearch/reference/1.4/_list_all_indexes.html
-			if (result !== 'health status index uuid pri rep docs.count docs.deleted store.size pri.store.size\n') {
-				throw new Error('ES Database is not empty. To make a test, you must supply an empty database!');
+			for (let i = 0; body[i] !== undefined; i ++) {
+				const	index	= body[i];
+
+				if (index.index === productLib.dataWriter.esIndexName || index.index === productLib.dataWriter.esIndexName + '_db_version') {
+					throw new Error('Elasticsearch index already exists!');
+				}
 			}
 
 			cb(err);
@@ -137,7 +142,7 @@ before(function (done) {
 
 	// Setup intercom
 	tasks.push(function (cb) {
-		lUtils.instances.intercom = new Intercom('loopback interface');
+		lUtils.instances.intercom	= new Intercom('loopback interface');
 		lUtils.instances.intercom.on('ready', cb);
 	});
 
@@ -146,8 +151,6 @@ before(function (done) {
 
 	// Put mappings to ES to match our tests
 	tasks.push(function (cb) {
-		esUrl	= 'http://' + esConf.clientOptions.host;
-
 		es.indices.putMapping({
 			'index':	productLib.dataWriter.esIndexName,
 			'type':	'product',
@@ -1248,7 +1251,10 @@ after(function (done) {
 
 	// Remove all data from elasticsearch
 	tasks.push(function (cb) {
-		es.indices.delete({'index': '*'}, cb);
+		request.delete(esUrl + '/' + productLib.dataWriter.esIndexName, cb);
+	});
+	tasks.push(function (cb) {
+		request.delete(esUrl + '/' + productLib.dataWriter.esIndexName + '_db_version', cb);
 	});
 
 	// Clean up SQL database

@@ -278,6 +278,12 @@ function getKeywords(cb) {
 				return cb(err);
 			}
 
+			if (body[dataWriter.esIndexName] === undefined) {
+				const	err	= new Error('Could not get mappings, since index did not exist in body. Full body: ' + JSON.stringify(body));
+				log.warn(logPrefix + err.message);
+				return cb(err);
+			}
+
 			for (const fieldName of Object.keys(body[dataWriter.esIndexName].mappings.product.properties)) {
 				const	fieldProps	= body[dataWriter.esIndexName].mappings.product.properties[fieldName];
 
