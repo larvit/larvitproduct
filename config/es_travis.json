@@ -1,5 +1,6 @@
 {
 	"clientOptions": {
 		"host":	"127.0.0.1:9200"
-	}
+	},
+	"larvitproductIndexName": "larvitproduct_test_products"
 }

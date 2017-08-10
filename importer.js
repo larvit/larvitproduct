@@ -167,7 +167,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 							options.formatCols[colName](attributes[colName], attributes, function (err, result) {
 								if (err) {
 									const rowError = {};
-									rowError.description = 'row error';
+									rowError.type = 'row error';
 									rowError.time = new Date();
 									rowError.column = colName;
 									rowError.message = err.message;
@@ -307,7 +307,12 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 					product.save(function (err) {
 						if (err) {
-							log.warn(logPrefix + 'Could not save product: ' + err.message);
+							log.info(logPrefix + 'Could not save product: ' + err.message);
+							errors.push({
+								'type': 'save error',
+								'time': new Date(),
+								'message': err.message
+							});
 						} else {
 							alteredProductUuids.push(product.uuid);
 						}

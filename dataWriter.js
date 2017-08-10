@@ -434,7 +434,7 @@ function writeProduct(params, deliveryTag, msgUuid) {
 			'body':	body
 		}, function (err) {
 			if (err) {
-				log.error(logPrefix + 'Could not write product to elasticsearch: ' + err.message);
+				log.info(logPrefix + 'Could not write product to elasticsearch: ' + err.message);
 				return cb(err);
 			}
 
