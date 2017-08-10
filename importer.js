@@ -37,6 +37,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 			fileStream	= fs.createReadStream(filePath),
 			csvStream	= fastCsv(options.parserOptions),
 			colHeads	= [],
+			errors	= [],
 			tasks	= [];
 
 		let	currentRowNr;
@@ -165,7 +166,15 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 						tasks.push(function (cb) {
 							options.formatCols[colName](attributes[colName], attributes, function (err, result) {
 								if (err) {
-									log.warn(logPrefix + 'options.formatCols[' + colName + '] err: ' + err.message);
+									const rowError = {};
+									rowError.description = 'row error';
+									rowError.time = new Date();
+									rowError.column = colName;
+									rowError.message = err.message;
+
+									errors.push(rowError);
+
+									log.debug(logPrefix + 'options.formatCols[' + colName + '] err: ' + err.message);
 								}
 
 								attributes[colName] = result;
@@ -339,7 +348,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 		csvStream.on('end', function () {
 			// Run possible remaining tasks
 			async.parallel(tasks, function () {
-				cb(null, alteredProductUuids);
+				cb(null, alteredProductUuids, errors);
 			});
 		});
 
