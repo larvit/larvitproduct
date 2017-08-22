@@ -316,69 +316,106 @@ function ready(cb) {
 // LIMITED TO 10000 PRODUCTS!1!!!
 function updateByQuery(queryBody, updates, cb) {
 	const	logPrefix	= topLogPrefix + 'updateByQuery() - ',
-		uuids	= [],
 		tasks	= [];
 
 	tasks.push(ready);
 
-	// Get products to update
 	tasks.push(function (cb) {
-		const	reqOptions	= {};
+		let scrollId	= null,
+			done	= false;
 
-		reqOptions.url	= esUrl + '/' + dataWriter.esIndexName + '/product/_search';
-		reqOptions.json	= true;
-		reqOptions.body	= queryBody;
-		reqOptions.body.size	= 10000;
-
-		request(reqOptions, function (err, response, body) {
-			if (err) {
-				log.warn(logPrefix + 'Could not get products to update, err: ' + err.message);
-				return cb(err);
-			}
-
-			if (response.statusCode !== 200) {
-				const	err	= new Error('non-200 response code: ' + response.statusCode + ', query: ' + JSON.stringify(reqOptions.body) + ', response body: ' + JSON.stringify(body));
-				log.warn(logPrefix + err.message);
-				return cb(err);
-			}
-
-			for (let i = 0; body.hits.hits[i] !== undefined; i ++) {
-				const	hit	= body.hits.hits[i];
-
-				uuids.push(hit._id);
-			}
-
-			if (uuids.length > 9999) {
-				log.warn(logPrefix + 'query cap on 10,000 records reached! Several records was probably not updated.');
-			}
-
-			cb();
-		});
-	});
-
-	// Run updates
-	tasks.push(function (cb) {
-		const	tasks	= [];
-
-		for (let i = 0; uuids[i] !== undefined; i ++) {
-			const	uuid	= uuids[i];
+		async.whilst(function () { return ! done; }, function (cb) {
+			const tasks	= [],
+				uuids	= [];
 
 			tasks.push(function (cb) {
-				const	product	= new Product(uuid);
+				const reqOptions	= {};
 
-				product.loadFromDb(function (err) {
-					if (err) return cb(err);
+				reqOptions.url	= esUrl + '/' + dataWriter.esIndexName + '/product/_search?scroll=60m';
+				reqOptions.json	= true;
+				reqOptions.body	= queryBody;
+				reqOptions.body.size	= 1000;
+				reqOptions.body.stored_fields	= []; // hämta bara id
 
-					for (const attributeName of Object.keys(updates)) {
-						product.attributes[attributeName] = updates[attributeName];
+				if (scrollId !== null) {
+					reqOptions.url = esUrl + '/_search/scroll';
+					reqOptions.body = {
+						'scroll':	'60m',
+						'scroll_id':	scrollId
+					};
+				}
+
+				request.post(reqOptions, function (err, response, body) {
+					if (err) {
+						log.warn(logPrefix + 'Could not get products to update, err: ' + err.message);
+						return cb(err);
 					}
 
-					product.save(cb);
+					if (response.statusCode !== 200) {
+						log.warn(logPrefix + 'Non 200 response from ElasticSeardch');
+						return cb(err);
+					}
+
+					if (body.hits.hits.length === 0) {
+						done = true;
+						return cb();
+					}
+
+					for (let i = 0; body.hits.hits[i] !== undefined; i ++) {
+						const	hit	= body.hits.hits[i];
+						uuids.push(hit._id);
+					}
+
+					scrollId = body._scroll_id;
+					cb();
 				});
 			});
-		}
 
-		async.parallelLimit(tasks, 100, cb);
+			// Run updates
+			tasks.push(function (cb) {
+				const	tasks	= [];
+
+				for (let i = 0; uuids[i] !== undefined; i ++) {
+					const	uuid	= uuids[i];
+
+					tasks.push(function (cb) {
+						const	product	= new Product(uuid);
+
+						product.loadFromDb(function (err) {
+							if (err) return cb(err);
+
+							for (const attributeName of Object.keys(updates)) {
+								product.attributes[attributeName] = updates[attributeName];
+							}
+
+							product.save(cb);
+						});
+					});
+				}
+
+				async.parallelLimit(tasks, 100, cb);
+			});
+
+			async.series(tasks, cb);
+
+		}, function (err) {
+			if (err) return cb(err);
+
+			request.delete(esUrl + '/_search/scroll/' + scrollId, {}, function (err, response, body) {
+				if (err) {
+					log.warn(logPrefix + 'Could not get products to update, err: ' + err.message);
+					return cb(err);
+				}
+
+				if (response.statusCode !== 200) {
+					const	err	= new Error('non-200 response code: ' + response.statusCode + ', response body: ' + JSON.stringify(body));
+					log.warn(logPrefix + err.message);
+					return cb(err);
+				}
+
+				cb();
+			});
+		});
 	});
 
 	async.series(tasks, cb);
