@@ -56,7 +56,7 @@ function listenToQueue(retries, cb) {
 		return;
 	}
 
-	log.info(logPrefix + 'listenMethod: ' + listenMethod);
+	log.info(logPrefix + 'listenMethod: ' + exports.mode);
 
 	if (exports.mode === 'master') {
 		listenMethod	= 'consume';
