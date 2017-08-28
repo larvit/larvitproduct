@@ -335,7 +335,7 @@ function updateByQuery(queryBody, updates, cb) {
 				reqOptions.json	= true;
 				reqOptions.body	= queryBody;
 				reqOptions.body.size	= 1000;
-				reqOptions.body.stored_fields	= []; // hämta bara id
+				//reqOptions.body.stored_fields	= []; // hämta bara id
 
 				if (scrollId !== null) {
 					reqOptions.url = esUrl + '/_search/scroll';
@@ -400,6 +400,8 @@ function updateByQuery(queryBody, updates, cb) {
 
 		}, function (err) {
 			if (err) return cb(err);
+
+			if (scrollId === null) return cb();
 
 			request.delete(esUrl + '/_search/scroll/' + scrollId, {}, function (err, response, body) {
 				if (err) {
