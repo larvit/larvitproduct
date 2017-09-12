@@ -31,21 +31,40 @@ let	es;
  * @param func cb(err, [productUuid1, productUuid2]) the second array is a list of all added/altered products
  */
 exports.fromFile = function fromFile(filePath, options, cb) {
-	dataWriter.ready(function (err) {
-		const	alteredProductUuids	= [],
-			logPrefix	= topLogPrefix + 'fromFile() - ',
+	const tasks = [],
+		alteredProductUuids	= [],
+		errors = [];
+
+	let mapping;
+
+	// make sure ES is ready
+	tasks.push(function (cb) {
+		dataWriter.ready(function (err) {
+			// Make sure es is set
+			es	= lUtils.instances.elasticsearch;
+			cb(err);
+		});
+	});
+
+	// get ES mapping
+	tasks.push(function (cb) {
+		es.indices.getMapping({'type': 'product'}, function (err, result) {
+			if (err) return cb(err);
+			mapping = result[dataWriter.esIndexName].mappings.product.properties;
+			cb(err);
+		});
+	});
+
+	// do the import
+	tasks.push(function (cb) {
+		const	logPrefix	= topLogPrefix + 'fromFile() - ',
 			fileStream	= fs.createReadStream(filePath),
 			csvStream	= fastCsv(options.parserOptions),
 			colHeads	= [],
-			errors	= [],
 			tasks	= [];
 
 		let	currentRowNr;
 
-		if (err) return cb(err);
-
-		// Make sure es is set
-		es	= lUtils.instances.elasticsearch;
 
 		if (options === undefined) {
 			options	= {};
@@ -223,7 +242,15 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 								return cb(err);
 							}
 
-							term.term[col] = attributes[col];
+							if (mapping &&
+								mapping[col].type === 'text' &&
+								mapping[col].fields &&
+								mapping[col].fields.keyword &&
+								mapping[col].fields.keyword.type === 'keyword') {
+								term.term[col + '.keyword'] = attributes[col];
+							} else {
+								term.term[col] = attributes[col];
+							}
 
 							terms.push(term);
 						}
@@ -361,5 +388,9 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 			log.warn(logPrefix + 'Could not parse csv: ' + err.message);
 			return cb(err);
 		});
+	});
+
+	async.series(tasks, function (err) {
+		cb(err, alteredProductUuids, errors);
 	});
 };
