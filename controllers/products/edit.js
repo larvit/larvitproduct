@@ -147,18 +147,18 @@ exports.run = function (req, res, cb) {
 	}
 
 	// Load images
-//	if (data.global.urlParsed.query.uuid) {
-//		tasks.push(function (cb) {
-//			productLib.getImagesForEsResult(data.product)
-//
-//
-//
-//			getImageList(function (err, imageList) {
-//				data.imageList	= imageList;
-//				cb(err);
-//			});
-//		});
-//	}
+	//	if (data.global.urlParsed.query.uuid) {
+	//		tasks.push(function (cb) {
+	//			productLib.getImagesForEsResult(data.product)
+	//
+	//
+	//
+	//			getImageList(function (err, imageList) {
+	//				data.imageList	= imageList;
+	//				cb(err);
+	//			});
+	//		});
+	//	}
 
 	async.series(tasks, function (err) {
 		cb(err, req, res, data);
