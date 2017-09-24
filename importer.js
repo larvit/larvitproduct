@@ -243,6 +243,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 							}
 
 							if (mapping &&
+								mapping[col] &&
 								mapping[col].type === 'text' &&
 								mapping[col].fields &&
 								mapping[col].fields.keyword &&
