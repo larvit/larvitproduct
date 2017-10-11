@@ -117,12 +117,12 @@ function formatEsResult(esResult, cb) {
 }
 
 function getAttributeValues(attributeName, options, cb) {
-	const	searchBody	= {'size':0, 'aggs':{'thingie':{'terms':{'field':attributeName}}}, 'query':{'bool':{'must':[]}}},
-		values	= [],
+	const	values	= [],
 		tasks	= [];
 
 	let	valueList,
-		buckets;
+		buckets,	// Regarding size, see: http://stackoverflow.com/questions/22927098/show-all-elasticsearch-aggregation-results-buckets-and-not-just-10
+		searchBody	= {'size':0, 'aggs':{'thingie':{'terms':{'field':attributeName, 'size': 2147483647}}}, 'query':{'bool':{'must':[]}}};
 
 	if (typeof options === 'function') {
 		cb	= options;
@@ -133,13 +133,15 @@ function getAttributeValues(attributeName, options, cb) {
 		searchBody.query = options.query;
 	}
 
+	if (options.searchBody) {
+		searchBody	= options.searchBody;
+	}
+
 	tasks.push(ready);
 
 	tasks.push(function (cb) {
 		const	logPrefix	= topLogPrefix + 'getAttributeValues() - url: ' + esUrl + '/' + dataWriter.esIndexName + '/product/_search',
 			url	= esUrl + '/' + dataWriter.esIndexName + '/product/_search';
-
-		searchBody.aggs.thingie.terms.size = 2147483647; // http://stackoverflow.com/questions/22927098/show-all-elasticsearch-aggregation-results-buckets-and-not-just-10
 
 		request({'url': url, 'body': searchBody, 'json': true}, function (err, response, body) {
 			if (err) {
