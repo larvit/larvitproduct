@@ -3,11 +3,8 @@
 const	elasticsearch	= require('elasticsearch'),
 	uuidValidate	= require('uuid-validate'),
 	productLib	= require(__dirname + '/../index.js'),
-	Intercom	= require('larvitamintercom'),
 	request	= require('request'),
-	imgLib	= require('larvitimages'),
 	assert	= require('assert'),
-	lUtils	= require('larvitutils'),
 	async	= require('async'),
 	log	= require('winston'),
 	db	= require('larvitdb'),
@@ -24,16 +21,13 @@ productLib.dataWriter.esIndexName	= 'something';
 // Set up winston
 log.remove(log.transports.Console);
 /**/log.add(log.transports.Console, {
-	'level':	'warn',
+	'level':	'info',
 	'colorize':	true,
 	'timestamp':	true,
 	'json':	false,
 	'handleException':	true,
 	'humanReadableUnhandledException':	true
 }); /**/
-
-productLib.dataWriter.mode	= 'noSync';
-imgLib.dataWriter.mode	= 'noSync';
 
 before(function (done) {
 	this.timeout(10000);
@@ -107,8 +101,8 @@ before(function (done) {
 					esConf	= require(confFile);
 					log.verbose('ES config: ' + JSON.stringify(esConf));
 
-					es = lUtils.instances.elasticsearch = new elasticsearch.Client(esConf.clientOptions);
-					es.ping(cb);
+					productLib.dataWriter.es = new elasticsearch.Client(esConf.clientOptions);
+					productLib.dataWriter.es.ping(cb);
 				});
 
 				return;
@@ -116,8 +110,8 @@ before(function (done) {
 
 			esConf	= require(confFile);
 			log.verbose('DB config: ' + JSON.stringify(esConf));
-			es = lUtils.instances.elasticsearch = new elasticsearch.Client(esConf.clientOptions);
-			es.ping(cb);
+			productLib.dataWriter.es = new elasticsearch.Client(esConf.clientOptions);
+			productLib.dataWriter.es.ping(cb);
 		});
 	});
 
@@ -140,18 +134,12 @@ before(function (done) {
 		});
 	});
 
-	// Setup intercom
-	tasks.push(function (cb) {
-		lUtils.instances.intercom	= new Intercom('loopback interface');
-		lUtils.instances.intercom.on('ready', cb);
-	});
-
 	// Wait for dataWriter to be ready
 	tasks.push(productLib.dataWriter.ready);
 
 	// Put mappings to ES to match our tests
 	tasks.push(function (cb) {
-		es.indices.putMapping({
+		productLib.dataWriter.es.indices.putMapping({
 			'index':	productLib.dataWriter.esIndexName,
 			'type':	'product',
 			'body': {

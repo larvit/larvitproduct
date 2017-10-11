@@ -5,6 +5,7 @@ const	elasticdumpPath	= require('larvitfs').getPathSync('bin/elasticdump'),
 	eventEmitter	= new EventEmitter(),
 	topLogPrefix	= 'larvitproduct: dataWriter.js - ',
 	DbMigration	= require('larvitdbmigration'),
+	Intercom	= require('larvitamintercom'),
 	stripBom	= require('strip-bom'),
 	uuidLib	= require('uuid'),
 	request	= require('request'),
@@ -18,15 +19,48 @@ const	elasticdumpPath	= require('larvitfs').getPathSync('bin/elasticdump'),
 	_	= require('lodash');
 
 let	readyInProgress	= false,
-	isReady	= false,
-	intercom,
-	es;
+	isReady	= false;
 
 eventEmitter.setMaxListeners(30);
 
+function checkThing(options, cb) {
+	const	logPrefix	= topLogPrefix + 'checkThing() - thing: "' + options.thing + '" - ';
+
+	if (options.retries === undefined) {
+		options.retries	= 0;
+	}
+
+	log.silly(logPrefix + 'retry: ' + options.retries);
+console.log(logPrefix + 'retry: ' + options.retries);
+
+	if (Array.isArray(options.validValues) && options.validValues.indexOf(exports[options.thing])) {
+		log.debug(logPrefix + 'exports["' + options.thing + '"] is set to a valid option, no modification needed');
+	} else if ( ! Array.isArray(options.validValues) && exports[options.thing] !== undefined) {
+		log.debug(logPrefix + 'exports["' + options.thing + '"] is set, no modification needed');
+	} else if (options.retries > 10) {
+		if (options.default) {
+			log.warn(logPrefix + 'exports["' + options.thing + '"] is not set, setting default');
+			exports[options.thing]	= options.default;
+		} else {
+			const	err	= new Error('exports["' + options.thing + '"] is not set, can not start.');
+			log.error(logPrefix + err.message);
+			return cb(err);
+		}
+	} else {
+		setTimeout(function () {
+			options.retries ++;
+			checkThing(options, cb);
+		}, options.retries * 50);
+		return;
+	}
+
+	cb();
+}
+
 function listenToQueue(retries, cb) {
 	const	logPrefix	= topLogPrefix + 'listenToQueue() - ',
-		options	= {'exchange': exports.exchangeName};
+		options	= {'exchange': exports.exchangeName},
+		tasks	= [];
 
 	let	listenMethod;
 
@@ -43,84 +77,81 @@ function listenToQueue(retries, cb) {
 		retries = 0;
 	}
 
-	intercom	= require('larvitutils').instances.intercom;
+	tasks.push(function (cb) {
+		checkThing({'thing': 'mode', 'validValues': ['master', 'slave', 'noSync'], 'default': 'noSync'}, cb);
+	});
 
-	if ( ! (intercom instanceof require('larvitamintercom')) && retries < 10) {
-		retries ++;
-		setTimeout(function () {
-			listenToQueue(retries, cb);
-		}, 50);
-		return;
-	} else if ( ! (intercom instanceof require('larvitamintercom'))) {
-		log.error(logPrefix + 'Intercom is not set!');
-		return;
-	}
+	tasks.push(function (cb) {
+		checkThing({'thing': 'intercom', 'default': new Intercom('loopback interface')}, cb);
+	});
 
-	log.info(logPrefix + 'listenMethod: ' + exports.mode);
+	tasks.push(function (cb) {
+		log.info(logPrefix + 'listenMethod: ' + exports.mode);
 
-	if (exports.mode === 'master') {
-		listenMethod	= 'consume';
-		options.exclusive	= true;	// It is important no other client tries to sneak
-		//		// out messages from us, and we want "consume"
-		//		// since we want the queue to persist even if this
-		//		// minion goes offline.
-	} else if (exports.mode === 'slave' || exports.mode === 'noSync') {
-		listenMethod = 'subscribe';
-	} else {
-		const	err	= new Error('Invalid exports.mode. Must be either "master", "slave" or "noSync"');
-		log.error(logPrefix + err.message);
-		return cb(err);
-	}
-
-	intercom.ready(function (err) {
-		if (err) {
-			log.error(logPrefix + 'intercom.ready() err: ' + err.message);
-			return;
+		if (exports.mode === 'master') {
+			listenMethod	= 'consume';
+			options.exclusive	= true;	// It is important no other client tries to sneak
+			//		// out messages from us, and we want "consume"
+			//		// since we want the queue to persist even if this
+			//		// minion goes offline.
+		} else if (exports.mode === 'slave' || exports.mode === 'noSync') {
+			listenMethod = 'subscribe';
+		} else {
+			const	err	= new Error('Invalid exports.mode. Must be either "master", "slave" or "noSync"');
+			log.error(logPrefix + err.message);
+			return cb(err);
 		}
 
-		intercom[listenMethod](options, function (message, ack, deliveryTag) {
-			exports.ready(function (err) {
-				ack(err); // Ack first, if something goes wrong we log it and handle it manually
-
-				if (err) {
-					log.error(logPrefix + 'intercom.' + listenMethod + '() - exports.ready() returned err: ' + err.message);
-					return;
-				}
-
-				if (typeof message !== 'object') {
-					log.error(logPrefix + 'intercom.' + listenMethod + '() - Invalid message received, is not an object! deliveryTag: "' + deliveryTag + '"');
-					return;
-				}
-
-				if (typeof exports[message.action] === 'function') {
-					exports[message.action](message.params, deliveryTag, message.uuid);
-				} else {
-					log.warn(logPrefix + 'intercom.' + listenMethod + '() - Unknown message.action received: "' + message.action + '"');
-				}
-			});
-		}, ready);
+		cb();
 	});
+
+	tasks.push(function (cb) {
+		exports.intercom.ready(function (err) {
+			if (err) {
+				log.error(logPrefix + 'intercom.ready() err: ' + err.message);
+				return;
+			}
+
+			exports.intercom[listenMethod](options, function (message, ack, deliveryTag) {
+				exports.ready(function (err) {
+					ack(err); // Ack first, if something goes wrong we log it and handle it manually
+
+					if (err) {
+						log.error(logPrefix + 'intercom.' + listenMethod + '() - exports.ready() returned err: ' + err.message);
+						return;
+					}
+
+					if (typeof message !== 'object') {
+						log.error(logPrefix + 'intercom.' + listenMethod + '() - Invalid message received, is not an object! deliveryTag: "' + deliveryTag + '"');
+						return;
+					}
+
+					if (typeof exports[message.action] === 'function') {
+						exports[message.action](message.params, deliveryTag, message.uuid);
+					} else {
+						log.warn(logPrefix + 'intercom.' + listenMethod + '() - Unknown message.action received: "' + message.action + '"');
+					}
+				});
+			}, function (err) {
+				if (err) return cb(err);
+				ready(cb);
+			});
+		});
+	});
+
+	async.series(tasks, cb);
 }
 // Run listenToQueue as soon as all I/O is done, this makes sure the exports.mode can be set
 // by the application before listening commences
 setImmediate(listenToQueue);
 
 // This is ran before each incoming message on the queue is handeled
-function ready(retries, cb) {
+function ready(cb) {
 	const	logPrefix	= topLogPrefix + 'ready() - ',
 		tasks	= [];
 
-	if (typeof retries === 'function') {
-		cb	= retries;
-		retries	= 0;
-	}
-
 	if (typeof cb !== 'function') {
 		cb = function (){};
-	}
-
-	if (retries === undefined) {
-		retries	= 0;
 	}
 
 	if (isReady === true) return cb();
@@ -130,45 +161,31 @@ function ready(retries, cb) {
 		return;
 	}
 
-	intercom	= lUtils.instances.intercom;
-
-	if ( ! (intercom instanceof require('larvitamintercom')) && retries < 10) {
-		retries ++;
-		setTimeout(function () {
-			ready(retries, cb);
-		}, 50);
-		return;
-	} else if ( ! (intercom instanceof require('larvitamintercom'))) {
-		log.error(logPrefix + 'Intercom is not set!');
-		return;
-	}
-
-	if (exports.mode !== 'slave' && exports.mode !== 'master' && exports.mode !== 'noSync') {
-		const	err	= new Error('dataWriter.mode must be "slave", "master" or "noSync"');
-		log.error(logPrefix + err.message);
-		return cb(err);
-	}
-
-	es	= lUtils.instances.elasticsearch;
-
-	if (es === undefined && retries < 10) {
-		retries ++;
-		setTimeout(function () {
-			ready(retries, cb);
-		}, 50);
-		return;
-	} else if (es === undefined) {
-		log.error(logPrefix + 'Elasticsearch is not set!');
-		return;
-	}
-
 	readyInProgress = true;
+
+	tasks.push(function (cb) {
+		const	tasks	= [];
+
+		tasks.push(function (cb) {
+			checkThing({'thing': 'mode', 'validValues': ['master', 'slave', 'noSync'], 'default': 'noSync'}, cb);
+		});
+
+		tasks.push(function (cb) {
+			checkThing({'thing': 'intercom', 'default': new Intercom('loopback interface')}, cb);
+		});
+
+		tasks.push(function (cb) {
+			checkThing({'thing': 'es'}, cb);
+		});
+
+		async.parallel(tasks, cb);
+	});
 
 	// Check so elasticsearch is answering ping
 	tasks.push(function (cb) {
-		es.ping(function (err) {
+		exports.es.ping(function (err) {
 			if (err) {
-				log.error(logPrefix + 'es.ping() - ' + err.message);
+				log.error(logPrefix + 'exports.es.ping() - ' + err.message);
 			}
 
 			cb(err);
@@ -177,14 +194,14 @@ function ready(retries, cb) {
 
 	// Make sure index exists
 	tasks.push(function (cb) {
-		es.indices.create({'index': exports.esIndexName}, function (err) {
+		exports.es.indices.create({'index': exports.esIndexName}, function (err) {
 			if (err) {
 				if (err.message.substring(0, 32) === '[index_already_exists_exception]') {
 					log.debug(logPrefix + 'Index alreaxy exists, is cool');
 					return cb();
 				}
 
-				log.error(logPrefix + 'es.indices.create() - ' + err.message);
+				log.error(logPrefix + 'exports.es.indices.create() - ' + err.message);
 			}
 
 			cb(err);
@@ -195,7 +212,7 @@ function ready(retries, cb) {
 	tasks.push(function (cb) {
 		const	reqObj	= {};
 
-		reqObj.url	= 'http://' + lUtils.instances.elasticsearch.transport._config.host + '/' + exports.esIndexName + '/_settings';
+		reqObj.url	= 'http://' + exports.es.transport._config.host + '/' + exports.esIndexName + '/_settings';
 		reqObj.method	= 'PUT';
 		reqObj.json	= {'index.mapping.total_fields.limit': 2000};
 
@@ -226,7 +243,7 @@ function ready(retries, cb) {
 			// Pipe mapping directly to elasticdump
 			tasks.push(function (cb) {
 				new amsync.SyncClient({'exchange': exchangeName + '_mapping' }, function (err, res) {
-					const ed = spawn(elasticdumpPath, ['--input=$', '--output=http://' + lUtils.instances.elasticsearch.transport._config.host + '/' + exports.esIndexName, '--type=mapping']);
+					const ed = spawn(elasticdumpPath, ['--input=$', '--output=http://' + exports.es.transport._config.host + '/' + exports.esIndexName, '--type=mapping']);
 
 					if (err) {
 						log.warn(logPrefix + 'Sync failed for mapping: ' + err.message);
@@ -274,7 +291,7 @@ function ready(retries, cb) {
 			});
 
 			tasks.push(function (cb) {
-				const ed = spawn(elasticdumpPath, ['--input=' + tmpFileName, '--output=http://' + lUtils.instances.elasticsearch.transport._config.host + '/' + exports.esIndexName, '--type=data']);
+				const ed = spawn(elasticdumpPath, ['--input=' + tmpFileName, '--output=http://' + exports.es.transport._config.host + '/' + exports.esIndexName, '--type=data']);
 
 				ed.stdout.on('data', function (chunk) {
 					log.verbose(logPrefix + 'stdout: ' + chunk);
@@ -314,7 +331,7 @@ function ready(retries, cb) {
 		let dbMigration;
 
 		options.dbType	= 'elasticsearch';
-		options.dbDriver	= es;
+		options.dbDriver	= exports.es;
 		options.tableName	= exports.esIndexName + '_db_version';
 		options.migrationScriptsPath	= __dirname + '/dbmigration';
 		dbMigration	= new DbMigration(options);
@@ -324,7 +341,7 @@ function ready(retries, cb) {
 
 	// Make sure elasticsearch index is up to date
 	tasks.push(function (cb) {
-		request.post('http://' + lUtils.instances.elasticsearch.transport._config.host + '/_refresh', function (err, response, body) {
+		request.post('http://' + exports.es.transport._config.host + '/_refresh', function (err, response, body) {
 			if (err) {
 				log.error(logPrefix + 'Could not refresh elasticsearch index, err: ' + err.message);
 				return cb(err);
@@ -368,7 +385,7 @@ function rmProducts(params, deliveryTag, msgUuid) {
 		body.push({'delete': {'_index': exports.esIndexName, '_type': 'product', '_id': productUuids[i]}});
 	}
 	// Is logged upstream, but should stop app execution
-	es.bulk({'body': body}, function (err) {
+	exports.es.bulk({'body': body}, function (err) {
 		exports.emitter.emit(msgUuid, err);
 	});
 }
@@ -376,12 +393,12 @@ function rmProducts(params, deliveryTag, msgUuid) {
 function runDumpServer(cb) {
 	const	logPrefix	= topLogPrefix + 'runDumpServer() - ';
 
-	if (lUtils.instances.elasticsearch !== undefined) {
+	if (exports.es !== undefined) {
 		const	subTasks	= [],
 			exchangeName	= exports.exchangeName + '_dataDump',
 			dataDumpCmd = {
 				'command': elasticdumpPath,
-				'args': ['--input=http://' + lUtils.instances.elasticsearch.transport._config.host + '/' + exports.esIndexName, '--output=$']
+				'args': ['--input=http://' + exports.es.transport._config.host + '/' + exports.esIndexName, '--output=$']
 			};
 
 		subTasks.push(function (cb) {
@@ -451,7 +468,7 @@ function writeProduct(params, deliveryTag, msgUuid) {
 			});
 		}
 
-		es.index({
+		exports.es.index({
 			'index':	exports.esIndexName,
 			'id':	productUuid,
 			'type':	'product',
