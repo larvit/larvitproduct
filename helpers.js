@@ -5,7 +5,6 @@ const	topLogPrefix	= 'larvitproduct: helpers.js - ',
 	Product	= require(__dirname + '/product.js'),
 	request	= require('request'),
 	leftPad	= require('left-pad'),
-	lUtils	= require('larvitutils'),
 	imgLib	= require('larvitimages'),
 	async	= require('async'),
 	log	= require('winston'),
@@ -308,8 +307,8 @@ function getKeywords(cb) {
 
 function ready(cb) {
 	dataWriter.ready(function (err) {
-		intercom	= lUtils.instances.intercom;
-		es	= lUtils.instances.elasticsearch;
+		intercom	= dataWriter.intercom;
+		es	= dataWriter.elasticsearch;
 		esUrl	= 'http://' + es.transport._config.host;
 		cb(err);
 	});

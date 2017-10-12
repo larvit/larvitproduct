@@ -4,7 +4,6 @@ const	topLogPrefix	= 'larvitproduct: importer.js - ',
 	dataWriter	= require(__dirname + '/dataWriter.js'),
 	Product	= require(__dirname + '/product.js'),
 	fastCsv	= require('fast-csv'),
-	lUtils	= require('larvitutils'),
 	async	= require('async'),
 	log	= require('winston'),
 	fs	= require('fs');
@@ -41,7 +40,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 	tasks.push(function (cb) {
 		dataWriter.ready(function (err) {
 			// Make sure es is set
-			es	= lUtils.instances.elasticsearch;
+			es	= dataWriter.elasticsearch;
 			cb(err);
 		});
 	});

@@ -6,7 +6,6 @@ const	EventEmitter	= require('events').EventEmitter,
 	dataWriter	= require(__dirname + '/dataWriter.js'),
 	helpers	= require(__dirname + '/helpers.js'),
 	uuidLib	= require('uuid'),
-	lUtils	= require('larvitutils'),
 	async	= require('async'),
 	log	= require('winston');
 
@@ -32,10 +31,10 @@ function ready(cb) {
 		dataWriter.ready(cb);
 	});
 
-	// Set intercom and es after dataWriter is ready
+	// Set dataWriter.intercom and es after dataWriter is ready
 	tasks.push(function (cb) {
-		intercom	= lUtils.instances.intercom;
-		es	= lUtils.instances.elasticsearch;
+		intercom	= dataWriter.intercom;
+		es	= dataWriter.elasticsearch;
 		cb();
 	});
 

@@ -3,13 +3,12 @@
 const	logPrefix	= 'larvitproduct: dbmigration/1.js: ',
 	request	= require('request'),
 	prodLib	= require(__dirname + '/../index.js'),
-	lUtils	= require('larvitutils'),
 	log	= require('winston');
 
 exports = module.exports = function (cb) {
 	const	reqObj	= {};
 
-	reqObj.url	= 'http://' + lUtils.instances.elasticsearch.transport._config.host + '/' + prodLib.dataWriter.esIndexName + '/_settings';
+	reqObj.url	= 'http://' + prodLib.dataWriter.elasticsearch.transport._config.host + '/' + prodLib.dataWriter.esIndexName + '/_settings';
 	reqObj.method	= 'PUT';
 	reqObj.json	= {'index.mapping.total_fields.limit': 2000};
 
