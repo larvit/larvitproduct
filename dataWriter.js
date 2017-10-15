@@ -69,14 +69,12 @@ function listenToQueue(retries, cb) {
 	});
 
 	tasks.push(function (cb) {
-		log.info(logPrefix + 'listenMethod: ' + exports.mode);
-
 		if (exports.mode === 'master') {
 			listenMethod	= 'consume';
 			options.exclusive	= true;	// It is important no other client tries to sneak
 			//		// out messages from us, and we want "consume"
 			//		// since we want the queue to persist even if this
-			//		// minion goes offline.
+			//		// app goes offline.
 		} else if (exports.mode === 'slave' || exports.mode === 'noSync') {
 			listenMethod = 'subscribe';
 		} else {
@@ -84,6 +82,8 @@ function listenToQueue(retries, cb) {
 			log.error(logPrefix + err.message);
 			return cb(err);
 		}
+
+		log.info(logPrefix + 'listenMethod: ' + listenMethod);
 
 		cb();
 	});
