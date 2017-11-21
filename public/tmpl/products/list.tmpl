@@ -2,14 +2,31 @@
 <%= _.render('inc/pageTop', obj) %>
 <form method="get">
 	<div class="row">
-		<div class="three columns">
-			<label for="filterStatus">Filter by status</label>
-			<select class="u-full-width" name="filterStatus">
-				<option style="font-style: italic;" value="">No filter</option>
-				<% _.forEach(obj.statuses, function (status) { %>
-					<option value="<%= status %>"<% if (status === obj.global.urlParsed.query.filterStatus) { print(' selected="selected"'); } %>><%= status %></option>
+		<div class="two columns">
+			<label for="filterAttributeName">Filter by attribute name:</label>
+			<select class="u-full-width" name="filterAttributeName" id="filterAttributeName">
+				<option style="font-style: italic;" value="">--All attributes--</option>
+
+				<% _.forEach(obj.productAttributes, function(productAttribute) { %>
+					<option value="<%= productAttribute %>"<% if (productAttribute === obj.global.urlParsed.query.filterAttributeName) { print(' selected="selected"'); } %>><%
+						if (productAttribute.substring(productAttribute.length - 8) === '.keyword') {
+							print(productAttribute.substring(0, productAttribute.length - 8));
+						} else {
+							print(productAttribute);
+						}
+					%></option>
 				<% }); %>
 			</select>
+		</div>
+
+		<div class="two columns">
+			<label for="search">Filter by attribute value:</label>
+			<input class="u-full-width" type="text" name="filterAttributeValue" id="filterAttributeValue" value="<%= obj.global.urlParsed.query.filterAttributeValue %>" placeholder="Leave blank to match all within this name" />
+		</div>
+
+		<div class="two columns">
+			<label for="search">Full text search:</label>
+			<input class="u-full-width" type="text" name="search" id="search" value="<%= obj.global.urlParsed.query.search %>" placeholder="Leave blank to match all" />
 		</div>
 
 		<div class="three columns">
@@ -28,14 +45,14 @@
 		</tr>
 	</thead>
 	<tbody>
-		<% _.forEach(obj.products, function (product, productUuid) { %>
+		<% for (const product of obj.products.hits) { %>
 			<tr>
-				<td><a href="/products/edit?uuid=<%= productUuid %>"><%= productUuid %></a></td>
+				<td><a href="/products/edit?uuid=<%= product._id %>"><%= product._id %></a></td>
 				<td><%= product.created %></td>
-				<td><%= (product.attributes !== undefined && product.attributes.name	!== undefined) ? product.attributes.name	: '<em>undefined</em>' %></td>
-				<td><%= (product.attributes !== undefined && product.attributes.status	!== undefined) ? product.attributes.status	: '<em>undefined</em>' %></td>
+				<td><%= (product._source !== undefined && product._source.name	!== undefined) ? product._source.name	: '<em>undefined</em>' %></td>
+				<td><%= (product._source !== undefined && product._source.status	!== undefined) ? product._source.status	: '<em>undefined</em>' %></td>
 			</tr>
-		<% }); %>
+		<% } %>
 	</tbody>
 </table>
 <%= _.render('inc/pagination', obj.pagination) %>
