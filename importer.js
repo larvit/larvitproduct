@@ -330,6 +330,10 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 						} else if (typeof product.attributes[attributeName] === 'string') {
 							product.attributes[attributeName]	= product.attributes[attributeName].trim();
 						}
+
+						if (product[attributeName] === undefined) {
+							delete product[attributeName];
+						}
 					}
 
 					product.save(function (err) {

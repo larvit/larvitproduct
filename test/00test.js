@@ -32,12 +32,6 @@ before(function (done) {
 	this.timeout(10000);
 	const	tasks	= [];
 
-	// Set intercom and mode
-	prodLib.dataWriter.mode	= 'noSync';
-	prodLib.dataWriter.intercom	= new Intercom('loopback interface');
-	imgLib.dataWriter.mode	= prodLib.dataWriter.mode;
-	imgLib.dataWriter.intercom	= prodLib.dataWriter.intercom;
-
 	// Run DB Setup
 	tasks.push(function (cb) {
 		let confFile;
@@ -81,6 +75,15 @@ before(function (done) {
 
 			cb();
 		});
+	});
+
+	// Set mode and intercom
+	tasks.push(function (cb) {
+		prodLib.dataWriter.mode	= 'noSync';
+		prodLib.dataWriter.intercom	= new Intercom('loopback interface');
+		imgLib.dataWriter.mode	= prodLib.dataWriter.mode;
+		imgLib.dataWriter.intercom	= prodLib.dataWriter.intercom;
+		cb();
 	});
 
 	// Run ES Setup
@@ -1245,9 +1248,11 @@ after(function (done) {
 
 	// Remove all data from elasticsearch
 	tasks.push(function (cb) {
+		if ( ! esUrl) return cb();
 		request.delete(esUrl + '/' + prodLib.dataWriter.esIndexName, cb);
 	});
 	tasks.push(function (cb) {
+		if ( ! esUrl) return cb();
 		request.delete(esUrl + '/' + prodLib.dataWriter.esIndexName + '_db_version', cb);
 	});
 
