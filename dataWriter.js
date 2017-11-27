@@ -14,6 +14,7 @@ const	elasticdumpPath	= require('larvitfs').getPathSync('bin/elasticdump'),
 	amsync	= require('larvitamsync'),
 	spawn	= require('child_process').spawn,
 	async	= require('async'),
+	that	= this,
 	log	= require('winston'),
 	fs	= require('fs'),
 	os	= require('os'),
@@ -43,6 +44,17 @@ function listenToQueue(retries, cb) {
 	if (retries === undefined) {
 		retries = 0;
 	}
+
+	tasks.push(function (cb) {
+		checkKey({
+			'obj':	exports,
+			'objectKey':	'options',
+			'default':	{}
+		}, function (err, warning) {
+			if (warning) log.warn(logPrefix + warning);
+			cb(err);
+		});
+	});
 
 	tasks.push(function (cb) {
 		checkKey({
@@ -424,6 +436,12 @@ function runDumpServer(cb) {
 			options['Content-Type']	= 'application/json';
 			options.intercom	= exports.intercom;
 			options.dataDumpCmd.args.push('--type=mapping');
+			options.amsync = {
+				'host':	that.options.amsync ? that.options.amsync.host : null,
+				'maxPort': that.options.amsync ? that.options.amsync.maxPort : null,
+				'minPort': that.options.amsync ? that.options.amsync.minPort : null
+			};
+
 			new amsync.SyncServer(options, cb);
 		});
 
@@ -435,6 +453,12 @@ function runDumpServer(cb) {
 			options['Content-Type']	= 'application/json';
 			options.intercom	= exports.intercom;
 			options.dataDumpCmd.args.push('--type=data');
+			options.amsync = {
+				'host':	that.options.amsync ? that.options.amsync.host : null,
+				'maxPort': that.options.amsync ? that.options.amsync.maxPort : null,
+				'minPort': that.options.amsync ? that.options.amsync.minPort : null
+			};
+
 			new amsync.SyncServer(options, cb);
 		});
 
@@ -530,6 +554,7 @@ exports.emitter	= new EventEmitter();
 exports.exchangeName	= 'larvitproduct';
 exports.listenToQueue	= listenToQueue;
 exports.mode	= false; // 'slave' or 'master' or 'noSync'
+exports.options	= undefined;
 exports.ready	= ready;
 exports.rmProducts	= rmProducts;
 exports.writeProduct	= writeProduct;
