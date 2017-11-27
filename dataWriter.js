@@ -469,11 +469,12 @@ function writeProduct(params, deliveryTag, msgUuid) {
 				continue;
 			}
 
-			// delete empty properties
-			if (body[attributeName] === undefined ||
-				body[attributeName] === '' ||
-				(Array.isArray(body[attributeName]) && (body[attributeName][0] === '' || body[attributeName][0] === undefined))) {
-
+			// Delete empty properties
+			if (
+				body[attributeName] === undefined
+				|| body[attributeName] === ''
+				|| (Array.isArray(body[attributeName]) && (body[attributeName][0] === '' || body[attributeName][0] === undefined))
+			) {
 				delete body[attributeName];
 				continue;
 			}
