@@ -470,13 +470,24 @@ function writeProduct(params, deliveryTag, msgUuid) {
 			}
 
 			// Delete empty properties
-			if (
-				body[attributeName] === undefined
-				|| body[attributeName] === ''
-				|| (Array.isArray(body[attributeName]) && (body[attributeName][0] === '' || body[attributeName][0] === undefined))
-			) {
+			if (body[attributeName] === undefined
+				|| body[attributeName] === '')
+			{
 				delete body[attributeName];
 				continue;
+			} else if (Array.isArray(body[attributeName])) {
+				for (let i = 0; body[attributeName][i] !== undefined; i ++) {
+					const val = body[attributeName][i];
+					if (val === undefined || val === '') {
+						body[attributeName].splice(i, 1);
+						i --;
+					}
+				}
+
+				if (body[attributeName].length === 0) {
+					delete body[attributeName];
+					continue;
+				}
 			}
 
 			// Clean BOM from attributeName
