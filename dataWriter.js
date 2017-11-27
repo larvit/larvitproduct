@@ -470,7 +470,7 @@ function writeProduct(params, deliveryTag, msgUuid) {
 			}
 
 			// delete empty properties
-			if (body[attributeName] === 'undefined' ||
+			if (body[attributeName] === undefined ||
 				body[attributeName] === '' ||
 				(Array.isArray(body[attributeName]) && (body[attributeName][0] === '' || body[attributeName][0] === undefined))) {
 
