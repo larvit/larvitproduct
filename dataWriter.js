@@ -164,6 +164,17 @@ function ready(cb) {
 		tasks.push(function (cb) {
 			checkKey({
 				'obj':	exports,
+				'objectKey':	'options',
+				'default':	{}
+			}, function (err, warning) {
+				if (warning) log.warn(logPrefix + warning);
+				cb(err);
+			});
+		});
+
+		tasks.push(function (cb) {
+			checkKey({
+				'obj':	exports,
 				'objectKey':	'mode',
 				'validValues':	['master', 'slave', 'noSync'],
 				'default':	'noSync'
