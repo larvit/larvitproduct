@@ -120,6 +120,10 @@ Product.prototype.loadFromDb = function (cb) {
 				that.images	= result.images;
 			}
 
+			if (result && result.files) {
+				that.files = result.files;
+			}
+
 			cb();
 		});
 	});
