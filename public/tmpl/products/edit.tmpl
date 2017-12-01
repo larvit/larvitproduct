@@ -87,6 +87,46 @@
 		<% } %>
 	<% } %>
 
+	<h2>Files</h2>
+	<div class="row">
+		<div class="three columns">
+			<p class="u-full-width">Add new file <input type="file" name="newFile" /></p>
+			<input type="text" class="u-full-width" name="newFileDesc" placeholder="Description" />
+		</div>
+		<div class="three columns">
+			<p>Select existing files</p>
+			<input type="text"	name="existingFileUuid-label" value="" id="existingFileUuid-label" />
+			<input type="hidden"	name="existingFileUuid" value="false" />
+		</div>
+	</div>
+
+	<% if (obj.product.files) { %>
+		<div class="row">
+			<table>
+				<thead>
+					<tr>
+						<th>Uuid</th>
+						<th>Name</th>
+						<th>Type</th>
+						<th>Description</th>
+						<th>&nbsp;</th>
+					</tr>
+				</thead>
+				<tbody>
+					<% for (const file of obj.product.files) { %>
+						<tr>
+							<td><a href="/adminFileEdit?uuid=<%= file.uuid %>"><%= file.uuid %></a></td>
+							<td><a href="/dbfiles/<%= file.slug %>"><%= file.slug %></a></td>
+							<td><%= file.metadata.type %></td>
+							<td><%= file.metadata.description %></td>
+							<td><button type="submit" name="rmFile" value="<%= file.uuid %>">X</button></td>
+						</tr>
+					<% } %>
+				</tbody>
+			</table>
+		</div>
+	<% } %>
+
 	<div class="row">
 		<div class="three columns">
 			<p class="u-full-width">Add new image <input type="file" name="newImage" /></p>
