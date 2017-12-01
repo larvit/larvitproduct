@@ -5,6 +5,7 @@ const	topLogPrefix	= 'larvitproduct: helpers.js - ',
 	Product	= require(__dirname + '/product.js'),
 	request	= require('request'),
 	leftPad	= require('left-pad'),
+	fileLib	= require('larvitfiles'),
 	imgLib	= require('larvitimages'),
 	async	= require('async'),
 	log	= require('winston'),
@@ -111,7 +112,10 @@ function formatEsResult(esResult, cb) {
 	}
 
 	getImagesForProducts([product], function (err) {
-		cb(err, product);
+		if (err) log.warn(logPrefix + err.message);
+		getFilesForProducts([product], function (err) {
+			cb(err, product);
+		});
 	});
 }
 
@@ -251,6 +255,34 @@ function getImagesForProducts(products, cb) {
 					delete result[imgUuid];
 				}
 			}
+		}
+
+		cb(null, products);
+	});
+}
+
+function getFilesForProducts(products, cb) {
+	const files = new fileLib.Files();
+
+	if ( ! Array.isArray(products)) {
+		return cb(new Error('Inavlid input, is not an array'));
+	}
+
+	if (products.length === 0) return cb(null, products);
+
+	files.filter.metadata = { 'productUuid': [] };
+
+	for (const product of products) {
+		files.filter.metadata.productUuid.push(product.uuid);
+	}
+
+	files.get(function (err, fileList) {
+		if (err) return cb(err);
+
+		if (fileList.length === 0) return cb();
+
+		for (const product of products) {
+			product.files = _.filter(fileList, function (f) { return f.metadata.productUuid.indexOf(product.uuid) !== - 1; });
 		}
 
 		cb(null, products);
@@ -430,5 +462,6 @@ exports.formatEsResult	= formatEsResult;
 exports.getAttributeValues	= getAttributeValues;
 exports.getBooleans	= getBooleans;
 exports.getImagesForProducts	= getImagesForProducts;
+exports.getFilesForProducts	= getFilesForProducts;
 exports.getKeywords	= getKeywords;
 exports.updateByQuery	= updateByQuery;

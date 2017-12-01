@@ -35,6 +35,7 @@
     "larvitamsync": "^0.5.1",
     "larvitdb": "^1.2.7",
     "larvitdbmigration": "^2.0.5",
+    "larvitfiles": "^3.0.2",
     "larvitfs": "^1.0.1",
     "larvitimages": "^0.9.0",
     "larvitutils": "^1.0.4",
