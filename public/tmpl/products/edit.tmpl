@@ -103,3 +103,14 @@
 	</div>
 </form>
 <%= _.render('inc/pageBottom', obj) %>
+
+<% if (obj.productAttributes) { %>
+	<script type="text/javascript">
+		$(document).ready(function () {
+			const productAttributes = <%= JSON.stringify(obj.productAttributes) %>;
+			$('input[name="attributeName[]"]').autocomplete({
+				'source': productAttributes
+			});
+		});
+	</script>
+<% } %>

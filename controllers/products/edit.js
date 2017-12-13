@@ -24,6 +24,39 @@ exports.run = function (req, res, cb) {
 		data.product.loadFromDb(cb);
 	});
 
+	// Get all available keywords
+	tasks.push(function (cb) {
+		productLib.helpers.getKeywords(function (err, keywords) {
+			if (err) return cb(err);
+
+			keywords.sort(function (a, b) {
+				return a.localeCompare(b, 'en', {'sensitivity': 'base'});
+			});
+
+			for (let kw of keywords) {
+				kw = kw.replace('.keyword', '');
+				data.productAttributes.push(kw);
+			}
+
+			cb();
+		});
+	});
+
+	// Get all available booleans
+	tasks.push(function (cb) {
+		productLib.helpers.getBooleans(function (err, booleans) {
+			if (err) return cb(err);
+
+			data.productAttributes = data.productAttributes.concat(booleans);
+
+			data.productAttributes.sort(function (a, b) {
+				return a.localeCompare(b, 'en', {'sensitivity': 'base'});
+			});
+
+			cb();
+		});
+	});
+
 	if (data.global.formFields.save !== undefined) {
 		let	missingImgSlug;
 
