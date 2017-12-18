@@ -217,6 +217,46 @@ function getBooleans(cb) {
 	});
 }
 
+function getDates(cb) {
+	const	dates	= [],
+		tasks	= [];
+
+	tasks.push(ready);
+
+	tasks.push(function (cb) {
+		const	logPrefix	= topLogPrefix + 'getDates() - url: "' + esUrl + '/' + dataWriter.esIndexName + '/_mapping/product"',
+			url	= esUrl + '/' + dataWriter.esIndexName + '/_mapping/product';
+
+		request({'url': url, 'json': true}, function (err, response, body) {
+			if (err) {
+				log.warn(logPrefix + 'Could not get mappings when calling. err: ' + err.message);
+				return cb(err);
+			}
+
+			if (response.statusCode !== 200) {
+				const	err	= new Error('non-200 statusCode: ' + response.statusCode);
+				log.warn(logPrefix + err.message);
+				return cb(err);
+			}
+
+			for (const fieldName of Object.keys(body[dataWriter.esIndexName].mappings.product.properties)) {
+				const	fieldProps	= body[dataWriter.esIndexName].mappings.product.properties[fieldName];
+
+				if (fieldProps.type === 'date') {
+					dates.push(fieldName);
+				}
+			}
+
+			cb();
+		});
+	});
+
+	async.series(tasks, function (err) {
+		if (err) return cb(err);
+		cb(null, dates);
+	});
+}
+
 function getImagesForProducts(products, cb) {
 	const	logPrefix	= topLogPrefix + 'getImagesForProducts() - ',
 		slugs	= [];
@@ -461,6 +501,7 @@ exports.deleteByQuery	= deleteByQuery;
 exports.formatEsResult	= formatEsResult;
 exports.getAttributeValues	= getAttributeValues;
 exports.getBooleans	= getBooleans;
+exports.getDates	= getDates;
 exports.getImagesForProducts	= getImagesForProducts;
 exports.getFilesForProducts	= getFilesForProducts;
 exports.getKeywords	= getKeywords;
