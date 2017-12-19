@@ -302,7 +302,7 @@ function getImagesForProducts(products, cb) {
 }
 
 function getFilesForProducts(products, cb) {
-	const files = new fileLib.Files();
+	const	files	= new fileLib.Files();
 
 	if ( ! Array.isArray(products)) {
 		return cb(new Error('Inavlid input, is not an array'));
@@ -310,7 +310,8 @@ function getFilesForProducts(products, cb) {
 
 	if (products.length === 0) return cb(null, products);
 
-	files.filter.metadata = { 'productUuid': [] };
+	files.filter.metadata	= { 'productUuid': [] };
+	files.filter.operator	= 'or';
 
 	for (const product of products) {
 		files.filter.metadata.productUuid.push(product.uuid);
