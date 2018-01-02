@@ -2,12 +2,9 @@
 
 const	productLib	= require(__dirname + '/../../index.js'),
 	leftPad	= require('left-pad'),
-	fileLib	= require('larvitfiles'),
 	imgLib	= require('larvitimages'),
 	async	= require('async'),
-	uuid	= require('uuid'),
-	log	= require('winston'),
-	fs	= require('fs');
+	log	= require('winston');
 
 exports.run = function (req, res, cb) {
 	const	logPrefix	= 'larvitproduct: ./controllers/products/edit.js: run() - ',
@@ -22,9 +19,44 @@ exports.run = function (req, res, cb) {
 	data.global.messages	= [];
 	data.global.errors	= [];
 
+	data.productAttributes = [];
+
 	tasks.push(function (cb) {
 		data.product	= new productLib.Product(data.global.urlParsed.query.uuid);
 		data.product.loadFromDb(cb);
+	});
+
+	// Get all available booleans
+	tasks.push(function (cb) {
+		productLib.helpers.getBooleans(function (err, booleans) {
+			if (err) return cb(err);
+
+			data.productAttributes = data.productAttributes.concat(booleans);
+
+			data.productAttributes.sort(function (a, b) {
+				return a.localeCompare(b, 'en', {'sensitivity': 'base'});
+			});
+
+			cb();
+		});
+	});
+
+	// Get all available keywords
+	tasks.push(function (cb) {
+		productLib.helpers.getKeywords(function (err, keywords) {
+			if (err) return cb(err);
+
+			keywords.sort(function (a, b) {
+				return a.localeCompare(b, 'en', {'sensitivity': 'base'});
+			});
+
+			for (let kw of keywords) {
+				kw = kw.replace('.keyword', '');
+				data.productAttributes.push(kw);
+			}
+
+			cb();
+		});
 	});
 
 	if (data.global.formFields.save !== undefined) {
@@ -123,81 +155,9 @@ exports.run = function (req, res, cb) {
 			imgLib.saveImage(imgOptions, cb);
 		});
 
-		// save existing file
-		if (data.global.formFields.existingFileUuid && data.global.formFields.existingFileUuid !== 'false') {
-			tasks.push(function (cb) {
-				const file = new fileLib.File({'uuid': data.global.formFields.existingFileUuid}, function (err) {
-					if (err) {
-						log.warn(logPrefix + 'Failed to load file: ' + err.message);
-						return cb(err);
-					}
-
-					if (file.metadata === undefined) file.metadata = {};
-					if (file.metadata.productUuid === undefined) file.metadata.productUuid = [];
-
-					if (file.metadata.productUuid.indexOf(data.product.uuid) === - 1) file.metadata.productUuid.push(data.product.uuid);
-					file.save(cb);
-				});
-			});
-		}
-
-		// save new file
-		tasks.push(function (cb) {
-			let file;
-
-			if ( ! req.formFiles || ! req.formFiles.newFile) {
-				return cb();
-			}
-
-			file = new fileLib.File({
-				'uuid': uuid.v4(),
-				'slug': req.formFiles.newFile.name,
-				'data': fs.readFileSync(req.formFiles.newFile.path),
-				'metadata': {
-					'type': [req.formFiles.newFile.type],
-					'productUuid': [data.product.uuid],
-					'description': [req.formFields.newFileDesc]
-				}},
-			function (err) {
-				if (err) {
-					data.global.errors.push('Failed to save file');
-					log.warn(logPrefix + 'Failed to save file: ' + err.message);
-					return cb(err);
-				}
-
-				file.save(cb);
-			});
-		});
-
 		// Reload from database
 		tasks.push(function (cb) {
 			data.product.loadFromDb(cb);
-		});
-	}
-
-	if (data.global.formFields.rmFile) {
-		tasks.push(function (cb) {
-			const file = new fileLib.File({'uuid': data.global.formFields.rmFile}, function (err) {
-				if (err) {
-					log.warn(logPrefix + 'Failed to load file: ' + err.message);
-					return cb(err);
-				}
-
-				if ( ! file.metadata || ! file.metadata.productUuid) return cb();
-
-				file.metadata.productUuid.splice(file.metadata.productUuid.indexOf(data.product.uuid, 1));
-				file.save(function (err) {
-					if (err) return cb(err);
-
-					// remove manually to not have to reload stuff from db
-					for (let i = 0; data.product.files[i] !== undefined; i ++) {
-						if (data.product.files[i].uuid === data.global.formFields.rmFile) {
-							data.product.files.splice(i, 1);
-							return cb();
-						}
-					}
-				});
-			});
 		});
 	}
 
