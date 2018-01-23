@@ -224,7 +224,7 @@ function ready(cb) {
 	tasks.push(function (cb) {
 		exports.elasticsearch.indices.create({'index': exports.esIndexName}, function (err) {
 			if (err) {
-				if (err.message.substring(0, 32) === '[index_already_exists_exception]') {
+				if (err.message.substring(0, 32) === '[index_already_exists_exception]' || err.message.substring(0, 30) === '[invalid_index_name_exception]') {
 					log.debug(logPrefix + 'Index alreaxy exists, is cool');
 					return cb();
 				}
