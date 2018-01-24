@@ -21,7 +21,7 @@ prodLib.dataWriter.esIndexName	= 'something';
 
 // Set up winston
 log.remove(log.transports.Console);
-/**/log.add(log.transports.Console, {
+/** /log.add(log.transports.Console, {
 	'level':	'warn',
 	'colorize':	true,
 	'timestamp':	true,
@@ -164,7 +164,6 @@ before(function (done) {
 			}
 		}, cb);
 	});
-
 
 	async.series(tasks, done);
 });
@@ -403,9 +402,9 @@ describe('Product', function () {
 			product.rm(cb);
 		});
 
-		// Refresh the index
+		// Refresh index
 		tasks.push(function (cb) {
-			prodLib.dataWriter.elasticsearch.indices.refresh({'index': prodLib.dataWriter.esIndexName}, cb);
+			request.post(esUrl + '/' + prodLib.dataWriter.esIndexName + '/_refresh', cb);
 		});
 
 		// Get all products after
@@ -490,8 +489,8 @@ describe('Helpers', function () {
 		async.parallel(tasks, function (err) {
 			if (err) throw err;
 
-			// Refresh the index
-			prodLib.dataWriter.elasticsearch.indices.refresh({'index': prodLib.dataWriter.esIndexName}, function (err) {
+			// Refresh index
+			request.post(esUrl + '/' + prodLib.dataWriter.esIndexName + '/_refresh', function (err) {
 				if (err) throw err;
 				done();
 			});
@@ -596,8 +595,9 @@ describe('Helpers', function () {
 			prodLib.helpers.updateByQuery(queryBody, updates, cb);
 		});
 
+		// Refresh index
 		tasks.push(function (cb) {
-			prodLib.dataWriter.elasticsearch.indices.refresh({'index': prodLib.dataWriter.esIndexName}, cb);
+			request.post(esUrl + '/' + prodLib.dataWriter.esIndexName + '/_refresh', cb);
 		});
 
 		tasks.push(function (cb) {
@@ -635,7 +635,7 @@ describe('Helpers', function () {
 
 		tasks.push(function (cb) {
 			setTimeout(function () {
-				prodLib.dataWriter.elasticsearch.indices.refresh({'index': prodLib.dataWriter.esIndexName}, cb);
+				request.post(esUrl + '/' + prodLib.dataWriter.esIndexName + '/_refresh', cb);
 			}, 20);
 		});
 
@@ -660,7 +660,10 @@ describe('Import', function () {
 
 	// Make sure the index is refreshed between each test
 	beforeEach(function (done) {
-		prodLib.dataWriter.elasticsearch.indices.refresh({'index': prodLib.dataWriter.esIndexName}, done);
+		request.post(esUrl + '/' + prodLib.dataWriter.esIndexName + '/_refresh', function (err) {
+			if (err) throw err;
+			done();
+		});
 	});
 
 	function importFromStr(str, options, cb) {
@@ -690,19 +693,28 @@ describe('Import', function () {
 			fs.unlink(tmpFile, cb);
 		});
 
+		// Refresh index
+		tasks.push(function (cb) {
+			request.post(esUrl + '/' + prodLib.dataWriter.esIndexName + '/_refresh', cb);
+		});
+
 		async.series(tasks, function (err) {
 			cb(err, uuids);
 		});
 	}
 
 	function getProductData(uuids, cb) {
-		const	body	= {'body':{'docs':[]}};
+		const	options	= {};
 
-		for (const uuid of uuids) {
-			body.body.docs.push({'_index': prodLib.dataWriter.esIndexName, '_type': 'product', '_id': uuid});
-		}
+		options.method	= 'GET';
+		options.json	= true;
+		options.url	= esUrl + '/' + prodLib.dataWriter.esIndexName + '/product/_search';
+		options.body	= {'query': {'ids': {'values': uuids}}};
 
-		prodLib.dataWriter.elasticsearch.mget(body, cb);
+		request(options, function (err, response, result) {
+			if (err) throw err;
+			return cb(null, result.hits.hits);
+		});
 	}
 
 	function countProducts(cb) {
@@ -722,18 +734,30 @@ describe('Import', function () {
 		return array;
 	};
 
+	function refreshIndex(cb) {
+		request.post(esUrl + '/' + prodLib.dataWriter.esIndexName + '/_refresh', cb);
+	}
+
+	function deleteAllProducts(cb) {
+		const	options	= {};
+
+		options.method	= 'POST';
+		options.json	= true;
+		options.url	= esUrl + '/' + prodLib.dataWriter.esIndexName + '/product/_delete_by_query?refresh';
+		options.body	= {'query': {'match_all': {}}};
+
+		request(options, cb);
+	}
+
 	it('very simple test case', function (done) {
 		const	productStr	= 'name,price,description\nball,100,it is round\ntv,55,"About 32"" in size"',
 			tasks	= [];
 
 		let	uuids;
 
-		// Do a pre-count
+		// Remove all previous products
 		tasks.push(function (cb) {
-			countProducts(function (err, count) {
-				assert.strictEqual(count,	7);
-				cb(err);
-			});
+			deleteAllProducts(cb);
 		});
 
 		// Run importer
@@ -753,7 +777,7 @@ describe('Import', function () {
 			getProductData(uuids, function (err, testProducts) {
 				if (err) throw err;
 
-				assert.strictEqual(testProducts.docs.length,	2);
+				assert.strictEqual(testProducts.length,	2);
 
 				for (let i = 0; testProducts[i] !== undefined; i ++) {
 					const	product	= testProducts[i];
@@ -778,7 +802,7 @@ describe('Import', function () {
 		// Count total number of products in database
 		tasks.push(function (cb) {
 			countProducts(function (err, count) {
-				assert.strictEqual(count,	9);
+				assert.strictEqual(count,	2);
 				cb(err);
 			});
 		});
@@ -791,15 +815,11 @@ describe('Import', function () {
 			options	= {'staticCols': { 'foul': 'nope', 'enabled': 'false'} },
 			tasks	= [];
 
-		let	preNoProducts,
-			uuids;
+		let	uuids;
 
-		// Pre-count products
+		// Remove all previous products
 		tasks.push(function (cb) {
-			countProducts(function (err, count) {
-				preNoProducts	= count;
-				cb(err);
-			});
+			deleteAllProducts(cb);
 		});
 
 		// Import
@@ -819,10 +839,10 @@ describe('Import', function () {
 			getProductData(uuids, function (err, testProducts) {
 				if (err) throw err;
 
-				assert.strictEqual(testProducts.docs.length,	3);
+				assert.strictEqual(testProducts.length,	3);
 
-				for (let i = 0; testProducts.docs[i] !== undefined; i ++) {
-					const	product	= testProducts.docs[i];
+				for (let i = 0; testProducts[i] !== undefined; i ++) {
+					const	product	= testProducts[i];
 
 					assert.strictEqual(Object.keys(product._source).length,	6);
 
@@ -853,7 +873,7 @@ describe('Import', function () {
 		// Count products
 		tasks.push(function (cb) {
 			countProducts(function (err, count) {
-				assert.strictEqual(count - preNoProducts,	3);
+				assert.strictEqual(count,	3);
 				cb(err);
 			});
 		});
@@ -862,41 +882,46 @@ describe('Import', function () {
 	});
 
 	it('Replace by one column', function (done) {
-		const	productStr	= 'name,artNo,size\nball,abc01,15\ntv,abc02,14\ncar,abc13,2',
-			options	= {'replaceByCols': 'artNo'},
+		const	initProductStr	= 'name,artNo,size,description\nhouse,abc01,20,huge\nnapkin,food3k,9,small\ncar,abc13,7,vehicle\nplutt,ieidl3,10,no',
+			replProductStr	= 'name,artNo,size\nball,abc01,15\ntv,abc02,14\ncar,abc13,2',
 			tasks	= [];
 
-		let	preNoProducts,
-			uuids;
+		let	uuids;
 
-		// Pre-count products
+		// Remove all previous products
 		tasks.push(function (cb) {
-			countProducts(function (err, count) {
-				preNoProducts	= count;
-				cb(err);
-			});
+			deleteAllProducts(cb);
 		});
 
-		// Run the import
+		// Run initial report
 		tasks.push(function (cb) {
-			importFromStr(productStr, options, function (err, result) {
+			importFromStr(initProductStr, {}, function (err, result) {
 				if (err) throw err;
-				uuids = result;
-				assert.strictEqual(uuids.length,	3);
+				uuids	= result;
 				cb();
 			});
 		});
 
 		// Refresh index
+		tasks.push(refreshIndex);
+
+		// Run replacement import
 		tasks.push(function (cb) {
-			prodLib.dataWriter.elasticsearch.indices.refresh({'index': prodLib.dataWriter.esIndexName}, cb);
+			importFromStr(replProductStr, {'replaceByCols': 'artNo'}, function (err, result) {
+				if (err) throw err;
+				uuids	= uuids.concat(result);
+				cb();
+			});
 		});
 
-		// Count hits after index
+		// Refresh index
+		tasks.push(refreshIndex);
+
+		// Count hits
 		tasks.push(function (cb) {
 			countProducts(function (err, count) {
 				if (err) throw err;
-				assert.strictEqual(preNoProducts, (count - 1));
+				assert.strictEqual(count, 5);
 				cb();
 			});
 		});
@@ -906,22 +931,33 @@ describe('Import', function () {
 			getProductData(uuids, function (err, testProducts) {
 				if (err) throw err;
 
-				assert.strictEqual(testProducts.docs.length,	3);
+				assert.strictEqual(testProducts.length,	5);
 
-				for (let i = 0; testProducts.docs[i] !== undefined; i ++) {
-					const	product	= testProducts.docs[i];
-
-					assert.strictEqual(Object.keys(product._source).length,	4);
+				for (let i = 0; testProducts[i] !== undefined; i ++) {
+					const	product	= testProducts[i];
 
 					if (product._source.name[0] === 'ball') {
 						assert.strictEqual(product._source.artNo[0],	'abc01');
 						assert.strictEqual(product._source.size[0],	'15');
+						assert.strictEqual(Object.keys(product._source).length,	4);
 					} else if (product._source.name[0] === 'tv') {
 						assert.strictEqual(product._source.artNo[0],	'abc02');
 						assert.strictEqual(product._source.size[0],	'14');
+						assert.strictEqual(Object.keys(product._source).length,	4);
 					} else if (product._source.name[0] === 'car') {
 						assert.strictEqual(product._source.artNo[0],	'abc13');
 						assert.strictEqual(product._source.size[0],	'2');
+						assert.strictEqual(Object.keys(product._source).length,	4);
+					} else if (product._source.name[0] === 'napkin') {
+						assert.strictEqual(product._source.artNo[0],	'food3k');
+						assert.strictEqual(product._source.size[0],	'9');
+						assert.strictEqual(product._source.description[0],	'small');
+						assert.strictEqual(Object.keys(product._source).length,	5);
+					} else if (product._source.name[0] === 'plutt') {
+						assert.strictEqual(product._source.artNo[0],	'ieidl3');
+						assert.strictEqual(product._source.size[0],	'10');
+						assert.strictEqual(product._source.description[0],	'no');
+						assert.strictEqual(Object.keys(product._source).length,	5);
 					} else {
 						throw new Error('Unexpected product: ' + JSON.stringify(product));
 					}
@@ -943,6 +979,11 @@ describe('Import', function () {
 			uuids1,
 			uuids2;
 
+		// Remove all previous products
+		tasks.push(function (cb) {
+			deleteAllProducts(cb);
+		});
+
 		// Run the import of productStr1
 		tasks.push(function (cb) {
 			importFromStr(productStr1, options, function (err, result) {
@@ -955,7 +996,7 @@ describe('Import', function () {
 
 		// Refresh index
 		tasks.push(function (cb) {
-			prodLib.dataWriter.elasticsearch.indices.refresh({'index': prodLib.dataWriter.esIndexName}, cb);
+			request.post(esUrl + '/' + prodLib.dataWriter.esIndexName + '/_refresh', cb);
 		});
 
 		// Pre-count products
@@ -966,7 +1007,7 @@ describe('Import', function () {
 			});
 		});
 
-		// Run the import of productStr1
+		// Run the import of productStr2
 		tasks.push(function (cb) {
 			importFromStr(productStr2, options, function (err, result) {
 				if (err) throw err;
@@ -978,7 +1019,11 @@ describe('Import', function () {
 
 		// Refresh index
 		tasks.push(function (cb) {
-			prodLib.dataWriter.elasticsearch.indices.refresh({'index': prodLib.dataWriter.esIndexName}, cb);
+			request.post(esUrl + '/' + prodLib.dataWriter.esIndexName + '/_refresh', cb);
+		});
+
+		tasks.push(function (cb) {
+			setTimeout(cb, 1100);
 		});
 
 		// Count hits after index
@@ -995,10 +1040,10 @@ describe('Import', function () {
 			getProductData(uuids2, function (err, testProducts) {
 				if (err) throw err;
 
-				assert.strictEqual(testProducts.docs.length,	3);
+				assert.strictEqual(testProducts.length,	3);
 
-				for (let i = 0; testProducts.docs[i] !== undefined; i ++) {
-					const	product	= testProducts.docs[i];
+				for (let i = 0; testProducts[i] !== undefined; i ++) {
+					const	product	= testProducts[i];
 
 					assert.strictEqual(Object.keys(product._source).length,	4);
 
@@ -1041,7 +1086,7 @@ describe('Import', function () {
 
 		// Refresh index
 		tasks.push(function (cb) {
-			prodLib.dataWriter.elasticsearch.indices.refresh({'index': prodLib.dataWriter.esIndexName}, cb);
+			request.post(esUrl + '/' + prodLib.dataWriter.esIndexName + '/_refresh', cb);
 		});
 
 		// Pre-count products
@@ -1065,7 +1110,7 @@ describe('Import', function () {
 
 		// Refresh index
 		tasks.push(function (cb) {
-			prodLib.dataWriter.elasticsearch.indices.refresh({'index': prodLib.dataWriter.esIndexName}, cb);
+			request.post(esUrl + '/' + prodLib.dataWriter.esIndexName + '/_refresh', cb);
 		});
 
 		// Count hits after index
@@ -1084,10 +1129,10 @@ describe('Import', function () {
 			getProductData(uuids, function (err, testProducts) {
 				if (err) throw err;
 
-				assert.strictEqual(testProducts.docs.length,	4);
+				assert.strictEqual(testProducts.length,	4);
 
-				for (let i = 0; testProducts.docs[i] !== undefined; i ++) {
-					const	product	= testProducts.docs[i];
+				for (let i = 0; testProducts[i] !== undefined; i ++) {
+					const	product	= testProducts[i];
 					if (product._source.supplier[0] === 'slam ab' && product._source.artNo[0] === 'rd1') {
 						assert.strictEqual(product._source.name[0],	'MUU');
 						assert.strictEqual(parseInt(product._source.size[0]),	100);
@@ -1117,12 +1162,9 @@ describe('Import', function () {
 
 		let	uuids;
 
-		// Do a pre-count
+		// Remove all previous products
 		tasks.push(function (cb) {
-			countProducts(function (err, count) {
-				assert.strictEqual(count,	21);
-				cb(err);
-			});
+			deleteAllProducts(cb);
 		});
 
 		// Run importer
@@ -1142,12 +1184,10 @@ describe('Import', function () {
 			getProductData(uuids, function (err, testProducts) {
 				if (err) throw err;
 
-				assert.strictEqual(testProducts.docs.length,	4);
+				assert.strictEqual(testProducts.length,	4);
 
 				for (let i = 0; testProducts[i] !== undefined; i ++) {
 					const	product	= testProducts[i];
-
-					assert.strictEqual(Object.keys(product._source).length,	5);
 
 					if (product._source.name[0] === 'ball') {
 						assert.strictEqual(product._source.price[0],	'100');
@@ -1155,7 +1195,7 @@ describe('Import', function () {
 						assert.strictEqual(product._source.foo,	undefined);
 					} else if (product._source.name[0] === 'tv') {
 						assert.strictEqual(product._source.price[0],	'55');
-						assert.strictEqual(product._source.description[0],	'About 32" in size');
+						assert.strictEqual(product._source.description[0],	'Large sized');
 						assert.strictEqual(product._source.foo[0],	'bar');
 					} else if (product._source.name[0] === 'soffa') {
 						assert.strictEqual(product._source.price[0],	'1200');
@@ -1177,7 +1217,7 @@ describe('Import', function () {
 		// Count total number of products in database
 		tasks.push(function (cb) {
 			countProducts(function (err, count) {
-				assert.strictEqual(count,	25);
+				assert.strictEqual(count,	4);
 				cb(err);
 			});
 		});
@@ -1192,12 +1232,9 @@ describe('Import', function () {
 
 		let	uuids;
 
-		// Do a pre-count
+		// Remove all previous products
 		tasks.push(function (cb) {
-			countProducts(function (err, count) {
-				assert.strictEqual(count,	25);
-				cb(err);
-			});
+			deleteAllProducts(cb);
 		});
 
 		// Run importer
@@ -1234,7 +1271,7 @@ describe('Import', function () {
 		// Count total number of products in database
 		tasks.push(function (cb) {
 			countProducts(function (err, count) {
-				assert.strictEqual(count,	29);
+				assert.strictEqual(count,	4);
 				cb(err);
 			});
 		});

@@ -220,11 +220,35 @@ function ready(cb) {
 		});
 	});
 
+	// Resolve real index name from alias
+	// We do this because Elasticsearch does NOT work the same way when speaking to an alias as when speaking to an index. FAKE NEWS ffs!
+	tasks.push(function (cb) {
+		request({
+			'url':	'http://' + exports.elasticsearch.transport._config.host + '/_cat/aliases?v',
+			'json':	true
+		}, function (err, response, result) {
+			if (err) {
+				log.error(logPrefix + err.message);
+				return cb(err);
+			}
+
+			for (let i = 0; result[i] !== undefined; i ++) {
+				if (result[i].alias === exports.esIndexName) {
+					const	err	= new Error('Index name must be the real index, not an alias. This is due to ES working differently with aliases and indexes');
+					log.error(logPrefix + err.message);
+					return cb(err);
+				}
+			}
+
+			cb();
+		});
+	});
+
 	// Make sure index exists
 	tasks.push(function (cb) {
 		exports.elasticsearch.indices.create({'index': exports.esIndexName}, function (err) {
 			if (err) {
-				if (err.message.substring(0, 32) === '[index_already_exists_exception]' || err.message.substring(0, 30) === '[invalid_index_name_exception]') {
+				if (err.message.substring(0, 32) === '[index_already_exists_exception]') {
 					log.debug(logPrefix + 'Index alreaxy exists, is cool');
 					return cb();
 				}

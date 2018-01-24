@@ -3,6 +3,7 @@
 const	topLogPrefix	= 'larvitproduct: importer.js - ',
 	dataWriter	= require(__dirname + '/dataWriter.js'),
 	Product	= require(__dirname + '/product.js'),
+	request	= require('request'),
 	fastCsv	= require('fast-csv'),
 	async	= require('async'),
 	log	= require('winston'),
@@ -30,13 +31,14 @@ let	es;
  * @param func cb(err, [productUuid1, productUuid2]) the second array is a list of all added/altered products
  */
 exports.fromFile = function fromFile(filePath, options, cb) {
-	const tasks = [],
-		alteredProductUuids	= [],
-		errors = [];
+	const	alteredProductUuids	= [],
+		logPrefix	= topLogPrefix + 'fromFile() - ',
+		errors	= [],
+		tasks	= [];
 
-	let mapping;
+	let	mapping;
 
-	// make sure ES is ready
+	// Make sure ES is ready
 	tasks.push(function (cb) {
 		dataWriter.ready(function (err) {
 			// Make sure es is set
@@ -45,16 +47,29 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 		});
 	});
 
-	// get ES mapping
+	// Get ES mapping
 	tasks.push(function (cb) {
-		es.indices.getMapping({'type': 'product'}, function (err, result) {
-			if (err) return cb(err);
-			mapping = result[dataWriter.esIndexName].mappings.product.properties;
-			cb(err);
+		const	url	= 'http://' + es.transport._config.host + '/' + dataWriter.esIndexName + '/_mapping/product';
+
+		request({'url': url, 'json': true}, function (err, response, body) {
+			if (err) {
+				log.warn(logPrefix + 'Could not get mappings when calling. err: ' + err.message);
+				return cb(err);
+			}
+
+			if (response.statusCode !== 200) {
+				const	err	= new Error('non-200 statusCode: ' + response.statusCode);
+				log.warn(logPrefix + err.message);
+				return cb(err);
+			}
+
+			mapping = body[dataWriter.esIndexName].mappings.product.properties;
+
+			cb();
 		});
 	});
 
-	// do the import
+	// Do the import
 	tasks.push(function (cb) {
 		const	logPrefix	= topLogPrefix + 'fromFile() - ',
 			fileStream	= fs.createReadStream(filePath),
@@ -63,7 +78,6 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 			tasks	= [];
 
 		let	currentRowNr;
-
 
 		if (options === undefined) {
 			options	= {};
@@ -184,11 +198,12 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 						tasks.push(function (cb) {
 							options.formatCols[colName](attributes[colName], attributes, function (err, result) {
 								if (err) {
-									const rowError = {};
-									rowError.type = 'row error';
-									rowError.time = new Date();
-									rowError.column = colName;
-									rowError.message = err.message;
+									const	rowError	= {};
+
+									rowError.type	= 'row error';
+									rowError.time	= new Date();
+									rowError.column	= colName;
+									rowError.message	= err.message;
 
 									errors.push(rowError);
 
@@ -210,7 +225,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 					for (let i = 0; options.findByCols[i] !== undefined; i ++) {
 						if ( ! attributes[options.findByCols[i]]) {
-							const err = new Error('Missing attribute value for "' + options.findByCols[i] + '" rowNr: ' + currentRowNr);
+							const	err	= new Error('Missing attribute value for "' + options.findByCols[i] + '" rowNr: ' + currentRowNr);
 
 							log.verbose(logPrefix + err.message);
 							return cb(err);
@@ -241,23 +256,29 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 								return cb(err);
 							}
 
-							if (mapping &&
-								mapping[col] &&
-								mapping[col].type === 'text' &&
-								mapping[col].fields &&
-								mapping[col].fields.keyword &&
-								mapping[col].fields.keyword.type === 'keyword') {
+							if (mapping && mapping[col] && mapping[col].type === 'keyword') {
+								term.term[col]	= attributes[col];
+							} else if (
+								mapping
+								&& mapping[col]
+								&& mapping[col].fields
+								&& mapping[col].fields.keyword
+								&& mapping[col].fields.type === 'keyword'
+							) {
 								term.term[col + '.keyword'] = attributes[col];
 							} else {
-								term.term[col] = attributes[col];
+								const	err	= new Error('No keyword found for column "' + col + '" so it can not be used to find products by');
+								log.warn(logPrefix + err.message);
+								return cb(err);
 							}
 
 							terms.push(term);
 						}
 
-						es.search({
-							'index':	dataWriter.esIndexName,
-							'type':	'product',
+						request({
+							'method':	'GET',
+							'url':	'http://' + es.transport._config.host + '/' + dataWriter.esIndexName + '/product/_search',
+							'json':	true,
 							'body': {
 								'query': {
 									'constant_score': {
@@ -269,7 +290,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 									}
 								}
 							}
-						}, function (err, result) {
+						}, function (err, response, result) {
 							if (err) {
 								log.warn(logPrefix + 'findByCols es.search err: ' + err.message);
 								return cb(err);
