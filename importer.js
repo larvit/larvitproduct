@@ -263,7 +263,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 								&& mapping[col]
 								&& mapping[col].fields
 								&& mapping[col].fields.keyword
-								&& mapping[col].fields.type === 'keyword'
+								&& mapping[col].fields.keyword.type === 'keyword'
 							) {
 								term.term[col + '.keyword'] = attributes[col];
 							} else {
