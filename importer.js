@@ -131,7 +131,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 				let	product;
 
 				if (currentRowNr === undefined) {
-					currentRowNr = 0;
+					currentRowNr	= 0;
 				} else {
 					currentRowNr ++;
 				}
@@ -175,11 +175,11 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 						log.warn(logPrefix + 'Ignoring column ' + i + ' on rowNr: ' + currentRowNr + ' since no column header was found');
 						continue;
 					} else if (colVal === undefined && options.staticCols[colHeads[i]] !== undefined) {
-						colVal = options.staticCols[colHeads[i]];
+						colVal	= options.staticCols[colHeads[i]];
 					}
 
 					if (options.ignoreCols.indexOf(colHeads[i]) === - 1 && options.removeColValsContaining.indexOf(colVal) === - 1) {
-						attributes[colHeads[i]] = colVal;
+						attributes[colHeads[i]]	= colVal;
 					}
 				}
 
@@ -257,7 +257,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 							}
 
 							if (mapping && mapping[col] && mapping[col].type === 'keyword') {
-								term.term[col]	= attributes[col];
+								term.term[col]	= String(attributes[col]).trim();
 							} else if (
 								mapping
 								&& mapping[col]
@@ -265,7 +265,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 								&& mapping[col].fields.keyword
 								&& mapping[col].fields.keyword.type === 'keyword'
 							) {
-								term.term[col + '.keyword'] = attributes[col];
+								term.term[col + '.keyword'] = String(attributes[col]).trim();
 							} else {
 								const	err	= new Error('No keyword found for column "' + col + '" so it can not be used to find products by');
 								log.warn(logPrefix + err.message);

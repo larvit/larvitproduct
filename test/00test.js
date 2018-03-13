@@ -882,8 +882,15 @@ describe('Import', function () {
 	});
 
 	it('Replace by one column', function (done) {
-		const	initProductStr	= 'name,artNo,size,description\nhouse,abc01,20,huge\nnapkin,food3k,9,small\ncar,abc13,7,vehicle\nplutt,ieidl3,10,no',
-			replProductStr	= 'name,artNo,size\nball,abc01,15\ntv,abc02,14\ncar,abc13,2',
+		const	initProductStr	= 'name,artNo,size,description\n' +
+				'house,abc01,20,huge\n' +
+				'napkin,food3k,9,small\n' +
+				'car,abc13,7,vehicle\n' +
+				'plutt,ieidl3,10,no',
+			replProductStr	= 'name,artNo,size\n' +
+				'ball,abc01,15\n' +
+				'tv,abc02,14\n' +
+				'car," abc13",2', // Deliberate space
 			tasks	= [];
 
 		let	uuids;
