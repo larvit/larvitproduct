@@ -387,7 +387,6 @@ function ready(cb) {
 	});
 }
 
-// LIMITED TO 10000 PRODUCTS!1!!!
 function updateByQuery(queryBody, updates, cb) {
 	const	logPrefix	= topLogPrefix + 'updateByQuery() - ',
 		tasks	= [];
@@ -399,17 +398,18 @@ function updateByQuery(queryBody, updates, cb) {
 			done	= false;
 
 		async.whilst(function () { return ! done; }, function (cb) {
-			const tasks	= [],
+			const	tasks	= [],
 				uuids	= [];
 
+			// Get scroll ID
 			tasks.push(function (cb) {
-				const reqOptions	= {};
+				const	reqOptions	= {};
 
 				reqOptions.url	= esUrl + '/' + dataWriter.esIndexName + '/product/_search?scroll=60m';
 				reqOptions.json	= true;
 				reqOptions.body	= queryBody;
 				reqOptions.body.size	= 1000;
-				//reqOptions.body.stored_fields	= []; // hämta bara id
+				//reqOptions.body.stored_fields	= []; // Only get ID
 
 				if (scrollId !== null) {
 					reqOptions.url = esUrl + '/_search/scroll';
@@ -440,7 +440,7 @@ function updateByQuery(queryBody, updates, cb) {
 						uuids.push(hit._id);
 					}
 
-					scrollId = body._scroll_id;
+					scrollId	= body._scroll_id;
 					cb();
 				});
 			});
@@ -458,11 +458,17 @@ function updateByQuery(queryBody, updates, cb) {
 						product.loadFromDb(function (err) {
 							if (err) return cb(err);
 
-							for (const attributeName of Object.keys(updates)) {
-								product.attributes[attributeName] = updates[attributeName];
+							if (typeof updates === 'function') {
+								updates(product.attributes, function (err) {
+									if (err) return cb(err);
+									product.save(cb);
+								});
+							} else {
+								for (const attributeName of Object.keys(updates)) {
+									product.attributes[attributeName] = updates[attributeName];
+								}
+								product.save(cb);
 							}
-
-							product.save(cb);
 						});
 					});
 				}
