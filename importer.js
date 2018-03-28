@@ -296,6 +296,12 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 								return cb(err);
 							}
 
+							if (response.statusCode !== 200) {
+								const e = new Error('ES returned non-200 status code: "' + response.statusCode + '", reason: "' + result.error ? result.error.reason : '' + '"');
+								log.warn(logPrefix + e.message);
+								return cb(err);
+							}
+
 							if (result.hits.total === 0 && options.noNew === true) {
 								const	err	= new Error('No matching product found and options.noNew === true');
 								log.verbose(logPrefix + err.message);
