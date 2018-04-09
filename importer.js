@@ -124,6 +124,8 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 		fileStream.pipe(csvStream);
 		csvStream.on('data', function (csvRow) {
+			const fullRow = {};
+
 			tasks.push(function (cb) {
 				const	attributes	= {},
 					tasks	= [];
@@ -179,8 +181,11 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 					}
 
 					if (options.ignoreCols.indexOf(colHeads[i]) === - 1 && options.removeColValsContaining.indexOf(colVal) === - 1) {
+						// we need file and image column data to import the images or files, but we do not want to save that info as an attribute on the product
 						attributes[colHeads[i]]	= colVal;
 					}
+
+					fullRow[colHeads[i]] = colVal;
 				}
 
 				// Format cols in the order the object is given to us
@@ -385,7 +390,8 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 							'currentRowNr':	currentRowNr,
 							'colHeads':	colHeads,
 							'product':	product,
-							'csvRow':	csvRow
+							'csvRow':	csvRow,
+							'fullRow': fullRow
 						}, cb);
 					});
 				}
