@@ -6,6 +6,7 @@ const	EventEmitter	= require('events').EventEmitter,
 	dataWriter	= require(__dirname + '/dataWriter.js'),
 	helpers	= require(__dirname + '/helpers.js'),
 	uuidLib	= require('uuid'),
+	imgLib	= require('larvitimages'),
 	async	= require('async'),
 	log	= require('winston');
 
@@ -148,6 +149,39 @@ Product.prototype.rm = function (cb) {
 		if (err) return cb(err);
 
 		dataWriter.emitter.once(msgUuid, cb);
+	});
+};
+
+Product.prototype.rmImages = function (cb) {
+	const	logPrefix	= topLogPrefix + 'rmImages() - ',
+		that	= this;
+
+	if ( ! that.uuid) {
+		const	err	= new Error('Missing product uuid');
+		log.warn(logPrefix + err.message);
+		return cb(err);
+	}
+
+	helpers.getImagesForProducts([that], function (err) {
+		const	tasks	= [];
+
+		if (err) return cb(err);
+
+		if ( ! Array.isArray(that.images)) {
+			const	err	= new Error('that.images is not an array!');
+			log.warn(logPrefix + err.message);
+			return cb(err);
+		}
+
+		for (let i = 0; that.images[i] !== undefined; i ++) {
+			const	image	= that.images[i];
+
+			tasks.push(function (cb) {
+				imgLib.rmImage(image.uuid, cb);
+			});
+		}
+
+		async.parallel(tasks, cb);
 	});
 };
 
