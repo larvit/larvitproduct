@@ -27,6 +27,7 @@ let	es;
  *		'staticCols':	{'colName': colValues, 'colName2': colValues ...},	// Will extend the columns with this
  *		'updateByCols':	['col1', 'col2'],	// With update product data where BOTH these attributes/columns matches
  *		'removeColValsContaining':	['N/A', ''],	// Will remove the column value if it exactly matches one or more options in the array
+ *		'hooks':	{'afterEachCsvRow': func}
  *	}
  * @param func cb(err, [productUuid1, productUuid2]) the second array is a list of all added/altered products
  */
@@ -71,8 +72,8 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 	// Do the import
 	tasks.push(function (cb) {
-		const	logPrefix	= topLogPrefix + 'fromFile() - ',
-			fileStream	= fs.createReadStream(filePath),
+		const	fileStream	= fs.createReadStream(filePath),
+			logPrefix	= topLogPrefix + 'fromFile() - ',
 			csvStream	= fastCsv(options.parserOptions),
 			colHeads	= [],
 			tasks	= [];
@@ -124,7 +125,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 		fileStream.pipe(csvStream);
 		csvStream.on('data', function (csvRow) {
-			const fullRow = {};
+			const	fullRow	= {};
 
 			tasks.push(function (cb) {
 				const	attributes	= {},
@@ -302,8 +303,8 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 							}
 
 							if (response.statusCode !== 200) {
-								const e = new Error('ES returned non-200 status code: "' + response.statusCode + '", reason: "' + result.error ? result.error.reason : '' + '"');
-								log.warn(logPrefix + e.message);
+								const	err	= new Error('ES returned non-200 status code: "' + response.statusCode + '", reason: "' + result.error ? result.error.reason : '' + '"');
+								log.warn(logPrefix + err.message);
 								return cb(err);
 							}
 
@@ -312,13 +313,19 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 								log.verbose(logPrefix + err.message);
 								return cb(err);
 							} else if (result.hits.total === 0) {
-								product = new Product();
+								product	= new Product();
 								return cb();
 							}
 
 							if (result.hits.total > 1) {
 								const	err	= new Error('found more than 1 hits (' + result.hits.total + ') for findByCols: "' + JSON.stringify(options.findByCols) + '"');
 								log.warn(logPrefix + 'Ignoring product due to multiple target replacements/updates. ' + err.message);
+								return cb(err);
+							}
+
+							if ( ! result || ! result.hits || ! result.hits.hits || ! result.hits.hits[0]) {
+								const	err	= new Error('Invalid response from Elasticsearch. Full response: ' + JSON.stringify(result));
+								log.warn(logPrefix + err.message);
 								return cb(err);
 							}
 
@@ -372,9 +379,9 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 						if (err) {
 							log.info(logPrefix + 'Could not save product: ' + err.message);
 							errors.push({
-								'type': 'save error',
-								'time': new Date(),
-								'message': err.message
+								'type':	'save error',
+								'time':	new Date(),
+								'message':	err.message
 							});
 						} else {
 							alteredProductUuids.push(product.uuid);
@@ -391,7 +398,8 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 							'colHeads':	colHeads,
 							'product':	product,
 							'csvRow':	csvRow,
-							'fullRow': fullRow
+							'fullRow':	fullRow,
+							'csvStream':	csvStream
 						}, cb);
 					});
 				}
@@ -408,7 +416,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 			if (tasks.length >= 100) {
 				csvStream.pause();
 				async.parallel(tasks, function () {
-					tasks.length = 0;
+					tasks.length	= 0;
 					csvStream.resume();
 				});
 			}
