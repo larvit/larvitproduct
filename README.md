@@ -28,8 +28,12 @@ npm i --save larvitproduct
 ### Add a new product
 
 ```javascript
-const	productLib	= require('larvitproduct'),
+const	elasticsearch	= require('elasticsearch'),
+	productLib	= require('larvitproduct'),
 	product	= new productLib.Product();
+
+productLib.dataWriter.elasticsearch	= new elasticsearch.Client({'host': '127.0.0.1:9200'});
+productLib.dataWriter.esIndexName	= 'theIndexToUse';
 
 product.attributes = {'name': 'Conductor', 'price': 200, 'available color': ['blue', 'green']};
 
@@ -41,8 +45,12 @@ product.save(function (err) {
 ### Get products
 
 ```javascript
-const	productLib	= require('larvitproduct'),
+const	elasticsearch	= require('elasticsearch'),
+	productLib	= require('larvitproduct'),
 	products	= new productLib.Products();
+
+productLib.dataWriter.elasticsearch	= new elasticsearch.Client({'host': '127.0.0.1:9200'});
+productLib.dataWriter.esIndexName	= 'theIndexToUse';
 
 products.get(function (err, productList) {
 	// productList being an object with productUuid as key
