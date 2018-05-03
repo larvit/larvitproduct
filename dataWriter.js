@@ -260,30 +260,6 @@ function ready(cb) {
 		});
 	});
 
-	// Make sure max fields are set to 2k (since this must be done before the syncs)
-	tasks.push(function (cb) {
-		const	reqObj	= {};
-
-		reqObj.url	= 'http://' + exports.elasticsearch.transport._config.host + '/' + exports.esIndexName + '/_settings';
-		reqObj.method	= 'PUT';
-		reqObj.json	= {'index.mapping.total_fields.limit': 2000};
-
-		request(reqObj, function (err, response) {
-			if (err) {
-				log.error(logPrefix + err.message);
-				return cb(err);
-			}
-
-			if (response.statusCode !== 200) {
-				const	err	= new Error('Could not complete migration, got statusCode: "' + response.statusCode + '"');
-				log.error(logPrefix + err.message);
-				return cb(err);
-			}
-
-			cb();
-		});
-	});
-
 	if (exports.mode === 'slave') {
 		log.verbose(logPrefix + 'exports.mode: "' + exports.mode + '", so read');
 
