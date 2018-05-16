@@ -654,6 +654,16 @@ describe('Helpers', function () {
 			done();
 		});
 	});
+
+	it('should get all mapped field names', function (done) {
+		prodLib.helpers.getMappedFieldNames(function (err, names) {
+			if (err) throw err;
+			assert.strictEqual(names.length, 20);
+			assert.notStrictEqual(names.indexOf('price'), - 1);
+			assert.notStrictEqual(names.indexOf('enabled'), - 1);
+			done();
+		});
+	});
 });
 
 describe('Import', function () {
