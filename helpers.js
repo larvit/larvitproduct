@@ -378,6 +378,46 @@ function getKeywords(cb) {
 	});
 }
 
+function getMappedFieldNames(cb) {
+	const	tasks	= [];
+
+	let names;
+
+	tasks.push(ready);
+
+	tasks.push(function (cb) {
+		const	logPrefix	= topLogPrefix + 'getMappedFieldNames() - url: "' + esUrl + '/' + dataWriter.esIndexName + '/_mapping/product"',
+			url	= esUrl + '/' + dataWriter.esIndexName + '/_mapping/product';
+
+		request({'url': url, 'json': true}, function (err, response, body) {
+			if (err) {
+				log.warn(logPrefix + 'Could not get mappings when calling. err: ' + err.message);
+				return cb(err);
+			}
+
+			if (response.statusCode !== 200) {
+				const	err	= new Error('non-200 statusCode: ' + response.statusCode);
+				log.warn(logPrefix + err.message);
+				return cb(err);
+			}
+
+			if (body[dataWriter.esIndexName] === undefined) {
+				const	err	= new Error('Could not get mappings, since index did not exist in body. Full body: ' + JSON.stringify(body));
+				log.warn(logPrefix + err.message);
+				return cb(err);
+			}
+
+			names = Object.keys(body[dataWriter.esIndexName].mappings.product.properties);
+			cb();
+		});
+	});
+
+	async.series(tasks, function (err) {
+		if (err) return cb(err);
+		cb(null, names);
+	});	
+}
+
 function ready(cb) {
 	dataWriter.ready(function (err) {
 		intercom	= dataWriter.intercom;
@@ -512,4 +552,5 @@ exports.getDates	= getDates;
 exports.getImagesForProducts	= getImagesForProducts;
 exports.getFilesForProducts	= getFilesForProducts;
 exports.getKeywords	= getKeywords;
+exports.getMappedFieldNames	= getMappedFieldNames;
 exports.updateByQuery	= updateByQuery;

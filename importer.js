@@ -175,7 +175,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 					if (colHeads[i] === '' && colVal === '') {
 						continue;
 					} else if (colHeads[i] === '') {
-						log.warn(logPrefix + 'Ignoring column ' + i + ' on rowNr: ' + currentRowNr + ' since no column header was found');
+						log.info(logPrefix + 'Ignoring column ' + i + ' on rowNr: ' + currentRowNr + ' since no column header was found');
 						continue;
 					} else if (colVal === undefined && options.staticCols[colHeads[i]] !== undefined) {
 						colVal	= options.staticCols[colHeads[i]];
@@ -258,7 +258,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 							if ( ! attributes[col]) {
 								const	err	= new Error('findByCols: "' + col + '" is entered, but product does not have this col');
-								log.warn(logPrefix + 'Ignoring product since replaceByCol "' + col + '" is missing on rowNr: ' + currentRowNr);
+								log.info(logPrefix + 'Ignoring product since replaceByCol "' + col + '" is missing on rowNr: ' + currentRowNr);
 								return cb(err);
 							}
 
@@ -319,7 +319,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 							if (result.hits.total > 1) {
 								const	err	= new Error('found more than 1 hits (' + result.hits.total + ') for findByCols: "' + JSON.stringify(options.findByCols) + '"');
-								log.warn(logPrefix + 'Ignoring product due to multiple target replacements/updates. ' + err.message);
+								log.info(logPrefix + 'Ignoring product due to multiple target replacements/updates. ' + err.message);
 								return cb(err);
 							}
 

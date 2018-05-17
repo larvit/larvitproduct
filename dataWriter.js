@@ -1,7 +1,6 @@
 'use strict';
 
-const	elasticdumpPath	= require('larvitfs').getPathSync('bin/elasticdump'),
-	EventEmitter	= require('events').EventEmitter,
+const	EventEmitter	= require('events').EventEmitter,
 	eventEmitter	= new EventEmitter(),
 	topLogPrefix	= 'larvitproduct: dataWriter.js - ',
 	DbMigration	= require('larvitdbmigration'),
@@ -16,12 +15,15 @@ const	elasticdumpPath	= require('larvitfs').getPathSync('bin/elasticdump'),
 	async	= require('async'),
 	that	= this,
 	log	= require('winston'),
+	Lfs	= require('larvitfs'),
+	lfs	= new Lfs(),
 	fs	= require('fs'),
 	os	= require('os'),
 	_	= require('lodash');
 
 let	readyInProgress	= false,
-	isReady	= false;
+	isReady	= false,
+	elasticdumpPath	= lfs.getPathSync('bin/elasticdump');
 
 eventEmitter.setMaxListeners(30);
 
@@ -257,30 +259,6 @@ function ready(cb) {
 			}
 
 			cb(err);
-		});
-	});
-
-	// Make sure max fields are set to 2k (since this must be done before the syncs)
-	tasks.push(function (cb) {
-		const	reqObj	= {};
-
-		reqObj.url	= 'http://' + exports.elasticsearch.transport._config.host + '/' + exports.esIndexName + '/_settings';
-		reqObj.method	= 'PUT';
-		reqObj.json	= {'index.mapping.total_fields.limit': 2000};
-
-		request(reqObj, function (err, response) {
-			if (err) {
-				log.error(logPrefix + err.message);
-				return cb(err);
-			}
-
-			if (response.statusCode !== 200) {
-				const	err	= new Error('Could not complete migration, got statusCode: "' + response.statusCode + '"');
-				log.error(logPrefix + err.message);
-				return cb(err);
-			}
-
-			cb();
 		});
 	});
 
