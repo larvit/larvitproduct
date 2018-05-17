@@ -82,7 +82,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 		if (options === undefined) {
 			options	= {};
-			cb	= function (){};
+			cb	= function () {};
 		}
 
 		if (typeof options === 'function') {
@@ -91,7 +91,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 		}
 
 		if (typeof cb !== 'function') {
-			cb = function (){};
+			cb = function () {};
 		}
 
 		if (options.ignoreCols	=== undefined) { options.ignoreCols	= [];	}

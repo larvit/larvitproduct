@@ -37,9 +37,9 @@ before(function (done) {
 		let confFile;
 
 		if (process.env.DBCONFFILE === undefined) {
-			confFile = __dirname + '/../config/db_test.json';
+			confFile	= __dirname + '/../config/db_test.json';
 		} else {
-			confFile = process.env.DBCONFFILE;
+			confFile	= process.env.DBCONFFILE;
 		}
 
 		log.verbose('DB config file: "' + confFile + '"');
@@ -49,7 +49,7 @@ before(function (done) {
 			if (err) {
 
 				// Then look for this string in the config folder
-				confFile = __dirname + '/../config/' + confFile;
+				confFile	= __dirname + '/../config/' + confFile;
 				fs.stat(confFile, function (err) {
 					if (err) throw err;
 					log.verbose('DB config: ' + JSON.stringify(require(confFile)));
@@ -103,13 +103,13 @@ before(function (done) {
 			if (err) {
 
 				// Then look for this string in the config folder
-				confFile = __dirname + '/../config/' + confFile;
+				confFile	= __dirname + '/../config/' + confFile;
 				fs.stat(confFile, function (err) {
 					if (err) throw err;
 					esConf	= require(confFile);
 					log.verbose('ES config: ' + JSON.stringify(esConf));
 
-					prodLib.dataWriter.elasticsearch = new elasticsearch.Client(esConf.clientOptions);
+					prodLib.dataWriter.elasticsearch	= new elasticsearch.Client(esConf.clientOptions);
 					prodLib.dataWriter.elasticsearch.ping(cb);
 				});
 
@@ -118,7 +118,7 @@ before(function (done) {
 
 			esConf	= require(confFile);
 			log.verbose('DB config: ' + JSON.stringify(esConf));
-			prodLib.dataWriter.elasticsearch = new elasticsearch.Client(esConf.clientOptions);
+			prodLib.dataWriter.elasticsearch	= new elasticsearch.Client(esConf.clientOptions);
 			prodLib.dataWriter.elasticsearch.ping(cb);
 		});
 	});
@@ -268,8 +268,8 @@ describe('Product', function () {
 				assert.strictEqual(result._id,	productUuid);
 				assert.strictEqual(result.found,	true);
 				assert.strictEqual(result._source.name[0],	'Test product #69');
-				assert.strictEqual(result._source.price[0],	'99');
-				assert.strictEqual(result._source.weight[0],	'14');
+				assert.strictEqual(result._source.price[0],	99);
+				assert.strictEqual(result._source.weight[0],	14);
 				assert.strictEqual(result._source.color[0],	'blue');
 				assert.strictEqual(result._source.color[1],	'green');
 
@@ -291,8 +291,8 @@ describe('Product', function () {
 
 			assert.deepStrictEqual(product.uuid,	productUuid);
 			assert.deepStrictEqual(product.attributes.name[0],	'Test product #69');
-			assert.deepStrictEqual(product.attributes.price[0],	'99');
-			assert.deepStrictEqual(product.attributes.weight[0],	'14');
+			assert.deepStrictEqual(product.attributes.price[0],	99);
+			assert.deepStrictEqual(product.attributes.weight[0],	14);
 			product.attributes.color.sort();
 			assert.deepStrictEqual(product.attributes.color[0],	'blue');
 			assert.deepStrictEqual(product.attributes.color[1],	'green');
@@ -318,7 +318,7 @@ describe('Product', function () {
 
 					assert.deepStrictEqual(product.uuid,	productUuid);
 					assert.deepStrictEqual(product.attributes.name,	['Test product #69']);
-					assert.deepStrictEqual(product.attributes.price,	['99']);
+					assert.deepStrictEqual(product.attributes.price,	[99]);
 					assert.deepStrictEqual(product.attributes.weight,	undefined);
 					assert.deepStrictEqual(product.attributes.boll,	['foo']);
 					product.attributes.color.sort();
@@ -337,7 +337,7 @@ describe('Product', function () {
 
 				assert.deepStrictEqual(product.uuid,	productUuid);
 				assert.deepStrictEqual(product.attributes.name,	['Test product #69']);
-				assert.deepStrictEqual(product.attributes.price,	['99']);
+				assert.deepStrictEqual(product.attributes.price,	[99]);
 				assert.deepStrictEqual(product.attributes.weight,	undefined);
 				assert.deepStrictEqual(product.attributes.boll,	['foo']);
 				product.attributes.color.sort();
@@ -552,10 +552,8 @@ describe('Helpers', function () {
 		expectedKeywords.push('name.keyword');
 		expectedKeywords.push('nisse.keyword');
 		expectedKeywords.push('p.keyword');
-		expectedKeywords.push('price.keyword');
 		expectedKeywords.push('supplier');
 		expectedKeywords.push('trams.keyword');
-		expectedKeywords.push('weight.keyword');
 
 		prodLib.helpers.getKeywords(function (err, keywords) {
 			if (err) throw err;

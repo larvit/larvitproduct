@@ -38,11 +38,11 @@ function listenToQueue(retries, cb) {
 	}
 
 	if (typeof cb !== 'function') {
-		cb = function (){};
+		cb	= function () {};
 	}
 
 	if (retries === undefined) {
-		retries = 0;
+		retries	= 0;
 	}
 
 	tasks.push(function (cb) {
@@ -146,7 +146,7 @@ function ready(cb) {
 		tasks	= [];
 
 	if (typeof cb !== 'function') {
-		cb = function (){};
+		cb	= function () {};
 	}
 
 	if (isReady === true) return cb();
@@ -522,22 +522,20 @@ function writeProduct(params, deliveryTag, msgUuid) {
 
 		_.merge(body, productAttributes);
 
-		// Make sure all attributes are arrays of strings
+		// Filter product attributes
 		for (let attributeName of Object.keys(body)) {
-			if (attributeName === 'created') {
-				continue;
-			}
-
 			// Delete empty properties
-			if (body[attributeName] === undefined
-				|| body[attributeName] === '')
-			{
+			if (
+				body[attributeName] === undefined
+				|| body[attributeName] === ''
+				|| body[attributeName] === null
+			) {
 				delete body[attributeName];
 				continue;
 			} else if (Array.isArray(body[attributeName])) {
 				for (let i = 0; body[attributeName][i] !== undefined; i ++) {
 					const val = body[attributeName][i];
-					if (val === undefined || val === '') {
+					if (val === undefined || val === '' || val === null) {
 						body[attributeName].splice(i, 1);
 						i --;
 					}
@@ -551,18 +549,15 @@ function writeProduct(params, deliveryTag, msgUuid) {
 
 			// Clean BOM from attributeName
 			if (stripBom(attributeName) !== attributeName) {
-				body[stripBom(attributeName)] = body[attributeName];
+				body[stripBom(attributeName)]	= body[attributeName];
 				delete body[attributeName];
-				attributeName = stripBom(attributeName);
+				attributeName	= stripBom(attributeName);
 			}
 
+			// No concrete values are allowed, write them as arrays
 			if ( ! Array.isArray(body[attributeName])) {
-				body[attributeName] = [body[attributeName]];
+				body[attributeName]	= [body[attributeName]];
 			}
-
-			body[attributeName] = body[attributeName].map(function (val) {
-				return String(val);
-			});
 		}
 
 		exports.elasticsearch.index({
