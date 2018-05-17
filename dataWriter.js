@@ -50,17 +50,6 @@ function listenToQueue(retries, cb) {
 	tasks.push(function (cb) {
 		checkKey({
 			'obj':	exports,
-			'objectKey':	'options',
-			'default':	{}
-		}, function (err, warning) {
-			if (warning) log.warn(logPrefix + warning);
-			cb(err);
-		});
-	});
-
-	tasks.push(function (cb) {
-		checkKey({
-			'obj':	exports,
 			'objectKey':	'mode',
 			'validValues':	['master', 'slave', 'noSync'],
 			'default':	'noSync'
@@ -162,17 +151,6 @@ function ready(cb) {
 
 	tasks.push(function (cb) {
 		const	tasks	= [];
-
-		tasks.push(function (cb) {
-			checkKey({
-				'obj':	exports,
-				'objectKey':	'options',
-				'default':	{}
-			}, function (err, warning) {
-				if (warning) log.warn(logPrefix + warning);
-				cb(err);
-			});
-		});
 
 		tasks.push(function (cb) {
 			checkKey({
@@ -562,7 +540,6 @@ exports.emitter	= new EventEmitter();
 exports.exchangeName	= 'larvitproduct';
 exports.listenToQueue	= listenToQueue;
 exports.mode	= false; // 'slave' or 'master' or 'noSync'
-exports.options	= undefined;
 exports.ready	= ready;
 exports.rmProducts	= rmProducts;
 exports.writeProduct	= writeProduct;
