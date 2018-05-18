@@ -13,7 +13,6 @@ const	EventEmitter	= require('events').EventEmitter,
 	amsync	= require('larvitamsync'),
 	spawn	= require('child_process').spawn,
 	async	= require('async'),
-	that	= this,
 	log	= require('winston'),
 	Lfs	= require('larvitfs'),
 	lfs	= new Lfs(),
@@ -428,9 +427,9 @@ function runDumpServer(cb) {
 			options.intercom	= exports.intercom;
 			options.dataDumpCmd.args.push('--type=mapping');
 			options.amsync = {
-				'host':	that.options.amsync ? that.options.amsync.host : null,
-				'maxPort': that.options.amsync ? that.options.amsync.maxPort : null,
-				'minPort': that.options.amsync ? that.options.amsync.minPort : null
+				'host':	exports.amsync ? exports.amsync.host	: null,
+				'maxPort':	exports.amsync ? exports.amsync.maxPort	: null,
+				'minPort':	exports.amsync ? exports.amsync.minPort	: null
 			};
 
 			new amsync.SyncServer(options, cb);
@@ -445,9 +444,9 @@ function runDumpServer(cb) {
 			options.intercom	= exports.intercom;
 			options.dataDumpCmd.args.push('--type=data');
 			options.amsync = {
-				'host':	that.options.amsync ? that.options.amsync.host : null,
-				'maxPort': that.options.amsync ? that.options.amsync.maxPort : null,
-				'minPort': that.options.amsync ? that.options.amsync.minPort : null
+				'host':	exports.amsync ? exports.amsync.host	: null,
+				'maxPort':	exports.amsync ? exports.amsync.maxPort	: null,
+				'minPort':	exports.amsync ? exports.amsync.minPort	: null
 			};
 
 			new amsync.SyncServer(options, cb);
@@ -540,6 +539,7 @@ exports.emitter	= new EventEmitter();
 exports.exchangeName	= 'larvitproduct';
 exports.listenToQueue	= listenToQueue;
 exports.mode	= false; // 'slave' or 'master' or 'noSync'
+exports.amsync	= undefined;
 exports.ready	= ready;
 exports.rmProducts	= rmProducts;
 exports.writeProduct	= writeProduct;
