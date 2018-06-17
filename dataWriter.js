@@ -146,7 +146,7 @@ function ready(cb) {
 		return;
 	}
 
-	readyInProgress = true;
+	readyInProgress	= true;
 
 	tasks.push(function (cb) {
 		const	tasks	= [];
