@@ -64,7 +64,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 				return cb(err);
 			}
 
-			mapping = body[dataWriter.esIndexName].mappings.product.properties;
+			mapping	= body[dataWriter.esIndexName].mappings.product.properties;
 
 			cb();
 		});
@@ -102,7 +102,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 		if (options.hooks	=== undefined) { options.hooks	= {};	}
 
 		if ( ! Array.isArray(options.ignoreCols)) {
-			options.ignoreCols = [options.ignoreCols];
+			options.ignoreCols	= [options.ignoreCols];
 		}
 
 		if ( ! Array.isArray(options.removeColValsContaining)) {
@@ -111,14 +111,14 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 		if (options.replaceByCols) {
 			if ( ! Array.isArray(options.replaceByCols)) {
-				options.replaceByCols = [options.replaceByCols];
+				options.replaceByCols	= [options.replaceByCols];
 			}
 			options.findByCols	= options.replaceByCols;
 		}
 
 		if (options.updateByCols) {
 			if ( ! Array.isArray(options.updateByCols)) {
-				options.updateByCols = [options.updateByCols];
+				options.updateByCols	= [options.updateByCols];
 			}
 			options.findByCols	= options.updateByCols;
 		}
@@ -186,7 +186,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 						attributes[colHeads[i]]	= colVal;
 					}
 
-					fullRow[colHeads[i]] = colVal;
+					fullRow[colHeads[i]]	= colVal;
 				}
 
 				// Format cols in the order the object is given to us
@@ -216,7 +216,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 									log.debug(logPrefix + 'options.formatCols[' + colName + '] err: ' + err.message);
 								}
 
-								attributes[colName] = result;
+								attributes[colName]	= result;
 								cb(err);
 							});
 						});
