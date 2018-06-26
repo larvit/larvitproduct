@@ -4,10 +4,11 @@ const	topLogPrefix	= 'larvitproduct: helpers.js - ',
 	dataWriter	= require(__dirname + '/dataWriter.js'),
 	Product	= require(__dirname + '/product.js'),
 	request	= require('request'),
-	leftPad	= require('left-pad'),
+	lUtils	= require('larvitutils'),
 	fileLib	= require('larvitfiles'),
 	imgLib	= require('larvitimages'),
 	async	= require('async'),
+	db	= require('larvitdb'),
 	log	= require('winston'),
 	_	= require('lodash');
 
@@ -259,10 +260,10 @@ function getDates(cb) {
 
 function getImagesForProducts(products, cb) {
 	const	logPrefix	= topLogPrefix + 'getImagesForProducts() - ',
-		slugs	= [];
+		tasks	= [];
 
 	if ( ! Array.isArray(products)) {
-		return cb(new Error('Inavlid input, is not an array'));
+		return cb(new Error('Invalid input, is not an array'));
 	}
 
 	for (let i = 0; products[i] !== undefined; i ++) {
@@ -274,29 +275,46 @@ function getImagesForProducts(products, cb) {
 			return cb(err);
 		}
 
-		for (let i = 1; i !== 25; i ++) {
-			slugs.push('product_' + product.uuid + '_' + leftPad(i, 2, '0') + '.jpg');
-			slugs.push('product_' + product.uuid + '_' + leftPad(i, 2, '0') + '.png');
-			slugs.push('product_' + product.uuid + '_' + leftPad(i, 2, '0') + '.gif');
-		}
+		product.images = [];
+
+		tasks.push(function (cb) {
+			let sql = '';
+			sql += 'SELECT img.uuid, img.slug, img.type, md.name AS metadataName, md.data AS metadataValue';
+			sql += '	FROM product_image_mapping map';
+			sql += '	JOIN images_images img on map.imageUuid = img.uuid';
+			sql += '	LEFT JOIN images_images_metadata md on map.imageUuid = md.imageUuid';
+			sql += '	WHERE map.productUuid = ?';
+			sql += '	ORDER BY img.slug';
+
+			db.query(sql, [ lUtils.uuidToBuffer(product.uuid) ], function (err, result) {
+				const	imgs	= {};
+
+				if (err) return cb(err);
+
+				for (let j = 0; result[j] !== undefined; j ++) {
+					const	imgUuid	= lUtils.formatUuid(result[j].uuid);
+
+					if ( ! (imgUuid in imgs)) {
+						imgs[imgUuid] = {
+							'metadata': {},
+							'slug': result[j].slug,
+							'type': result[j].type,
+							'uuid': imgUuid
+						};
+					}
+
+					imgs[imgUuid].metadata[result[j].metadataName] = result[j].metadataValue;
+				}
+
+				product.images = Object.values(imgs);
+
+				cb();
+			});
+		});
 	}
 
-	imgLib.getImages({'slugs': slugs, 'limit': 10000}, function (err, result) {
-		if (err) return cb(err);
-
-		for (let i = 0; products[i] !== undefined; i ++) {
-			const	product	= products[i];
-
-			product.images	= [];
-
-			for (const imgUuid of Object.keys(result)) {
-				if (product.uuid === result[imgUuid].slug.substring(8, 44)) {
-					product.images.push(result[imgUuid]);
-					delete result[imgUuid];
-				}
-			}
-		}
-
+	async.parallelLimit(tasks, 20, function (err) {
+		if (err) return cb(err, null);
 		cb(null, products);
 	});
 }
@@ -427,6 +445,19 @@ function ready(cb) {
 	});
 }
 
+function saveProductImage(productUuid, data, cb) {
+	imgLib.saveImage(data, function (err, result) {
+		if (err) return cb(err);
+
+		db.query('INSERT INTO product_image_mapping (productUuid, imageUuid) VALUES(?,?);',
+			[ lUtils.uuidToBuffer(productUuid), lUtils.uuidToBuffer(data.uuid) ],
+			function (err) {
+				if (err) { return cb(err); }
+				cb(undefined, result);
+			});
+	});
+}
+
 function updateByQuery(queryBody, updates, cb) {
 	const	logPrefix	= topLogPrefix + 'updateByQuery() - ',
 		tasks	= [];
@@ -553,4 +584,5 @@ exports.getImagesForProducts	= getImagesForProducts;
 exports.getFilesForProducts	= getFilesForProducts;
 exports.getKeywords	= getKeywords;
 exports.getMappedFieldNames	= getMappedFieldNames;
+exports.saveProductImage = saveProductImage;
 exports.updateByQuery	= updateByQuery;
