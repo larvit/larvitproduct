@@ -306,7 +306,9 @@ function getImagesForProducts(products, cb) {
 					imgs[imgUuid].metadata[result[j].metadataName] = result[j].metadataValue;
 				}
 
-				product.images = Object.values(imgs);
+				product.images = Object.keys(imgs).map(function (key) {
+					return imgs[key];
+				});
 
 				cb();
 			});
