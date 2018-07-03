@@ -81,6 +81,7 @@ Product.prototype.loadFromDb = function (cb) {
 
 	tasks.push(ready);
 
+	// Get basic product info
 	tasks.push(function (cb) {
 		es.get({
 			'index':	dataWriter.esIndexName,
@@ -177,6 +178,24 @@ Product.prototype.rmImages = function (cb) {
 			const	image	= that.images[i];
 
 			tasks.push(function (cb) {
+				const	options	= {'exchange': dataWriter.exchangeName},
+					message	= {},
+					that	= this;
+
+				message.action	= 'rmProductImage';
+				message.params	= {};
+
+				message.params.productUuid	= that.uuid;
+				message.params.imageUuid	= image.uuid;
+
+				intercom.send(message, options, function (err, msgUuid) {
+					if (err) return cb(err);
+
+					dataWriter.emitter.once(msgUuid, cb);
+				});
+			});
+
+			tasks.push(function (cb) {
 				imgLib.rmImage(image.uuid, cb);
 			});
 		}
@@ -216,6 +235,36 @@ Product.prototype.save = function (cb) {
 	});
 
 	async.series(tasks, cb);
+};
+
+Product.prototype.saveImage = function saveImage(data, cb) {
+	const	logPrefix	= topLogPrefix + 'saveImage() - ',
+		that	= this;
+
+	if ( ! that.uuid) {
+		const	err	= new Error('Missing product uuid');
+		log.warn(logPrefix + err.message);
+		return cb(err);
+	}
+
+	imgLib.saveImage(data, function (err, result) {
+		const	options	= {'exchange': dataWriter.exchangeName},
+			message	= {};
+
+		if (err) return cb(err);
+
+		message.action	= 'addProductImage';
+		message.params	= {};
+
+		message.params.productUuid	= that.uuid;
+		message.params.imageUuid	= result.uuid;
+
+		intercom.send(message, options, function (err, msgUuid) {
+			if (err) return cb(err);
+
+			dataWriter.emitter.once(msgUuid, cb);
+		});
+	});
 };
 
 exports = module.exports = Product;

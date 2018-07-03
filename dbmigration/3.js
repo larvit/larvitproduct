@@ -1,24 +1,42 @@
 'use strict';
 
-const	async	= require('async'),
-	db	= require('larvitdb'),
-	lUtils	= require('larvitutils');
+const	request	= require('requestretry'),
+	prodLib	= require('../index.js'),
+	lUtils	= require('larvitutils'),
+	imgLib	= require('larvitimages'),
+	async	= require('async'),
+	db	= require('larvitdb');
 
 exports = module.exports = function (cb) {
-	const	tasks	= [];
+	const	esConf	= prodLib.dataWriter.elasticsearch.transport._config,
+		tasks	= [];
 
-	// Create the mapping table
+	esConf.indexName	= prodLib.dataWriter.esIndexName;
+
 	tasks.push(function (cb) {
-		let	sql	= '';
+		imgLib.dataWriter.ready(cb);
+	});
 
-		sql += 'CREATE TABLE IF NOT EXISTS `product_image_mapping` (\n';
-		sql += '	`productUuid` binary(16) NOT NULL,\n';
-		sql += '	`imageUuid` binary(16) NOT NULL,\n';
-		sql += '	UNIQUE KEY `product_image` (`productUuid`, `imageUuid`),\n';
-		sql += '	FOREIGN KEY (`imageUuid`) REFERENCES `images_images` (`uuid`) ON DELETE NO ACTION\n';
-		sql += ') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;';
+	// Create the image mapping type
+	tasks.push(function (cb) {
+		const	reqOptions	= {};
 
-		db.query(sql, cb);
+		reqOptions.method	= 'PUT';
+		reqOptions.url	= 'http://' + esConf.host + '/' + esConf.indexName + '/_mapping/products_images';
+		reqOptions.json	= true;
+		reqOptions.body	= {'properties': {}};
+		reqOptions.body.properties.productUuid	= {'type': 'keyword'};
+		reqOptions.body.properties.imageUuid	= {'type': 'keyword'};
+
+		request(reqOptions, function (err, response, body) {
+			if (err) return cb(err);
+
+			if (response.statusCode !== 200) {
+				throw new Error('Non-200 statusCode from ES: "' + response.statusCode + '", body: ' + JSON.stringify(body));
+			}
+
+			cb();
+		});
 	});
 
 	// Fill the mapping table with data
@@ -30,13 +48,18 @@ exports = module.exports = function (cb) {
 
 			for (let i = 0; rows[i] !== undefined; i ++) {
 				const	row	= rows[i],
-					imageUuid = row.uuid,
-					productUuid = lUtils.uuidToBuffer(row.slug.substring(8, 44));
+					imageUuid	= lUtils.formatUuid(row.uuid),
+					productUuid	= lUtils.formatUuid(row.slug.substring(8, 44));
 
 				tasks.push(function (cb) {
-					db.query('INSERT INTO product_image_mapping (productUuid, imageUuid) VALUES(?,?);',
-						[ productUuid, imageUuid ],
-						cb);
+					const	reqOptions	= {};
+
+					reqOptions.method	= 'PUT';
+					reqOptions.url	= 'http://' + esConf.host + '/' + esConf.indexName + '/products_images/' + productUuid + '_' + imageUuid;
+					reqOptions.json	= true;
+					reqOptions.body	= {'productUuid': productUuid, 'imageUuid': imageUuid};
+
+					request(reqOptions, cb);
 				});
 			}
 

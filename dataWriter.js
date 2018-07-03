@@ -21,10 +21,49 @@ const	EventEmitter	= require('events').EventEmitter,
 	_	= require('lodash');
 
 let	readyInProgress	= false,
+	elasticdumpPath	= lfs.getPathSync('bin/elasticdump'),
 	isReady	= false,
-	elasticdumpPath	= lfs.getPathSync('bin/elasticdump');
+	esConf;
 
 eventEmitter.setMaxListeners(30);
+
+function addProductImage(params, deliveryTag, msgUuid) {
+	const	reqOptions	= {},
+		logPrefix	= topLogPrefix + 'addProductImage() - ';
+
+	if ( ! params.productUuid) {
+		const	err	= new Error('params.productUuid is missing');
+		log.error(logPrefix + err.message);
+		exports.emitter.emit(msgUuid, err);
+		return;
+	}
+
+	if ( ! params.imageUuid) {
+		const	err	= new Error('params.imageUuid is missing');
+		log.error(logPrefix + err.message);
+		exports.emitter.emit(msgUuid, err);
+		return;
+	}
+
+	reqOptions.url	= 'http://' + esConf.host + '/' + esConf.indexName + '/products_images/' + params.productUuid + '_' + params.imageUuid;
+	reqOptions.method	= 'PUT';
+	reqOptions.json	= true;
+	reqOptions.body	= {'productUuid': params.productUuid, 'imageUuid': params.imageUuid};
+
+	request(reqOptions, function (err, response, body) {
+		if (err) {
+			return exports.emitter.emit(msgUuid, err);
+		}
+
+		if (response.statusCode !== 200 && response.statusCode !== 201) {
+			const	err	= new Error('Non-ok statusCode from ES: "' + response.statusCode + '", body: ' + JSON.stringify(body));
+			log.error(logPrefix + err.message);
+			return exports.emitter.emit(msgUuid, err);
+		}
+
+		exports.emitter.emit(msgUuid);
+	});
+}
 
 function listenToQueue(retries, cb) {
 	const	logPrefix	= topLogPrefix + 'listenToQueue() - ',
@@ -242,6 +281,13 @@ function ready(cb) {
 		});
 	});
 
+	// Set esConf
+	tasks.push(function (cb) {
+		esConf	= exports.elasticsearch.transport._config;
+		esConf.indexName	= exports.esIndexName;
+		cb();
+	});
+
 	if (exports.mode === 'slave') {
 		log.verbose(logPrefix + 'exports.mode: "' + exports.mode + '", so read');
 
@@ -258,7 +304,7 @@ function ready(cb) {
 				options.intercom	= exports.intercom;
 
 				new amsync.SyncClient(options, function (err, res) {
-					const ed = spawn(elasticdumpPath, ['--input=$', '--output=http://' + exports.elasticsearch.transport._config.host + '/' + exports.esIndexName, '--type=mapping']);
+					const ed = spawn(elasticdumpPath, ['--input=$', '--output=http://' + esConf.host + '/' + exports.esIndexName, '--type=mapping']);
 
 					if (err) {
 						log.warn(logPrefix + 'Sync failed for mapping: ' + err.message);
@@ -311,7 +357,7 @@ function ready(cb) {
 			});
 
 			tasks.push(function (cb) {
-				const ed = spawn(elasticdumpPath, ['--input=' + tmpFileName, '--output=http://' + exports.elasticsearch.transport._config.host + '/' + exports.esIndexName, '--type=data']);
+				const ed = spawn(elasticdumpPath, ['--input=' + tmpFileName, '--output=http://' + esConf.host + '/' + exports.esIndexName, '--type=data']);
 
 				ed.stdout.on('data', function (chunk) {
 					log.verbose(logPrefix + 'stdout: ' + chunk);
@@ -361,7 +407,7 @@ function ready(cb) {
 
 	// Make sure elasticsearch index is up to date
 	tasks.push(function (cb) {
-		request.post('http://' + exports.elasticsearch.transport._config.host + '/_refresh', function (err, response, body) {
+		request.post('http://' + esConf.host + '/_refresh', function (err, response, body) {
 			if (err) {
 				log.error(logPrefix + 'Could not refresh elasticsearch index, err: ' + err.message);
 				return cb(err);
@@ -394,18 +440,36 @@ function ready(cb) {
 
 function rmProducts(params, deliveryTag, msgUuid) {
 	const	productUuids	= params.uuids,
-		body	= [];
+		reqOptions	= {},
+		logPrefix	= topLogPrefix + 'rmProducts() - ';
 
 	if (productUuids.length === 0) {
 		exports.emitter.emit(msgUuid, null);
 		return;
 	}
 
+	reqOptions.url	= 'http://' + esConf.host + '/_bulk';
+	reqOptions.method	= 'POST';
+	reqOptions.body	= '';
+	reqOptions.headers	= {};
+	reqOptions.headers['content-type']	= 'application/x-ndjson';
+
 	for (let i = 0; productUuids[i] !== undefined; i ++) {
-		body.push({'delete': {'_index': exports.esIndexName, '_type': 'product', '_id': productUuids[i]}});
+		reqOptions.body += '{"delete":{"_index":"' + esConf.indexName + '","_type":"product","_id":"' + productUuids[i] + '"}}\n';
 	}
-	// Is logged upstream, but should stop app execution
-	exports.elasticsearch.bulk({'body': body}, function (err) {
+
+	request(reqOptions, function (err, response, body) {
+		if (err) {
+			log.error(logPrefix + 'Could not run bulk request to ES, err: ' + err.message);
+			return exports.emitter.emit(msgUuid, err);
+		}
+
+		if (response.statusCode !== 200) {
+			const	err	= new Error('Non-200 statusCode gotten from ES: "' + response.statusCode + '", body: "' + body + '"');
+			log.error(logPrefix + err.message);
+			return exports.emitter.emit(msgUuid, err);
+		}
+
 		exports.emitter.emit(msgUuid, err);
 	});
 }
@@ -418,7 +482,7 @@ function runDumpServer(cb) {
 			exchangeName	= exports.exchangeName + '_dataDump',
 			dataDumpCmd = {
 				'command': elasticdumpPath,
-				'args': ['--input=http://' + exports.elasticsearch.transport._config.host + '/' + exports.esIndexName, '--output=$']
+				'args': ['--input=http://' + esConf.host + '/' + exports.esIndexName, '--output=$']
 			};
 
 		subTasks.push(function (cb) {
@@ -538,6 +602,7 @@ function writeProduct(params, deliveryTag, msgUuid) {
 	});
 }
 
+exports.addProductImage	= addProductImage;
 exports.emitter	= new EventEmitter();
 exports.exchangeName	= 'larvitproduct';
 exports.listenToQueue	= listenToQueue;

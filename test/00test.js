@@ -3,7 +3,10 @@
 const	elasticsearch	= require('elasticsearch'),
 	uuidValidate	= require('uuid-validate'),
 	Intercom	= require('larvitamintercom'),
+	jpegLib	= require('jpeg-js'),
 	prodLib	= require(__dirname + '/../index.js'),
+	uuidLib	= require('uuid/v4'),
+	fileLib	= require('larvitfiles'),
 	request	= require('request'),
 	assert	= require('assert'),
 	imgLib	= require('larvitimages'),
@@ -21,7 +24,7 @@ prodLib.dataWriter.esIndexName	= 'something';
 
 // Set up winston
 log.remove(log.transports.Console);
-/** /log.add(log.transports.Console, {
+/**/log.add(log.transports.Console, {
 	'level':	'warn',
 	'colorize':	true,
 	'timestamp':	true,
@@ -29,39 +32,25 @@ log.remove(log.transports.Console);
 }); /**/
 
 before(function (done) {
-	this.timeout(10000);
 	const	tasks	= [];
+
+	this.timeout(10000);
 
 	// Run DB Setup
 	tasks.push(function (cb) {
-		let confFile;
+		let	confFile;
 
-		if (process.env.DBCONFFILE === undefined) {
+		if (fs.existsSync(__dirname + '/../config/db_test.json')) {
 			confFile	= __dirname + '/../config/db_test.json';
-		} else {
+		} else if (process.env.DBCONFFILE) {
 			confFile	= process.env.DBCONFFILE;
+		} else {
+			throw new Error('No conf file found');
 		}
 
 		log.verbose('DB config file: "' + confFile + '"');
 
-		// First look for absolute path
-		fs.stat(confFile, function (err) {
-			if (err) {
-
-				// Then look for this string in the config folder
-				confFile	= __dirname + '/../config/' + confFile;
-				fs.stat(confFile, function (err) {
-					if (err) throw err;
-					log.verbose('DB config: ' + JSON.stringify(require(confFile)));
-					db.setup(require(confFile), cb);
-				});
-
-				return;
-			}
-
-			log.verbose('DB config: ' + JSON.stringify(require(confFile)));
-			db.setup(require(confFile), cb);
-		});
+		db.setup(require(confFile), cb);
 	});
 
 	// Check for empty db
@@ -81,8 +70,21 @@ before(function (done) {
 	tasks.push(function (cb) {
 		prodLib.dataWriter.mode	= 'noSync';
 		prodLib.dataWriter.intercom	= new Intercom('loopback interface');
+		prodLib.dataWriter.amsync_host	= null;
+		prodLib.dataWriter.amsync_minPort	= null;
+		prodLib.dataWriter.amsync_maxPort	= null;
+
 		imgLib.dataWriter.mode	= prodLib.dataWriter.mode;
 		imgLib.dataWriter.intercom	= prodLib.dataWriter.intercom;
+		imgLib.dataWriter.amsync_host	= prodLib.dataWriter.amsync_host;
+		imgLib.dataWriter.amsync_minPort	= prodLib.dataWriter.amsync_minPort;
+		imgLib.dataWriter.amsync_maxPort	= prodLib.dataWriter.amsync_maxPort;
+
+		fileLib.dataWriter.mode	= prodLib.dataWriter.mode;
+		fileLib.dataWriter.intercom	= prodLib.dataWriter.intercom;
+		fileLib.dataWriter.amsync_host	= prodLib.dataWriter.amsync_host;
+		fileLib.dataWriter.amsync_minPort	= prodLib.dataWriter.amsync_minPort;
+		fileLib.dataWriter.amsync_maxPort	= prodLib.dataWriter.amsync_maxPort;
 		cb();
 	});
 
@@ -90,37 +92,21 @@ before(function (done) {
 	tasks.push(function (cb) {
 		let	confFile;
 
-		if (process.env.ESCONFFILE === undefined) {
+		if (fs.existsSync(__dirname + '/../config/es_test.json')) {
 			confFile	= __dirname + '/../config/es_test.json';
-		} else {
+		} else if (process.env.ESCONFFILE) {
 			confFile	= process.env.ESCONFFILE;
+		} else {
+			throw new Error('No es config file found');
 		}
 
 		log.verbose('ES config file: "' + confFile + '"');
 
-		// First look for absolute path
-		fs.stat(confFile, function (err) {
-			if (err) {
+		esConf	= require(confFile);
+		log.verbose('ES config: ' + JSON.stringify(esConf));
 
-				// Then look for this string in the config folder
-				confFile	= __dirname + '/../config/' + confFile;
-				fs.stat(confFile, function (err) {
-					if (err) throw err;
-					esConf	= require(confFile);
-					log.verbose('ES config: ' + JSON.stringify(esConf));
-
-					prodLib.dataWriter.elasticsearch	= new elasticsearch.Client(esConf.clientOptions);
-					prodLib.dataWriter.elasticsearch.ping(cb);
-				});
-
-				return;
-			}
-
-			esConf	= require(confFile);
-			log.verbose('DB config: ' + JSON.stringify(esConf));
-			prodLib.dataWriter.elasticsearch	= new elasticsearch.Client(esConf.clientOptions);
-			prodLib.dataWriter.elasticsearch.ping(cb);
-		});
+		prodLib.dataWriter.elasticsearch	= new elasticsearch.Client(esConf.clientOptions);
+		prodLib.dataWriter.elasticsearch.ping(cb);
 	});
 
 	// Check for empty ES
@@ -134,7 +120,7 @@ before(function (done) {
 				const	index	= body[i];
 
 				if (index.index === prodLib.dataWriter.esIndexName || index.index === prodLib.dataWriter.esIndexName + '_db_version') {
-					throw new Error('Elasticsearch index already exists!');
+					throw new Error('Elasticsearch "' + prodLib.dataWriter.esIndexName + '" index already exists!');
 				}
 			}
 
@@ -430,6 +416,105 @@ describe('Product', function () {
 			done();
 		});
 	});
+
+	it('should add an image to a product', function (done) {
+		const	imageUuid	= uuidLib(),
+			tasks	= [];
+
+		let	prodWithoutImage,
+			prodWithImage,
+			imageBuffer;
+
+		// Add product to get image
+		tasks.push(function (cb) {
+			prodWithImage	= new prodLib.Product();
+
+			prodWithImage.attributes.image	= 'yass';
+			prodWithImage.save(cb);
+		});
+
+		// Add reference product that should have no image
+		tasks.push(function (cb) {
+			prodWithoutImage	= new prodLib.Product();
+
+			prodWithoutImage.attributes.image	= 'nein';
+			prodWithoutImage.save(cb);
+		});
+
+		// Create random image and load it to a buffer
+		tasks.push(function (cb) {
+			const	rawImageData	= {},
+				frameData	= new Buffer(10 * 10 * 4);
+
+			let	i	= 0;
+
+			while (i < frameData.length) {
+				frameData[i ++] = 0xFF; // red
+				frameData[i ++] = 0x00; // green
+				frameData[i ++] = 0x00; // blue
+				frameData[i ++] = 0xFF; // alpha - ignored in JPEGs
+			}
+
+			rawImageData.data	= frameData;
+			rawImageData.width	= 10;
+			rawImageData.height	= 10;
+
+			imageBuffer	= jpegLib.encode(rawImageData, 50).data;
+			cb();
+		});
+
+		// Save the image
+		tasks.push(function (cb) {
+			const	image	= {};
+
+			image.uuid	= imageUuid;
+			image.slug	= 'productbildenallan';
+			image.file	= {'bin': imageBuffer};
+
+			prodWithImage.saveImage(image, cb);
+		});
+
+		// Check so connection have been made
+		tasks.push(function (cb) {
+			const	url	= esUrl + '/' + prodLib.dataWriter.esIndexName + '/products_images/' + prodWithImage.uuid + '_' + imageUuid;
+			request({'url': url, 'json': true}, function (err, response, body) {
+				if (err) return cb(err);
+
+				assert.strictEqual(body._source.productUuid,	prodWithImage.uuid);
+				assert.strictEqual(body._source.imageUuid,	imageUuid);
+
+				return cb();
+			});
+		});
+
+		// Refresh index and wait a tiny fraction of time to let it populate
+		tasks.push(function (cb) {
+			request.post(esUrl + '/' + prodLib.dataWriter.esIndexName + '/_refresh', cb);
+		});
+		tasks.push(function (cb) {
+			setTimeout(cb, 100);
+		});
+
+		// Load product and make sure it got the image data
+		tasks.push(function (cb) {
+			const	product	= new prodLib.Product(prodWithImage.uuid);
+
+			product.loadFromDb(function (err) {
+				if (err) throw err;
+
+				assert.strictEqual(product.images.length,	1);
+				assert.strictEqual(product.images[0].slug,	'productbildenallan');
+				assert.strictEqual(product.images[0].uuid,	imageUuid);
+
+				cb();
+			});
+		});
+
+		async.series(tasks, function (err) {
+			if (err) throw err;
+			done();
+		});
+	});
 });
 
 describe('Helpers', function () {
@@ -549,6 +634,7 @@ describe('Helpers', function () {
 		expectedKeywords.push('enabled.keyword');
 		expectedKeywords.push('enabled2.keyword');
 		expectedKeywords.push('foo.keyword');
+		expectedKeywords.push('image.keyword');
 		expectedKeywords.push('name.keyword');
 		expectedKeywords.push('nisse.keyword');
 		expectedKeywords.push('p.keyword');
@@ -623,6 +709,33 @@ describe('Helpers', function () {
 	it('delete by query', function (done) {
 		const	tasks	= [];
 
+		let	prodBeforeDelete;
+
+		// Refresh index
+		tasks.push(function (cb) {
+			request.post(esUrl + '/' + prodLib.dataWriter.esIndexName + '/_refresh', function (err) {
+				if (err) throw err;
+				setTimeout(cb, 200);
+			});
+		});
+
+		// Pre-calc products
+		tasks.push(function (cb) {
+			const	reqOptions	= {};
+
+			reqOptions.url	= esUrl + '/' + prodLib.dataWriter.esIndexName + '/product/_search';
+			reqOptions.body	= {'size':1000, 'query':{'match_all':{}}};
+			reqOptions.json	= true;
+
+			request(reqOptions, function (err, response, body) {
+				if (err) throw err;
+
+				prodBeforeDelete	= body.hits.hits.length;
+
+				cb();
+			});
+		});
+
 		tasks.push(function (cb) {
 			const	queryBody	= {};
 
@@ -631,17 +744,25 @@ describe('Helpers', function () {
 			prodLib.helpers.deleteByQuery(queryBody, cb);
 		});
 
+		// Refresh index
 		tasks.push(function (cb) {
-			setTimeout(function () {
-				request.post(esUrl + '/' + prodLib.dataWriter.esIndexName + '/_refresh', cb);
-			}, 20);
+			request.post(esUrl + '/' + prodLib.dataWriter.esIndexName + '/_refresh', function (err) {
+				if (err) throw err;
+				setTimeout(cb, 200);
+			});
 		});
 
 		tasks.push(function (cb) {
-			request({'url': esUrl + '/' + prodLib.dataWriter.esIndexName + '/product/_search', 'json': true}, function (err, response, body) {
+			const	reqOptions	= {};
+
+			reqOptions.url	= esUrl + '/' + prodLib.dataWriter.esIndexName + '/product/_search';
+			reqOptions.body	= {'size':1000, 'query':{'match_all':{}}};
+			reqOptions.json	= true;
+
+			request(reqOptions, function (err, response, body) {
 				if (err) throw err;
 
-				assert.strictEqual(body.hits.hits.length,	7);
+				assert.strictEqual(body.hits.hits.length,	prodBeforeDelete - 2);
 
 				cb();
 			});
@@ -656,9 +777,9 @@ describe('Helpers', function () {
 	it('should get all mapped field names', function (done) {
 		prodLib.helpers.getMappedFieldNames(function (err, names) {
 			if (err) throw err;
-			assert.strictEqual(names.length, 20);
-			assert.notStrictEqual(names.indexOf('price'), - 1);
-			assert.notStrictEqual(names.indexOf('enabled'), - 1);
+			assert.strictEqual(names.length,	21);
+			assert.notStrictEqual(names.indexOf('price'),	- 1);
+			assert.notStrictEqual(names.indexOf('enabled'),	- 1);
 			done();
 		});
 	});
