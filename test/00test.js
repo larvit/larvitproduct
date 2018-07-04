@@ -4,10 +4,8 @@ const	elasticsearch	= require('elasticsearch'),
 	uuidValidate	= require('uuid-validate'),
 	Intercom	= require('larvitamintercom'),
 	prodLib	= require(__dirname + '/../index.js'),
-	fileLib	= require('larvitfiles'),
 	request	= require('request'),
 	assert	= require('assert'),
-	imgLib	= require('larvitimages'),
 	async	= require('async'),
 	log	= require('winston'),
 	fs	= require('fs'),
@@ -40,18 +38,6 @@ before(function (done) {
 		prodLib.dataWriter.amsync_host	= null;
 		prodLib.dataWriter.amsync_minPort	= null;
 		prodLib.dataWriter.amsync_maxPort	= null;
-
-		imgLib.dataWriter.mode	= prodLib.dataWriter.mode;
-		imgLib.dataWriter.intercom	= prodLib.dataWriter.intercom;
-		imgLib.dataWriter.amsync_host	= prodLib.dataWriter.amsync_host;
-		imgLib.dataWriter.amsync_minPort	= prodLib.dataWriter.amsync_minPort;
-		imgLib.dataWriter.amsync_maxPort	= prodLib.dataWriter.amsync_maxPort;
-
-		fileLib.dataWriter.mode	= prodLib.dataWriter.mode;
-		fileLib.dataWriter.intercom	= prodLib.dataWriter.intercom;
-		fileLib.dataWriter.amsync_host	= prodLib.dataWriter.amsync_host;
-		fileLib.dataWriter.amsync_minPort	= prodLib.dataWriter.amsync_minPort;
-		fileLib.dataWriter.amsync_maxPort	= prodLib.dataWriter.amsync_maxPort;
 		cb();
 	});
 
