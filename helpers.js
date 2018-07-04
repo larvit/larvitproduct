@@ -4,11 +4,8 @@ const	topLogPrefix	= 'larvitproduct: helpers.js - ',
 	dataWriter	= require(__dirname + '/dataWriter.js'),
 	Product	= require(__dirname + '/product.js'),
 	request	= require('requestretry'),
-	fileLib	= require('larvitfiles'),
-	lUtils	= require('larvitutils'),
 	async	= require('async'),
 	log	= require('winston'),
-	db	= require('larvitdb'),
 	_	= require('lodash');
 
 let	intercom,
@@ -109,12 +106,7 @@ function formatEsResult(esResult, cb) {
 		}
 	}
 
-	getImagesForProducts([product], function (err) {
-		if (err) log.warn(logPrefix + err.message);
-		getFilesForProducts([product], function (err) {
-			cb(err, product);
-		});
-	});
+	cb(null, product);
 }
 
 function getAttributeValues(attributeName, options, cb) {
@@ -252,148 +244,6 @@ function getDates(cb) {
 	async.series(tasks, function (err) {
 		if (err) return cb(err);
 		cb(null, dates);
-	});
-}
-
-function getImagesForProducts(products, cb) {
-	const	logPrefix	= topLogPrefix + 'getImagesForProducts() - ',
-		tasks	= [];
-
-	if ( ! Array.isArray(products)) {
-		products	= [products];
-	}
-
-	tasks.push(ready);
-
-	for (let i = 0; products[i] !== undefined; i ++) {
-		const	product	= products[i];
-
-		if ( ! product.uuid) {
-			const	err	= new Error('Invalid input, product have no uuid');
-			log.warn(logPrefix + err.message);
-			return cb(err);
-		}
-
-		product.images	= [];
-
-		tasks.push(function (cb) {
-			const	imageUuids	= [],
-				tasks	= [];
-
-			tasks.push(function (cb) {
-				const	reqOptions	= {};
-
-				reqOptions.url	= esUrl + '/' + dataWriter.esIndexName + '/products_images/_search';
-				reqOptions.json	= true;
-				reqOptions.body	= {};
-				reqOptions.body.query	= {'bool':{'filter':{'term':{'productUuid':product.uuid}}}};
-				reqOptions.body.size	= 1000;
-
-				request(reqOptions, function (err, response, body) {
-					if (err) {
-						log.warn(logPrefix + 'Could not fetch connected images from ES. err: ' + err.message);
-						return cb(err);
-					}
-
-					if (response.statusCode !== 200) {
-						const	err	= new Error('Non-200 statuscode from ES when searching for images: "' + response.statusCode + '", body: "' + JSON.stringify(body) + '"');
-						log.warn(logPrefix + err.message);
-						return cb(err);
-					}
-
-					for (let i = 0; body.hits.hits[i] !== undefined; i ++) {
-						imageUuids.push(body.hits.hits[i]._source.imageUuid);
-					}
-
-					cb();
-				});
-			});
-
-			tasks.push(function (cb) {
-				const	dbFields	= [];
-
-				let	sql	= '';
-
-				if (imageUuids.length === 0) return cb();
-
-				sql += 'SELECT img.uuid, img.slug, img.type, md.name AS metadataName, md.data AS metadataValue\n';
-				sql += 'FROM images_images img\n';
-				sql += '	LEFT JOIN images_images_metadata md ON img.uuid = md.imageUuid\n';
-				sql += 'WHERE img.uuid IN (';
-
-				for (let i = 0; imageUuids[i] !== undefined; i ++) {
-					sql += '?,';
-					dbFields.push(lUtils.uuidToBuffer(imageUuids[i]));
-				}
-
-				sql = sql.substring(0, sql.length - 1) + ')\n';
-
-				sql += 'ORDER BY img.slug';
-
-				db.query(sql, dbFields, function (err, rows) {
-					const	imgs	= {};
-
-					if (err) return cb(err);
-
-					for (let j = 0; rows[j] !== undefined; j ++) {
-						const	imgUuid	= lUtils.formatUuid(rows[j].uuid);
-
-						if ( ! (imgUuid in imgs)) {
-							imgs[imgUuid] = {
-								'metadata': {},
-								'slug': rows[j].slug,
-								'type': rows[j].type,
-								'uuid': imgUuid
-							};
-						}
-
-						imgs[imgUuid].metadata[rows[j].metadataName]	= rows[j].metadataValue;
-					}
-
-					product.images = Object.keys(imgs).map(function (key) {
-						return imgs[key];
-					});
-
-					cb();
-				});
-			});
-
-			async.series(tasks, cb);
-		});
-	}
-
-	async.parallelLimit(tasks, 20, function (err) {
-		if (err) return cb(err, null);
-		cb(null, products);
-	});
-}
-
-function getFilesForProducts(products, cb) {
-	const	files	= new fileLib.Files();
-
-	if ( ! Array.isArray(products)) {
-		return cb(new Error('Inavlid input, is not an array'));
-	}
-
-	if (products.length === 0) return cb(null, products);
-
-	files.filter.metadata	= { 'productUuid': [] };
-	files.filter.operator	= 'or';
-
-	for (const product of products) {
-		files.filter.metadata.productUuid.push(product.uuid);
-	}
-
-	files.get(function (err, fileList) {
-		if (err) return cb(err);
-
-		if (fileList.length === 0) return cb();
-
-		for (const product of products) {
-			product.files = _.filter(fileList, function (f) { return f.metadata.productUuid.indexOf(product.uuid) !== - 1; });
-		}
-
-		cb(null, products);
 	});
 }
 
@@ -616,8 +466,6 @@ exports.formatEsResult	= formatEsResult;
 exports.getAttributeValues	= getAttributeValues;
 exports.getBooleans	= getBooleans;
 exports.getDates	= getDates;
-exports.getImagesForProducts	= getImagesForProducts;
-exports.getFilesForProducts	= getFilesForProducts;
 exports.getKeywords	= getKeywords;
 exports.getMappedFieldNames	= getMappedFieldNames;
 exports.updateByQuery	= updateByQuery;

@@ -3,16 +3,13 @@
 const	elasticsearch	= require('elasticsearch'),
 	uuidValidate	= require('uuid-validate'),
 	Intercom	= require('larvitamintercom'),
-	jpegLib	= require('jpeg-js'),
 	prodLib	= require(__dirname + '/../index.js'),
-	uuidLib	= require('uuid/v4'),
 	fileLib	= require('larvitfiles'),
 	request	= require('request'),
 	assert	= require('assert'),
 	imgLib	= require('larvitimages'),
 	async	= require('async'),
 	log	= require('winston'),
-	db	= require('larvitdb'),
 	fs	= require('fs'),
 	os	= require('os');
 
@@ -35,36 +32,6 @@ before(function (done) {
 	const	tasks	= [];
 
 	this.timeout(10000);
-
-	// Run DB Setup
-	tasks.push(function (cb) {
-		let	confFile;
-
-		if (fs.existsSync(__dirname + '/../config/db_test.json')) {
-			confFile	= __dirname + '/../config/db_test.json';
-		} else if (process.env.DBCONFFILE) {
-			confFile	= process.env.DBCONFFILE;
-		} else {
-			throw new Error('No conf file found');
-		}
-
-		log.verbose('DB config file: "' + confFile + '"');
-
-		db.setup(require(confFile), cb);
-	});
-
-	// Check for empty db
-	tasks.push(function (cb) {
-		db.query('SHOW TABLES', function (err, rows) {
-			if (err) throw err;
-
-			if (rows.length) {
-				throw new Error('SQL Database is not empty. To make a test, you must supply an empty database!');
-			}
-
-			cb();
-		});
-	});
 
 	// Set mode and intercom
 	tasks.push(function (cb) {
@@ -416,105 +383,6 @@ describe('Product', function () {
 			done();
 		});
 	});
-
-	it('should add an image to a product', function (done) {
-		const	imageUuid	= uuidLib(),
-			tasks	= [];
-
-		let	prodWithoutImage,
-			prodWithImage,
-			imageBuffer;
-
-		// Add product to get image
-		tasks.push(function (cb) {
-			prodWithImage	= new prodLib.Product();
-
-			prodWithImage.attributes.image	= 'yass';
-			prodWithImage.save(cb);
-		});
-
-		// Add reference product that should have no image
-		tasks.push(function (cb) {
-			prodWithoutImage	= new prodLib.Product();
-
-			prodWithoutImage.attributes.image	= 'nein';
-			prodWithoutImage.save(cb);
-		});
-
-		// Create random image and load it to a buffer
-		tasks.push(function (cb) {
-			const	rawImageData	= {},
-				frameData	= new Buffer(10 * 10 * 4);
-
-			let	i	= 0;
-
-			while (i < frameData.length) {
-				frameData[i ++] = 0xFF; // red
-				frameData[i ++] = 0x00; // green
-				frameData[i ++] = 0x00; // blue
-				frameData[i ++] = 0xFF; // alpha - ignored in JPEGs
-			}
-
-			rawImageData.data	= frameData;
-			rawImageData.width	= 10;
-			rawImageData.height	= 10;
-
-			imageBuffer	= jpegLib.encode(rawImageData, 50).data;
-			cb();
-		});
-
-		// Save the image
-		tasks.push(function (cb) {
-			const	image	= {};
-
-			image.uuid	= imageUuid;
-			image.slug	= 'productbildenallan';
-			image.file	= {'bin': imageBuffer};
-
-			prodWithImage.saveImage(image, cb);
-		});
-
-		// Check so connection have been made
-		tasks.push(function (cb) {
-			const	url	= esUrl + '/' + prodLib.dataWriter.esIndexName + '/products_images/' + prodWithImage.uuid + '_' + imageUuid;
-			request({'url': url, 'json': true}, function (err, response, body) {
-				if (err) return cb(err);
-
-				assert.strictEqual(body._source.productUuid,	prodWithImage.uuid);
-				assert.strictEqual(body._source.imageUuid,	imageUuid);
-
-				return cb();
-			});
-		});
-
-		// Refresh index and wait a tiny fraction of time to let it populate
-		tasks.push(function (cb) {
-			request.post(esUrl + '/' + prodLib.dataWriter.esIndexName + '/_refresh', cb);
-		});
-		tasks.push(function (cb) {
-			setTimeout(cb, 100);
-		});
-
-		// Load product and make sure it got the image data
-		tasks.push(function (cb) {
-			const	product	= new prodLib.Product(prodWithImage.uuid);
-
-			product.loadFromDb(function (err) {
-				if (err) throw err;
-
-				assert.strictEqual(product.images.length,	1);
-				assert.strictEqual(product.images[0].slug,	'productbildenallan');
-				assert.strictEqual(product.images[0].uuid,	imageUuid);
-
-				cb();
-			});
-		});
-
-		async.series(tasks, function (err) {
-			if (err) throw err;
-			done();
-		});
-	});
 });
 
 describe('Helpers', function () {
@@ -634,7 +502,6 @@ describe('Helpers', function () {
 		expectedKeywords.push('enabled.keyword');
 		expectedKeywords.push('enabled2.keyword');
 		expectedKeywords.push('foo.keyword');
-		expectedKeywords.push('image.keyword');
 		expectedKeywords.push('name.keyword');
 		expectedKeywords.push('nisse.keyword');
 		expectedKeywords.push('p.keyword');
@@ -777,7 +644,7 @@ describe('Helpers', function () {
 	it('should get all mapped field names', function (done) {
 		prodLib.helpers.getMappedFieldNames(function (err, names) {
 			if (err) throw err;
-			assert.strictEqual(names.length,	21);
+			assert.strictEqual(names.length,	20);
 			assert.notStrictEqual(names.indexOf('price'),	- 1);
 			assert.notStrictEqual(names.indexOf('enabled'),	- 1);
 			done();
@@ -1427,11 +1294,6 @@ after(function (done) {
 	tasks.push(function (cb) {
 		if ( ! esUrl) return cb();
 		request.delete(esUrl + '/' + prodLib.dataWriter.esIndexName + '_db_version', cb);
-	});
-
-	// Clean up SQL database
-	tasks.push(function (cb) {
-		db.removeAllTables(cb);
 	});
 
 	async.parallel(tasks, done);

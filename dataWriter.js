@@ -27,63 +27,9 @@ let	readyInProgress	= false,
 
 eventEmitter.setMaxListeners(30);
 
-function addProductImage(params, deliveryTag, msgUuid) {
-	const	reqOptions	= {},
-		logPrefix	= topLogPrefix + 'addProductImage() - ';
-
-	if ( ! params.productUuid) {
-		const	err	= new Error('params.productUuid is missing');
-		log.error(logPrefix + err.message);
-		exports.emitter.emit(msgUuid, err);
-		return;
-	}
-
-	if ( ! params.imageUuid) {
-		const	err	= new Error('params.imageUuid is missing');
-		log.error(logPrefix + err.message);
-		exports.emitter.emit(msgUuid, err);
-		return;
-	}
-
-	reqOptions.url	= 'http://' + esConf.host + '/' + esConf.indexName + '/products_images/' + params.productUuid + '_' + params.imageUuid;
-	reqOptions.method	= 'PUT';
-	reqOptions.json	= true;
-	reqOptions.body	= {'productUuid': params.productUuid, 'imageUuid': params.imageUuid};
-
-	request(reqOptions, function (err, response, body) {
-		if (err) {
-			return exports.emitter.emit(msgUuid, err);
-		}
-
-		if (response.statusCode !== 200 && response.statusCode !== 201) {
-			const	err	= new Error('Non-ok statusCode from ES: "' + response.statusCode + '", body: ' + JSON.stringify(body));
-			log.error(logPrefix + err.message);
-			return exports.emitter.emit(msgUuid, err);
-		}
-
-		exports.emitter.emit(msgUuid);
-	});
-}
-
-function listenToQueue(retries, cb) {
-	const	logPrefix	= topLogPrefix + 'listenToQueue() - ',
-		options	= {'exchange': exports.exchangeName},
+function checkSettings(cb) {
+	const	logPrefix	= topLogPrefix + 'checkSettings() - ',
 		tasks	= [];
-
-	let	listenMethod;
-
-	if (typeof retries === 'function') {
-		cb	= retries;
-		retries	= 0;
-	}
-
-	if (typeof cb !== 'function') {
-		cb	= function () {};
-	}
-
-	if (retries === undefined) {
-		retries	= 0;
-	}
 
 	tasks.push(function (cb) {
 		checkKey({
@@ -108,6 +54,41 @@ function listenToQueue(retries, cb) {
 			cb(err);
 		});
 	});
+
+	tasks.push(function (cb) {
+		checkKey({
+			'obj':	exports,
+			'objectKey':	'elasticsearch'
+		}, function (err, warning) {
+			if (warning) log.warn(logPrefix + warning);
+			cb(err);
+		});
+	});
+
+	async.parallel(tasks, cb);
+}
+
+function listenToQueue(retries, cb) {
+	const	logPrefix	= topLogPrefix + 'listenToQueue() - ',
+		options	= {'exchange': exports.exchangeName},
+		tasks	= [];
+
+	let	listenMethod;
+
+	if (typeof retries === 'function') {
+		cb	= retries;
+		retries	= 0;
+	}
+
+	if (typeof cb !== 'function') {
+		cb	= function () {};
+	}
+
+	if (retries === undefined) {
+		retries	= 0;
+	}
+
+	tasks.push(checkSettings);
 
 	tasks.push(function (cb) {
 		if (exports.mode === 'master') {
@@ -187,45 +168,7 @@ function ready(cb) {
 
 	readyInProgress	= true;
 
-	tasks.push(function (cb) {
-		const	tasks	= [];
-
-		tasks.push(function (cb) {
-			checkKey({
-				'obj':	exports,
-				'objectKey':	'mode',
-				'validValues':	['master', 'slave', 'noSync'],
-				'default':	'noSync'
-			}, function (err, warning) {
-				if (warning) log.warn(logPrefix + warning);
-				cb(err);
-			});
-		});
-
-		tasks.push(function (cb) {
-			checkKey({
-				'obj':	exports,
-				'objectKey':	'intercom',
-				'default':	new Intercom('loopback interface'),
-				'defaultLabel':	'loopback interface'
-			}, function (err, warning) {
-				if (warning) log.warn(logPrefix + warning);
-				cb(err);
-			});
-		});
-
-		tasks.push(function (cb) {
-			checkKey({
-				'obj':	exports,
-				'objectKey':	'elasticsearch'
-			}, function (err, warning) {
-				if (warning) log.warn(logPrefix + warning);
-				cb(err);
-			});
-		});
-
-		async.parallel(tasks, cb);
-	});
+	tasks.push(checkSettings);
 
 	// Check so elasticsearch is answering ping
 	tasks.push(function (cb) {
@@ -602,7 +545,6 @@ function writeProduct(params, deliveryTag, msgUuid) {
 	});
 }
 
-exports.addProductImage	= addProductImage;
 exports.emitter	= new EventEmitter();
 exports.exchangeName	= 'larvitproduct';
 exports.listenToQueue	= listenToQueue;

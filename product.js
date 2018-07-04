@@ -6,7 +6,6 @@ const	EventEmitter	= require('events').EventEmitter,
 	dataWriter	= require(__dirname + '/dataWriter.js'),
 	helpers	= require(__dirname + '/helpers.js'),
 	uuidLib	= require('uuid'),
-	imgLib	= require('larvitimages'),
 	async	= require('async'),
 	log	= require('winston');
 
@@ -153,57 +152,6 @@ Product.prototype.rm = function (cb) {
 	});
 };
 
-Product.prototype.rmImages = function (cb) {
-	const	logPrefix	= topLogPrefix + 'rmImages() - ',
-		that	= this;
-
-	if ( ! that.uuid) {
-		const	err	= new Error('Missing product uuid');
-		log.warn(logPrefix + err.message);
-		return cb(err);
-	}
-
-	helpers.getImagesForProducts([that], function (err) {
-		const	tasks	= [];
-
-		if (err) return cb(err);
-
-		if ( ! Array.isArray(that.images)) {
-			const	err	= new Error('that.images is not an array!');
-			log.warn(logPrefix + err.message);
-			return cb(err);
-		}
-
-		for (let i = 0; that.images[i] !== undefined; i ++) {
-			const	image	= that.images[i];
-
-			tasks.push(function (cb) {
-				const	options	= {'exchange': dataWriter.exchangeName},
-					message	= {},
-					that	= this;
-
-				message.action	= 'rmProductImage';
-				message.params	= {};
-
-				message.params.productUuid	= that.uuid;
-				message.params.imageUuid	= image.uuid;
-
-				intercom.send(message, options, function (err, msgUuid) {
-					if (err) return cb(err);
-
-					dataWriter.emitter.once(msgUuid, cb);
-				});
-			});
-
-			tasks.push(function (cb) {
-				imgLib.rmImage(image.uuid, cb);
-			});
-		}
-
-		async.parallel(tasks, cb);
-	});
-};
-
 // Saving the product object to the database.
 Product.prototype.save = function (cb) {
 	const	tasks	= [],
@@ -235,36 +183,6 @@ Product.prototype.save = function (cb) {
 	});
 
 	async.series(tasks, cb);
-};
-
-Product.prototype.saveImage = function saveImage(data, cb) {
-	const	logPrefix	= topLogPrefix + 'saveImage() - ',
-		that	= this;
-
-	if ( ! that.uuid) {
-		const	err	= new Error('Missing product uuid');
-		log.warn(logPrefix + err.message);
-		return cb(err);
-	}
-
-	imgLib.saveImage(data, function (err, result) {
-		const	options	= {'exchange': dataWriter.exchangeName},
-			message	= {};
-
-		if (err) return cb(err);
-
-		message.action	= 'addProductImage';
-		message.params	= {};
-
-		message.params.productUuid	= that.uuid;
-		message.params.imageUuid	= result.uuid;
-
-		intercom.send(message, options, function (err, msgUuid) {
-			if (err) return cb(err);
-
-			dataWriter.emitter.once(msgUuid, cb);
-		});
-	});
 };
 
 exports = module.exports = Product;

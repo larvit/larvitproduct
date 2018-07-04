@@ -28,9 +28,6 @@ install:
   - if [[ $TRAVIS_OS_NAME == "linux" ]]; then export CXX=g++-4.8; fi
   - npm i
 
-services:
-  - mysql
-
 addons:
   apt:
     sources:
@@ -39,4 +36,4 @@ addons:
     - g++-4.8
     - oracle-java8-set-default
 
-script: DBCONFFILE=db_travis.json ESCONFFILE=es_travis.json npm test
+script: ESCONFFILE=./config/es_travis.json npm test

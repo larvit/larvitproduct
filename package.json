@@ -20,7 +20,6 @@
   },
   "homepage": "https://github.com/larvit/larvitproduct#readme",
   "devDependencies": {
-    "jpeg-js": "^0.3.4",
     "mocha": "^5.1.1",
     "mocha-eslint": "^4.1.0",
     "uuid-validate": "0.0.3"
@@ -34,11 +33,8 @@
     "iconv-lite": "^0.4.15",
     "larvitamintercom": "^0.2.1",
     "larvitamsync": "^0.5.1",
-    "larvitdb": "^1.2.7",
     "larvitdbmigration": "^2.0.5",
-    "larvitfiles": "^3.1.0",
     "larvitfs": "^2.0.4",
-    "larvitimages": "^0.9.0",
     "larvitutils": "^1.0.4",
     "left-pad": "^1.1.3",
     "lodash": "^4.17.2",
