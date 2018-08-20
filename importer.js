@@ -353,7 +353,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 						for (const colName of Object.keys(attributes)) {
 							if (options.removeValWhereEmpty) {
-								if (attributes[colName] === '' || attributes[colName] === undefined) {
+								if (attributes[colName] === '') {
 									delete product.attributes[colName];
 								}
 							} else {
