@@ -27,6 +27,7 @@ let	es;
  *		'staticCols':	{'colName': colValues, 'colName2': colValues ...},	// Will extend the columns with this
  *		'updateByCols':	['col1', 'col2'],	// With update product data where BOTH these attributes/columns matches
  *		'removeColValsContaining':	['N/A', ''],	// Will remove the column value if it exactly matches one or more options in the array
+ *		'removeValWhereEmpty': boolean, // Removes the value on the product if the column value is empty (an empty string or undefined)
  *		'hooks':	{'afterEachCsvRow': func}
  *	}
  * @param func cb(err, [productUuid1, productUuid2]) the second array is a list of all added/altered products
@@ -100,6 +101,7 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 		if (options.renameCols	=== undefined) { options.renameCols	= {};	}
 		if (options.staticColHeads	=== undefined) { options.staticColHeads	= {};	}
 		if (options.hooks	=== undefined) { options.hooks	= {};	}
+		if (options.removeValWhereEmpty !== true) { options.removeValWhereEmpty = false;	}
 
 		if ( ! Array.isArray(options.ignoreCols)) {
 			options.ignoreCols	= [options.ignoreCols];
@@ -350,8 +352,14 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 						}
 
 						for (const colName of Object.keys(attributes)) {
-							if (attributes[colName] !== undefined) {
-								product.attributes[colName]	= attributes[colName];
+							if (options.removeValWhereEmpty) {
+								if (attributes[colName] === '' || attributes[colName] === undefined) {
+									delete product.attributes[colName];
+								}
+							} else {
+								if (attributes[colName] !== undefined) {
+									product.attributes[colName]	= attributes[colName];
+								} 
 							}
 						}
 					} else {

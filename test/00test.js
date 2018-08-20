@@ -1214,6 +1214,132 @@ describe('Import', function () {
 		async.series(tasks, done);
 	});
 
+	it('Remove values where empty', function (done) {
+		const	productStr	= 'name,price,description,foo\n' +
+							  'ball,100,it is round,N/A\n' +
+							  'tv,55,Large sized,bar\n' +
+							  'soffa,1200,n/a,N/A\n' + 
+							  'bord,20,untz,n/a',
+			tasks	= [];
+
+		let	uuids;
+
+		// Remove all previous products
+		tasks.push(function (cb) {
+			deleteAllProducts(cb);
+		});
+
+		// Run importer
+		tasks.push(function (cb) {
+			importFromStr(productStr, {}, function (err, result) {
+				if (err) throw err;
+
+				uuids	= result;
+
+				assert.strictEqual(uuids.length,	4);
+				cb();
+			});
+		});
+
+		// Get product data and check it
+		tasks.push(function (cb) {
+			getProductData(uuids, function (err, testProducts) {
+				if (err) throw err;
+
+				assert.strictEqual(testProducts.length,	4);
+
+				for (let i = 0; testProducts[i] !== undefined; i ++) {
+					const	product	= testProducts[i];
+
+					if (product._source.name[0] === 'ball') {
+						assert.strictEqual(product._source.price[0],	'100');
+						assert.strictEqual(product._source.description[0],	'it is round');
+						assert.strictEqual(product._source.foo[0],	'N/A');
+					} else if (product._source.name[0] === 'tv') {
+						assert.strictEqual(product._source.price[0],	'55');
+						assert.strictEqual(product._source.description[0],	'Large sized');
+						assert.strictEqual(product._source.foo[0],	'bar');
+					} else if (product._source.name[0] === 'soffa') {
+						assert.strictEqual(product._source.price[0],	'1200');
+						assert.strictEqual(product._source.description[0],	'n/a');
+						assert.strictEqual(product._source.foo[0],	'N/A');
+					} else if (product._source.name[0] === 'bord') {
+						assert.strictEqual(product._source.price[0],	'20');
+						assert.strictEqual(product._source.description[0], 'untz');
+						assert.strictEqual(product._source.foo[0],	'n/a');
+					} else {
+						throw new Error('Unexpected product: ' + JSON.stringify(product));
+					}
+				}
+
+				cb();
+			});
+		});
+
+		// Count total number of products in database
+		tasks.push(function (cb) {
+			countProducts(function (err, count) {
+				assert.strictEqual(count,	4);
+				cb(err);
+			});
+		});
+
+		// Run importer
+		tasks.push(function (cb) {
+			const prodStr2 = 'name,price,description,foo\n' +
+							 'ball,100,it is round,\n' +
+							 'tv,55,Large sized,bar\n' + 
+							 'soffa,1200,n/a,\n' + 
+							 'bord,20,,n/a';
+
+			importFromStr(prodStr2, {'removeValWhereEmpty': true, 'updateByCols': ['name'], 'removeColValsContaining': ['N/A', 'n/a']}, function (err, result) {
+				if (err) throw err;
+
+				uuids	= result;
+
+				assert.strictEqual(uuids.length,	4);
+				cb();
+			});
+		});
+
+		// Get product data and check it
+		tasks.push(function (cb) {
+			getProductData(uuids, function (err, testProducts) {
+				if (err) throw err;
+
+				assert.strictEqual(testProducts.length,	4);
+
+				for (let i = 0; testProducts[i] !== undefined; i ++) {
+					const	product	= testProducts[i];
+
+					if (product._source.name[0] === 'ball') {
+						assert.strictEqual(product._source.price[0],	'100');
+						assert.strictEqual(product._source.description[0],	'it is round');
+						assert.strictEqual(product._source.foo,	undefined);
+					} else if (product._source.name[0] === 'tv') {
+						assert.strictEqual(product._source.price[0],	'55');
+						assert.strictEqual(product._source.description[0],	'Large sized');
+						assert.strictEqual(product._source.foo[0],	'bar');
+					} else if (product._source.name[0] === 'soffa') {
+						assert.strictEqual(product._source.price[0],	'1200');
+						assert.strictEqual(product._source.description[0],	'n/a');
+						assert.strictEqual(product._source.foo,	undefined);
+					} else if (product._source.name[0] === 'bord') {
+						assert.strictEqual(product._source.price[0],	'20');
+						assert.strictEqual(product._source.description,	undefined);
+						assert.strictEqual(product._source.foo[0],	'n/a');
+					} else {
+						throw new Error('Unexpected product: ' + JSON.stringify(product));
+					}
+				}
+
+				cb();
+			});
+		});
+
+		async.series(tasks, done);
+	});
+
 	it('Hook: afterEachCsvRow', function (done) {
 		const	productStr	= 'name,price,description,foo\nball,100,it is round,N/A\ntv,55,Large sized,bar\nsoffa,1200,n/a,N/A\nbord,20,,n/a',
 			prodNames	= [],
