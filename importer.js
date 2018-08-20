@@ -355,6 +355,8 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 							if (options.removeValWhereEmpty) {
 								if (attributes[colName] === '') {
 									delete product.attributes[colName];
+								} else if (attributes[colName] !== undefined) {
+									product.attributes[colName]	= attributes[colName];
 								}
 							} else {
 								if (attributes[colName] !== undefined) {
