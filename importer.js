@@ -353,7 +353,8 @@ exports.fromFile = function fromFile(filePath, options, cb) {
 
 						for (const colName of Object.keys(attributes)) {
 							if (options.removeValWhereEmpty) {
-								if (attributes[colName] === '') {
+																// This attribute will exist but will be set to undefined when the value is empty in the csv
+								if (attributes[colName] === '' || attributes[colName] === undefined) {
 									delete product.attributes[colName];
 								} else if (attributes[colName] !== undefined) {
 									product.attributes[colName]	= attributes[colName];
