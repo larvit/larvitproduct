@@ -69,19 +69,19 @@ before(function (done) {
 
 	// Create ProductLib
 	tasks.push(function (cb) {
-		const options = {};
+		const libOptions = {};
 
-		options.log = log;
-		options.esIndexName	= testIndexName;
-		options.mode = 'noSync';
-		options.intercom = new Intercom('loopback interface');
-		options.amsync = {};
-		options.amsync.host	= null;
-		options.amsync.minPort = null;
-		options.amsync.maxPort = null;
-		options.elasticsearch = es;
+		libOptions.log = log;
+		libOptions.esIndexName	= testIndexName;
+		libOptions.mode = 'noSync';
+		libOptions.intercom = new Intercom('loopback interface');
+		libOptions.amsync = {};
+		libOptions.amsync.host	= null;
+		libOptions.amsync.minPort = null;
+		libOptions.amsync.maxPort = null;
+		libOptions.elasticsearch = es;
 
-		prodLib = new ProductLib(options, cb);
+		prodLib = new ProductLib(libOptions, cb);
 	});
 
 	// Wait for dataWriter to be ready
@@ -110,6 +110,25 @@ before(function (done) {
 	});
 
 	async.series(tasks, done);
+});
+
+describe('Lib', function () {
+	it('should create a log instance if no one is provided', function (done) {
+		const LUtils = require('larvitutils');
+		const lUtils = new LUtils();
+		const libOptions = {};
+
+		libOptions.esIndexName	= testIndexName;
+		libOptions.mode = 'noSync';
+		libOptions.intercom = new Intercom('loopback interface');
+		libOptions.elasticsearch = es;
+
+		const lib = new ProductLib(libOptions);
+
+		assert(lib.log instanceof lUtils.Log);
+
+		done();
+	});
 });
 
 describe('Product', function () {

@@ -18,6 +18,8 @@ function ProductLib(options, cb) {
 
 	that.options = options || {};
 
+	if (! cb) cb = function () {};
+
 	for (const key of Object.keys(options)) {
 		that[key] = options[key];
 	}
