@@ -1,26 +1,41 @@
 'use strict';
 
-const	async	= require('async'),
-	productLib	= require(__dirname + '/../../index.js'),
-	log	= require('winston'),
-	request	= require('request'),
-	logPrefix = 'larvitproduct ./controllers/products/list.js - ';
+const async = require('async');
+const request = require('request');
+const logPrefix = 'larvitproduct ./controllers/products/list.js - ';
 
+/**
+ * 
+ * @param {obj} obj {query}
+ */
 function fillSearchBody(obj) {
 	if (obj.query.bool	=== undefined) { obj.query.bool	= {}; }
 	if (obj.query.bool.must	=== undefined) { obj.query.bool.must	= []; }
 }
 
 exports.run = function (req, res, cb) {
-	const	tasks	= [],
-		data	= {'global': res.globalData},
-		esUrl	= 'http://' + productLib.dataWriter.elasticsearch.transport._config.host,
-		searchBody	= { 'query': {} };
+	const tasks	= [];
+	const log = req.log;
+	const productLib = req.productLib;
+	const data = {'global': res.globalData};
+	const searchBody = { 'query': {} };
+
+	if (! log) {
+		const LUtils = require('larvitutils');
+		const tmpLUtils = new LUtils();
+
+		log = new tmpLUtils.Log();
+	}
+
+	if (! productLib) return cb(new Error('Required object "productLib" in req is missing'), req, res, {});
+
+	const esUrl = 'http://' + productLib.dataWriter.elasticsearch.transport._config.host;
 
 	// Make sure the user have the correct rights
 	// This is set in larvitadmingui controllerGlobal
-	if ( ! res.adminRights) {
+	if (! res.adminRights) {
 		cb(new Error('Invalid rights'), req, res, {});
+
 		return;
 	}
 
@@ -55,13 +70,14 @@ exports.run = function (req, res, cb) {
 
 
 	tasks.push(function (cb) {
-
 		request({'url': esUrl + '/' + productLib.dataWriter.esIndexName + '/product/_search', 'json': true, 'body': searchBody}, function (err, response, body) {
 			if (err) return cb(err);
 
 			if (response.statusCode !== 200) {
 				const	err	= new Error('non-200 statusCode: ' + response.statusCode + ' from url: "' + esUrl + '/' + productLib.dataWriter.esIndexName + '/product/_search" with body: "' + JSON.stringify(searchBody) + '"');
+
 				log.warn(logPrefix + err.message);
+
 				return cb(err);
 			}
 

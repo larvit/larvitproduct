@@ -1,7 +1,6 @@
 'use strict';
 
 const leftPad = require('left-pad');
-const imgLib = require('larvitimages');
 const async = require('async');
 
 exports.run = function (req, res, cb) {
@@ -9,15 +8,18 @@ exports.run = function (req, res, cb) {
 	const tasks = [];
 	const data = {'global': res.globalData};
 	const productLib = req.productLib;
+	const imgLib = req.imgLib;
 	const log = req.log;
 
 	if (! log) {
 		const LUtils = require('larvitutils');
+		const tmpLUtils = new LUtils();
 
-		log = new LUtils.Log();
+		log = new tmpLUtils.Log();
 	}
 
 	if (! productLib) return cb(new Error('Required object "productLib" in req is missing'), req, res, {});
+	if (! imgLib) return cb(new Error('Required object "imgLib" in req is missing'), req, res, {});
 
 	// Make sure the user have the correct rights
 	// This is set in larvitadmingui controllerGlobal
