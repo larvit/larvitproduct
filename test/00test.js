@@ -1,47 +1,38 @@
+/* eslint-disable require-jsdoc */
 'use strict';
 
-const	elasticsearch	= require('elasticsearch'),
-	uuidValidate	= require('uuid-validate'),
-	Intercom	= require('larvitamintercom'),
-	prodLib	= require(__dirname + '/../index.js'),
-	request	= require('request'),
-	assert	= require('assert'),
-	async	= require('async'),
-	log	= require('winston'),
-	fs	= require('fs'),
-	os	= require('os');
+const elasticsearch	= require('elasticsearch');
+const uuidValidate = require('uuid-validate');
+const Intercom	= require('larvitamintercom');
+const {ProductLib, Product} = require(__dirname + '/../index.js');
+const request	= require('request');
+const assert	= require('assert');
+const async	= require('async');
+const log	= require('winston');
+const fs	= require('fs');
+const os	= require('os');
 
-let	esConf,
-	esUrl;
+const testIndexName = 'something';
 
-// Test with non-standard esIndexName
-prodLib.dataWriter.esIndexName	= 'something';
+let esUrl;
+let prodLib;
+let es;
 
 // Set up winston
 log.remove(log.transports.Console);
-/**/log.add(log.transports.Console, {
-	'level':	'warn',
-	'colorize':	true,
-	'timestamp':	true,
-	'json':	false
-}); /**/
+log.add(log.transports.Console, {
+	'level':     'warn',
+	'colorize':	 true,
+	'timestamp': true,
+	'json':      false
+});
 
 before(function (done) {
-	const	tasks	= [];
+	const tasks	= [];
 
 	this.timeout(10000);
 
-	// Set mode and intercom
-	tasks.push(function (cb) {
-		prodLib.dataWriter.mode	= 'noSync';
-		prodLib.dataWriter.intercom	= new Intercom('loopback interface');
-		prodLib.dataWriter.amsync_host	= null;
-		prodLib.dataWriter.amsync_minPort	= null;
-		prodLib.dataWriter.amsync_maxPort	= null;
-		cb();
-	});
-
-	// Run ES Setup
+	// Check for empty ES
 	tasks.push(function (cb) {
 		let	confFile;
 
@@ -55,24 +46,19 @@ before(function (done) {
 
 		log.verbose('ES config file: "' + confFile + '"');
 
-		esConf	= require(confFile);
+		const esConf = require(confFile);
+
 		log.verbose('ES config: ' + JSON.stringify(esConf));
-
-		prodLib.dataWriter.elasticsearch	= new elasticsearch.Client(esConf.clientOptions);
-		prodLib.dataWriter.elasticsearch.ping(cb);
-	});
-
-	// Check for empty ES
-	tasks.push(function (cb) {
-		esUrl	= 'http://' + esConf.clientOptions.host;
+		esUrl = 'http://' + esConf.clientOptions.host;
+		es = new elasticsearch.Client(esConf.clientOptions);
 
 		request({'url': esUrl + '/_cat/indices?v', 'json': true}, function (err, response, body) {
 			if (err) throw err;
 
 			for (let i = 0; body[i] !== undefined; i ++) {
-				const	index	= body[i];
+				const index = body[i];
 
-				if (index.index === prodLib.dataWriter.esIndexName || index.index === prodLib.dataWriter.esIndexName + '_db_version') {
+				if (index.index === testIndexName || index.index === testIndexName + '_db_version') {
 					throw new Error('Elasticsearch "' + prodLib.dataWriter.esIndexName + '" index already exists!');
 				}
 			}
@@ -81,23 +67,42 @@ before(function (done) {
 		});
 	});
 
+	// Create ProductLib
+	tasks.push(function (cb) {
+		const options = {};
+
+		options.log = log;
+		options.esIndexName	= testIndexName;
+		options.mode = 'noSync';
+		options.intercom = new Intercom('loopback interface');
+		options.amsync = {};
+		options.amsync.host	= null;
+		options.amsync.minPort = null;
+		options.amsync.maxPort = null;
+		options.elasticsearch = es;
+
+		prodLib = new ProductLib(options, cb);
+	});
+
 	// Wait for dataWriter to be ready
-	tasks.push(prodLib.dataWriter.ready);
+	tasks.push(function (cb) {
+		prodLib.dataWriter.ready(cb);
+	});
 
 	// Put mappings to ES to match our tests
 	tasks.push(function (cb) {
 		prodLib.dataWriter.elasticsearch.indices.putMapping({
-			'index':	prodLib.dataWriter.esIndexName,
-			'type':	'product',
-			'body': {
+			'index': prodLib.dataWriter.esIndexName,
+			'type':	 'product',
+			'body':  {
 				'product': {
 					'properties': {
-						'trams':	{ 'type': 'text', 'fields': { 'keyword': { 'type': 'keyword' } } },
-						'foo':	{ 'type': 'text', 'fields': { 'keyword': { 'type': 'keyword' } } },
-						'artNo':	{	'type': 'keyword'},
+						'trams':    { 'type': 'text', 'fields': { 'keyword': { 'type': 'keyword' } } },
+						'foo':      { 'type': 'text', 'fields': { 'keyword': { 'type': 'keyword' } } },
+						'artNo':    {	'type': 'keyword'},
 						'supplier':	{ 'type': 'keyword'},
 						'boolTest':	{ 'type': 'boolean'},
-						'ragg':	{ 'type': 'boolean'}
+						'ragg':	    { 'type': 'boolean'}
 					}
 				}
 			}
@@ -110,30 +115,52 @@ before(function (done) {
 describe('Product', function () {
 	let	productUuid;
 
+	it('should not instantiate a new plain product object if productLib is missing from options', function (done) {
+		try {
+			new Product({});
+		} catch (error) {
+			assert.equal(error.message, 'Required option "productLib" is missing');
+			done();
+		}
+	});
+
 	it('should instantiate a new plain product object', function (done) {
-		const	product	= new prodLib.Product();
+		const product = new Product({'productLib': prodLib});
 
 		assert.deepStrictEqual(toString.call(product),	'[object Object]');
 		assert.deepStrictEqual(toString.call(product.attributes),	'[object Object]');
 		assert.deepStrictEqual(uuidValidate(product.uuid, 1),	true);
 		assert.deepStrictEqual(toString.call(product.created),	'[object Date]');
+
+		done();
+	});
+
+	it('should instantiate a new plain product object with productLib factory function', function (done) {
+		const product = prodLib.createProduct();
+
+		assert.deepStrictEqual(toString.call(product),	'[object Object]');
+		assert.deepStrictEqual(toString.call(product.attributes),	'[object Object]');
+		assert.deepStrictEqual(uuidValidate(product.uuid, 1),	true);
+		assert.deepStrictEqual(toString.call(product.created),	'[object Date]');
+		assert.strictEqual(product.productLib, prodLib);
 
 		done();
 	});
 
 	it('should instantiate a new plain product object, with empty object as option', function (done) {
-		const	product	= new prodLib.Product({});
+		const product = prodLib.createProduct({});
 
 		assert.deepStrictEqual(toString.call(product),	'[object Object]');
 		assert.deepStrictEqual(toString.call(product.attributes),	'[object Object]');
 		assert.deepStrictEqual(uuidValidate(product.uuid, 1),	true);
 		assert.deepStrictEqual(toString.call(product.created),	'[object Date]');
+		assert.strictEqual(product.productLib, prodLib);
 
 		done();
 	});
 
 	it('should instantiate a new plain product object, with custom uuid', function (done) {
-		const	product	= new prodLib.Product('6a7c9adc-9b73-11e6-9f33-a24fc0d9649c');
+		const product = prodLib.createProduct('6a7c9adc-9b73-11e6-9f33-a24fc0d9649c');
 
 		product.loadFromDb(function (err) {
 			if (err) throw err;
@@ -149,7 +176,7 @@ describe('Product', function () {
 	});
 
 	it('should instantiate a new plain product object, with custom uuid as explicit option', function (done) {
-		const	product	= new prodLib.Product({'uuid': '6a7c9adc-9b73-11e6-9f33-a24fc0d9649c'});
+		const	product	= prodLib.createProduct({'uuid': '6a7c9adc-9b73-11e6-9f33-a24fc0d9649c'});
 
 		product.loadFromDb(function (err) {
 			if (err) throw err;
@@ -165,8 +192,8 @@ describe('Product', function () {
 	});
 
 	it('should instantiate a new plain product object, with custom created', function (done) {
-		const	manCreated	= new Date(),
-			product	= new prodLib.Product({'created': manCreated});
+		const manCreated = new Date();
+		const product = prodLib.createProduct({'created': manCreated});
 
 		product.loadFromDb(function (err) {
 			if (err) throw err;
@@ -182,15 +209,15 @@ describe('Product', function () {
 
 	it('should save a product', function (done) {
 		function createProduct(cb) {
-			const	product	= new prodLib.Product();
+			const product = prodLib.createProduct();
 
 			productUuid = product.uuid;
 
 			product.attributes = {
-				'name':	'Test product #69',
-				'price':	99,
-				'weight':	14,
-				'color':	['blue', 'green']
+				'name':	  'Test product #69',
+				'price':  99,
+				'weight': 14,
+				'color':  ['blue', 'green']
 			};
 
 			product.save(cb);
@@ -198,9 +225,9 @@ describe('Product', function () {
 
 		function checkProduct(cb) {
 			prodLib.dataWriter.elasticsearch.get({
-				'index':	prodLib.dataWriter.esIndexName,
-				'type':	'product',
-				'id':	productUuid
+				'index': prodLib.dataWriter.esIndexName,
+				'type':	 'product',
+				'id':    productUuid
 			}, function (err, result) {
 				if (err) throw err;
 
@@ -223,7 +250,7 @@ describe('Product', function () {
 	});
 
 	it('should load saved product from db', function (done) {
-		const	product	= new prodLib.Product(productUuid);
+		const	product	= prodLib.createProduct(productUuid);
 
 		product.loadFromDb(function (err) {
 			if (err) throw err;
@@ -244,7 +271,7 @@ describe('Product', function () {
 		const	tasks	= [];
 
 		tasks.push(function (cb) {
-			const	product	= new prodLib.Product(productUuid);
+			const	product	= prodLib.createProduct(productUuid);
 
 			product.loadFromDb(function (err) {
 				if (err) throw err;
@@ -269,7 +296,7 @@ describe('Product', function () {
 		});
 
 		tasks.push(function (cb) {
-			const	product	= new prodLib.Product(productUuid);
+			const	product	= prodLib.createProduct(productUuid);
 
 			product.loadFromDb(function (err) {
 				if (err) throw err;
@@ -294,7 +321,7 @@ describe('Product', function () {
 
 		// Add some more products
 		tasks.push(function (cb) {
-			const	product	= new prodLib.Product();
+			const	product	= prodLib.createProduct();
 
 			product.attributes.foo	= 'bar';
 			product.attributes.nisse	= 'mm';
@@ -303,7 +330,7 @@ describe('Product', function () {
 			product.save(cb);
 		});
 		tasks.push(function (cb) {
-			const	product	= new prodLib.Product();
+			const	product	= prodLib.createProduct();
 
 			product.attributes.foo	= 'baz';
 			product.attributes.nisse	= 'nej';
@@ -312,7 +339,7 @@ describe('Product', function () {
 			product.save(cb);
 		});
 		tasks.push(function (cb) {
-			const	product	= new prodLib.Product();
+			const	product	= prodLib.createProduct();
 
 			product.attributes.foo	= 'bar';
 			product.attributes.active	= 'true';
@@ -323,8 +350,8 @@ describe('Product', function () {
 		// Get all products before
 		tasks.push(function (cb) {
 			prodLib.dataWriter.elasticsearch.search({
-				'index':	prodLib.dataWriter.esIndexName,
-				'type':	'product'
+				'index': prodLib.dataWriter.esIndexName,
+				'type':	 'product'
 			}, function (err, result) {
 				if (err) throw err;
 
@@ -336,7 +363,7 @@ describe('Product', function () {
 
 		// Remove a product
 		tasks.push(function (cb) {
-			const	product	= new prodLib.Product(productUuid);
+			const	product	= prodLib.createProduct(productUuid);
 
 			product.rm(cb);
 		});
@@ -349,8 +376,8 @@ describe('Product', function () {
 		// Get all products after
 		tasks.push(function (cb) {
 			prodLib.dataWriter.elasticsearch.search({
-				'index':	prodLib.dataWriter.esIndexName,
-				'type':	'product'
+				'index': prodLib.dataWriter.esIndexName,
+				'type':	 'product'
 			}, function (err, result) {
 				if (err) throw err;
 
@@ -376,7 +403,7 @@ describe('Helpers', function () {
 		const tasks = [];
 
 		tasks.push(function (cb) {
-			const	product	= new prodLib.Product();
+			const	product	= prodLib.createProduct();
 
 			product.attributes.enabled2	= 'true';
 			product.attributes.enabled	= 'true';
@@ -386,7 +413,7 @@ describe('Helpers', function () {
 		});
 
 		tasks.push(function (cb) {
-			const	product	= new prodLib.Product();
+			const	product	= prodLib.createProduct();
 
 			product.attributes.enabled2	= ['true', 'maybe'];
 			product.attributes.enabled	= ['true', 'maybe'];
@@ -396,7 +423,7 @@ describe('Helpers', function () {
 		});
 
 		tasks.push(function (cb) {
-			const	product	= new prodLib.Product();
+			const	product	= prodLib.createProduct();
 
 			product.attributes.enabled2	= 'false';
 			product.attributes.enabled	= 'false';
@@ -406,7 +433,7 @@ describe('Helpers', function () {
 		});
 
 		tasks.push(function (cb) {
-			const	product	= new prodLib.Product();
+			const	product	= prodLib.createProduct();
 
 			product.attributes.enabled2	= ['maybe', 'true'];
 			product.attributes.enabled	= ['true', 'maybe'];
@@ -416,7 +443,7 @@ describe('Helpers', function () {
 		});
 
 		tasks.push(function (cb) {
-			const	product	= new prodLib.Product();
+			const	product	= prodLib.createProduct();
 
 			product.attributes.enabled2	= ['maybe', 'true'];
 			product.attributes.enabled	= ['true', 'maybe'];
@@ -455,16 +482,16 @@ describe('Helpers', function () {
 	});
 
 	it('should ignore BOMs in strings', function (done) {
-		const	product	= new prodLib.Product();
+		const	product	= prodLib.createProduct();
 
-		product.attributes[new Buffer('efbbbf70', 'hex').toString()]	= 'bulle';
+		product.attributes[Buffer.from('efbbbf70', 'hex').toString()]	= 'bulle';
 		product.save(function (err) {
 			if (err) throw err;
 
 			prodLib.dataWriter.elasticsearch.get({
-				'index':	prodLib.dataWriter.esIndexName,
-				'type':	'product',
-				'id':	product.uuid
+				'index': prodLib.dataWriter.esIndexName,
+				'type':	 'product',
+				'id':    product.uuid
 			}, function (err, result) {
 				if (err) throw err;
 
@@ -523,8 +550,8 @@ describe('Helpers', function () {
 		const	tasks	= [];
 
 		tasks.push(function (cb) {
-			const	queryBody	= {},
-				updates	= {};
+			const queryBody	= {};
+			const updates = {};
 
 			queryBody.query	= {'bool': {'filter': {'term': {'active': 'true'}}}};
 			updates.enabled	= ['true'];
@@ -577,7 +604,7 @@ describe('Helpers', function () {
 			const	reqOptions	= {};
 
 			reqOptions.url	= esUrl + '/' + prodLib.dataWriter.esIndexName + '/product/_search';
-			reqOptions.body	= {'size':1000, 'query':{'match_all':{}}};
+			reqOptions.body	= {'size': 1000, 'query': {'match_all': {}}};
 			reqOptions.json	= true;
 
 			request(reqOptions, function (err, response, body) {
@@ -609,7 +636,7 @@ describe('Helpers', function () {
 			const	reqOptions	= {};
 
 			reqOptions.url	= esUrl + '/' + prodLib.dataWriter.esIndexName + '/product/_search';
-			reqOptions.body	= {'size':1000, 'query':{'match_all':{}}};
+			reqOptions.body	= {'size': 1000, 'query': {'match_all': {}}};
 			reqOptions.json	= true;
 
 			request(reqOptions, function (err, response, body) {
@@ -639,7 +666,6 @@ describe('Helpers', function () {
 });
 
 describe('Import', function () {
-
 	// Make sure the index is refreshed between each test
 	beforeEach(function (done) {
 		request.post(esUrl + '/' + prodLib.dataWriter.esIndexName + '/_refresh', function (err) {
@@ -649,8 +675,8 @@ describe('Import', function () {
 	});
 
 	function importFromStr(str, options, cb) {
-		const	tmpFile	= os.tmpdir() + '/tmp_products.csv',
-			tasks	= [];
+		const tmpFile = os.tmpdir() + '/tmp_products.csv';
+		const tasks = [];
 
 		let	uuids	= [];
 
@@ -695,6 +721,7 @@ describe('Import', function () {
 
 		request(options, function (err, response, result) {
 			if (err) throw err;
+
 			return cb(null, result.hits.hits);
 		});
 	}
@@ -713,6 +740,7 @@ describe('Import', function () {
 				if (array[i] === array[j]) array.splice(j --, 1);
 			}
 		}
+
 		return array;
 	};
 
@@ -732,8 +760,8 @@ describe('Import', function () {
 	}
 
 	it('very simple test case', function (done) {
-		const	productStr	= 'name,price,description\nball,100,it is round\ntv,55,"About 32"" in size"',
-			tasks	= [];
+		const productStr = 'name,price,description\nball,100,it is round\ntv,55,"About 32"" in size"';
+		const tasks = [];
 
 		let	uuids;
 
@@ -793,9 +821,9 @@ describe('Import', function () {
 	});
 
 	it('Override static column data', function (done) {
-		const	productStr	= 'name,artNo,size,enabled\nball,abc01,3,true\ntv,abc02,14,false\nspoon,abc03,2,true',
-			options	= {'staticCols': { 'foul': 'nope', 'enabled': 'false'} },
-			tasks	= [];
+		const productStr = 'name,artNo,size,enabled\nball,abc01,3,true\ntv,abc02,14,false\nspoon,abc03,2,true';
+		const options = {'staticCols': { 'foul': 'nope', 'enabled': 'false'} };
+		const tasks = [];
 
 		let	uuids;
 
@@ -864,16 +892,16 @@ describe('Import', function () {
 	});
 
 	it('Replace by one column', function (done) {
-		const	initProductStr	= 'name,artNo,size,description\n' +
+		const initProductStr = 'name,artNo,size,description\n' +
 				'house,abc01,20,huge\n' +
 				'napkin,food3k,9,small\n' +
 				'car,abc13,7,vehicle\n' +
-				'plutt,ieidl3,10,no',
-			replProductStr	= 'name,artNo,size\n' +
+				'plutt,ieidl3,10,no';
+		const replProductStr = 'name,artNo,size\n' +
 				'ball,abc01,15\n' +
 				'tv,abc02,14\n' +
-				'car," abc13",2', // Deliberate space
-			tasks	= [];
+				'car," abc13",2'; // Deliberate space
+		const tasks = [];
 
 		let	uuids;
 
@@ -959,14 +987,14 @@ describe('Import', function () {
 	});
 
 	it('Replace by two columns', function (done) {
-		const	productStr1	= 'supplier,artNo,name\nurkus ab,bb1,foo\nurkus ab,bb2,bar\nbleff ab,bb1,elk',
-			productStr2	= 'supplier,artNo,name\nurkus ab,bb1,MUU\nblimp 18,bb2,tefflon\nbleff ab,bb1,bolk',
-			options	= {'replaceByCols': ['artNo', 'supplier']},
-			tasks	= [];
+		const productStr1 = 'supplier,artNo,name\nurkus ab,bb1,foo\nurkus ab,bb2,bar\nbleff ab,bb1,elk';
+		const productStr2 = 'supplier,artNo,name\nurkus ab,bb1,MUU\nblimp 18,bb2,tefflon\nbleff ab,bb1,bolk';
+		const options = {'replaceByCols': ['artNo', 'supplier']};
+		const tasks = [];
 
-		let	preNoProducts,
-			uuids1,
-			uuids2;
+		let	preNoProducts;
+		let uuids1;
+		let uuids2;
 
 		// Remove all previous products
 		tasks.push(function (cb) {
@@ -1054,14 +1082,14 @@ describe('Import', function () {
 	});
 
 	it('Update by two columns', function (done) {
-		const	productStr1	= 'supplier,artNo,name,size\nslam ab,rd1,foo,100\nslam ab,rd2,bar,200\nbang ab,hhv4,elk,300',
-			productStr2	= 'supplier,artNo,name\nslam ab,rd1,MUU\npaow,bb2,tefflon\nbang ab,hhv4,bolk',
-			options	= {'updateByCols': ['artNo', 'supplier']},
-			tasks	= [];
+		const productStr1 = 'supplier,artNo,name,size\nslam ab,rd1,foo,100\nslam ab,rd2,bar,200\nbang ab,hhv4,elk,300';
+		const productStr2 = 'supplier,artNo,name\nslam ab,rd1,MUU\npaow,bb2,tefflon\nbang ab,hhv4,bolk';
+		const options = {'updateByCols': ['artNo', 'supplier']};
+		const tasks = [];
 
-		let	preNoProducts,
-			uuids1,
-			uuids2;
+		let	preNoProducts;
+		let uuids1;
+		let uuids2;
 
 		// Run the import of productStr1
 		tasks.push(function (cb) {
@@ -1094,7 +1122,6 @@ describe('Import', function () {
 				assert.strictEqual(uuids2.length,	3);
 				cb();
 			});
-
 		});
 
 		// Refresh index
@@ -1122,6 +1149,7 @@ describe('Import', function () {
 
 				for (let i = 0; testProducts[i] !== undefined; i ++) {
 					const	product	= testProducts[i];
+
 					if (product._source.supplier[0] === 'slam ab' && product._source.artNo[0] === 'rd1') {
 						assert.strictEqual(product._source.name[0],	'MUU');
 						assert.strictEqual(parseInt(product._source.size[0]),	100);
@@ -1146,8 +1174,8 @@ describe('Import', function () {
 	});
 
 	it('Ignore column values', function (done) {
-		const	productStr	= 'name,price,description,foo\nball,100,it is round,N/A\ntv,55,Large sized,bar\nsoffa,1200,n/a,N/A\nbord,20,,n/a',
-			tasks	= [];
+		const productStr = 'name,price,description,foo\nball,100,it is round,N/A\ntv,55,Large sized,bar\nsoffa,1200,n/a,N/A\nbord,20,,n/a';
+		const tasks	= [];
 
 		let	uuids;
 
@@ -1215,12 +1243,12 @@ describe('Import', function () {
 	});
 
 	it('Remove values where empty', function (done) {
-		const	productStr	= 'name,price,description,foo\n' +
+		const productStr = 'name,price,description,foo\n' +
 							  'ball,100,it is round,N/A\n' +
 							  'tv,55,Large sized,bar\n' +
-							  'soffa,1200,n/a,N/A\n' + 
-							  'bord,20,untz,n/a',
-			tasks	= [];
+							  'soffa,1200,n/a,N/A\n' +
+							  'bord,20,untz,n/a';
+		const tasks = [];
 
 		let	uuids;
 
@@ -1288,8 +1316,8 @@ describe('Import', function () {
 		tasks.push(function (cb) {
 			const prodStr2 = 'name,price,description,foo\n' +
 							 'ball,100,it is round,\n' +
-							 'tv,55,Large sized,bar\n' + 
-							 'soffa,1200,n/a,\n' + 
+							 'tv,55,Large sized,bar\n' +
+							 'soffa,1200,n/a,\n' +
 							 'bord,20,,n/a';
 
 			importFromStr(prodStr2, {'removeValWhereEmpty': true, 'updateByCols': ['name'], 'removeColValsContaining': ['N/A', 'n/a']}, function (err, result) {
@@ -1341,9 +1369,9 @@ describe('Import', function () {
 	});
 
 	it('Hook: afterEachCsvRow', function (done) {
-		const	productStr	= 'name,price,description,foo\nball,100,it is round,N/A\ntv,55,Large sized,bar\nsoffa,1200,n/a,N/A\nbord,20,,n/a',
-			prodNames	= [],
-			tasks	= [];
+		const productStr = 'name,price,description,foo\nball,100,it is round,N/A\ntv,55,Large sized,bar\nsoffa,1200,n/a,N/A\nbord,20,,n/a';
+		const prodNames	= [];
+		const tasks = [];
 
 		let	uuids;
 
@@ -1400,11 +1428,11 @@ after(function (done) {
 
 	// Remove all data from elasticsearch
 	tasks.push(function (cb) {
-		if ( ! esUrl) return cb();
+		if (! esUrl) return cb();
 		request.delete(esUrl + '/' + prodLib.dataWriter.esIndexName, cb);
 	});
 	tasks.push(function (cb) {
-		if ( ! esUrl) return cb();
+		if (! esUrl) return cb();
 		request.delete(esUrl + '/' + prodLib.dataWriter.esIndexName + '_db_version', cb);
 	});
 

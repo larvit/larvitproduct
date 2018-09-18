@@ -1,19 +1,27 @@
 'use strict';
 
-const	productLib	= require(__dirname + '/../../index.js'),
-	leftPad	= require('left-pad'),
-	imgLib	= require('larvitimages'),
-	async	= require('async'),
-	log	= require('winston');
+const leftPad = require('left-pad');
+const imgLib = require('larvitimages');
+const async = require('async');
 
 exports.run = function (req, res, cb) {
-	const	logPrefix	= 'larvitproduct: ./controllers/products/edit.js: run() - ',
-		tasks	= [],
-		data	= {'global': res.globalData};
+	const logPrefix = 'larvitproduct: ./controllers/products/edit.js: run() - ';
+	const tasks = [];
+	const data = {'global': res.globalData};
+	const productLib = req.productLib;
+	const log = req.log;
+
+	if (! log) {
+		const LUtils = require('larvitutils');
+
+		log = new LUtils.Log();
+	}
+
+	if (! productLib) return cb(new Error('Required object "productLib" in req is missing'), req, res, {});
 
 	// Make sure the user have the correct rights
 	// This is set in larvitadmingui controllerGlobal
-	if ( ! res.adminRights) return cb(new Error('Invalid rights'), req, res, {});
+	if (! res.adminRights) return cb(new Error('Invalid rights'), req, res, {});
 
 	data.global.menuControllerName	= 'products';
 	data.global.messages	= [];
@@ -22,7 +30,7 @@ exports.run = function (req, res, cb) {
 	data.productAttributes = [];
 
 	tasks.push(function (cb) {
-		data.product	= new productLib.Product(data.global.urlParsed.query.uuid);
+		data.product = productLib.createProduct(data.global.urlParsed.query.uuid);
 		data.product.loadFromDb(cb);
 	});
 
@@ -68,8 +76,8 @@ exports.run = function (req, res, cb) {
 
 			// Handle product attributes
 			for (let i = 0; data.global.formFields.attributeName[i] !== undefined; i ++) {
-				const	attributeName	= data.global.formFields.attributeName[i],
-					attributeValue	= data.global.formFields.attributeValue[i];
+				const attributeName	= data.global.formFields.attributeName[i];
+				const attributeValue = data.global.formFields.attributeValue[i];
 
 				if (attributeName && attributeValue !== undefined) {
 					if (data.product.attributes[attributeName] === undefined) {
@@ -103,13 +111,13 @@ exports.run = function (req, res, cb) {
 
 			let	testNum	= 1;
 
-			if ( ! req.formFiles || ! req.formFiles.newImage) {
+			if (! req.formFiles || ! req.formFiles.newImage) {
 				return cb();
 			}
 
 			for (let i = 0; data.product.images[i] !== undefined; i ++) {
-				const	img	= data.product.images[i],
-					curNum	= Number(img.slug.substring(45, img.slug.length - 4));
+				const img = data.product.images[i];
+				const curNum = Number(img.slug.substring(45, img.slug.length - 4));
 
 				takenNumbers.push(curNum);
 			}
@@ -127,7 +135,7 @@ exports.run = function (req, res, cb) {
 		tasks.push(function (cb) {
 			const	imgOptions	= {};
 
-			if ( ! req.formFiles || ! req.formFiles.newImage) {
+			if (! req.formFiles || ! req.formFiles.newImage) {
 				return cb();
 			}
 
@@ -180,20 +188,6 @@ exports.run = function (req, res, cb) {
 			imgLib.rmImage(data.global.formFields.rmImage, cb);
 		});
 	}
-
-	// Load images
-	//	if (data.global.urlParsed.query.uuid) {
-	//		tasks.push(function (cb) {
-	//			productLib.getImagesForEsResult(data.product)
-	//
-	//
-	//
-	//			getImageList(function (err, imageList) {
-	//				data.imageList	= imageList;
-	//				cb(err);
-	//			});
-	//		});
-	//	}
 
 	async.series(tasks, function (err) {
 		cb(err, req, res, data);

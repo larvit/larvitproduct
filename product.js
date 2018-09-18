@@ -1,108 +1,85 @@
 'use strict';
 
-const	EventEmitter	= require('events').EventEmitter,
-	eventEmitter	= new EventEmitter(),
-	topLogPrefix	= 'larvitproduct: product.js: ',
-	dataWriter	= require(__dirname + '/dataWriter.js'),
-	helpers	= require(__dirname + '/helpers.js'),
-	uuidLib	= require('uuid'),
-	async	= require('async'),
-	log	= require('winston');
+const topLogPrefix	= 'larvitproduct: product.js: ';
+const uuidLib	= require('uuid');
+const async	= require('async');
 
-let	readyInProgress	= false,
-	isReady	= false,
-	intercom,
-	es;
-
-function ready(cb) {
-	const	tasks	= [];
-
-	if (isReady === true) { cb(); return; }
-
-	if (readyInProgress === true) {
-		eventEmitter.on('ready', cb);
-		return;
-	}
-
-	readyInProgress = true;
-
-	// dataWriter handes database migrations etc, make sure its run first
-	tasks.push(function (cb) {
-		dataWriter.ready(cb);
-	});
-
-	// Set dataWriter.intercom and es after dataWriter is ready
-	tasks.push(function (cb) {
-		intercom	= dataWriter.intercom;
-		es	= dataWriter.elasticsearch;
-		cb();
-	});
-
-	async.series(tasks, function () {
-		isReady	= true;
-		eventEmitter.emit('ready');
-		cb();
-	});
-}
-
+/**
+ * 
+ * @param {obj} options - {productLib, created, attributes}
+ */
 function Product(options) {
-	const	logPrefix	= topLogPrefix + 'Product() - ';
+	const that = this;
+	const logPrefix	= topLogPrefix + 'Product() - ';
 
-	if (options === undefined) {
-		options = {};
+	options = options || {};
+
+	if (! options.productLib) throw new Error('Required option "productLib" is missing');
+	that.productLib = options.productLib;
+
+	if (! that.productLib.log) {
+		const LUtils = require('larvitutils');
+		const tmpLUtils = new LUtils();
+
+		that.productLib.log = new tmpLUtils.Log();
 	}
+	that.log = that.productLib.log;
 
-	// If options is a string, assume it is an uuid
-	if (typeof options === 'string') {
-		this.uuid	= options;
-		options	= {};
-	} else if (options.uuid !== undefined) {
-		this.uuid	= options.uuid;
+	if (options.uuid !== undefined) {
+		that.uuid = options.uuid;
 	} else {
-		this.uuid	= uuidLib.v1();
-		log.verbose(logPrefix + 'New Product - Creating Product with uuid: ' + this.uuid);
+		that.uuid = uuidLib.v1();
+		that.log.verbose(logPrefix + 'New Product - Creating Product with uuid: ' + that.uuid);
 	}
 
-	this.created	= options.created;
-	this.attributes	= options.attributes;
-	this.ready	= ready; // To expose to the outside world
+	that.dataWriter = that.productLib.dataWriter;
+	that.intercom = that.productLib.dataWriter.intercom;
+	that.es = that.productLib.dataWriter.elasticsearch;
+	that.helpers = that.productLib.helpers;
 
-	if (this.attributes	=== undefined) { this.attributes	= {};	}
-	if (this.created	=== undefined) { this.created	= new Date();	}
+	that.created = options.created;
+	that.attributes	= options.attributes;
+
+	if (that.attributes	=== undefined) { that.attributes = {}; }
+	if (that.created	=== undefined) { that.created = new Date(); }
 }
 
 Product.prototype.loadFromDb = function (cb) {
-	const	logPrefix	= topLogPrefix + 'Product.prototype.loadFromDb() - uuid: ' + this.uuid + ' - ',
-		tasks	= [],
-		that	= this;
+	const that = this;
+	const logPrefix = topLogPrefix + 'Product.prototype.loadFromDb() - uuid: ' + that.uuid + ' - ';
+	const tasks = [];
 
 	let	esResult;
 
-	tasks.push(ready);
+	tasks.push(function (cb) {
+		that.dataWriter.ready(cb);
+	});
 
 	// Get basic product info
 	tasks.push(function (cb) {
-		es.get({
-			'index':	dataWriter.esIndexName,
-			'type':	'product',
-			'id':	that.uuid
+		that.es.get({
+			'index': that.dataWriter.esIndexName,
+			'type':	 'product',
+			'id':    that.uuid
 		}, function (err, result) {
 			if (err && err.status === 404) {
-				log.debug(logPrefix + 'No product found in database');
-				esResult	= false;
+				that.log.debug(logPrefix + 'No product found in database');
+				esResult = false;
+
 				return cb();
 			} else if (err) {
-				log.error(logPrefix + 'es.get() - err: ' + err.message);
+				that.log.error(logPrefix + 'that.es.get() - err: ' + err.message);
+
 				return cb(err);
 			}
 
-			esResult	= result;
+			esResult = result;
 			cb();
 		});
 	});
 
 	tasks.push(function (cb) {
-		helpers.formatEsResult(esResult, function (err, result) {
+		that.helpers.formatEsResult(esResult, function (err, result) {
 			if (err) return cb(err);
 
 			if (result && result.uuid) {
@@ -132,37 +109,36 @@ Product.prototype.loadFromDb = function (cb) {
 	async.series(tasks, cb);
 };
 
-Product.prototype.getAttributeUuidBuffer	= helpers.getAttributeUuidBuffer;
-Product.prototype.getAttributeUuidBuffers	= helpers.getAttributeUuidBuffers;
-
 Product.prototype.rm = function (cb) {
-	const	options	= {'exchange': dataWriter.exchangeName},
-		message	= {},
-		that	= this;
+	const that = this;
+	const options = {'exchange': that.dataWriter.exchangeName};
+	const message = {};
 
 	message.action	= 'rmProducts';
 	message.params	= {};
 
 	message.params.uuids	= [that.uuid];
 
-	intercom.send(message, options, function (err, msgUuid) {
+	that.intercom.send(message, options, function (err, msgUuid) {
 		if (err) return cb(err);
 
-		dataWriter.emitter.once(msgUuid, cb);
+		that.dataWriter.emitter.once(msgUuid, cb);
 	});
 };
 
 // Saving the product object to the database.
 Product.prototype.save = function (cb) {
-	const	tasks	= [],
-		that	= this;
+	const tasks = [];
+	const that = this;
 
 	// Await database readiness
-	tasks.push(ready);
+	tasks.push(function (cb) {
+		that.dataWriter.ready(cb);
+	});
 
 	tasks.push(function (cb) {
-		const	options	= {'exchange': dataWriter.exchangeName},
-			message	= {};
+		const options = {'exchange': that.dataWriter.exchangeName};
+		const message = {};
 
 		message.action	= 'writeProduct';
 		message.params	= {};
@@ -171,10 +147,10 @@ Product.prototype.save = function (cb) {
 		message.params.created	= that.created;
 		message.params.attributes	= that.attributes;
 
-		intercom.send(message, options, function (err, msgUuid) {
+		that.intercom.send(message, options, function (err, msgUuid) {
 			if (err) return cb(err);
 
-			dataWriter.emitter.once(msgUuid, cb);
+			that.dataWriter.emitter.once(msgUuid, cb);
 		});
 	});
 

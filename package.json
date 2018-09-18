@@ -1,6 +1,6 @@
 {
   "name": "larvitproduct",
-  "version": "0.11.7",
+  "version": "0.12.0",
   "description": "Generic product database for use in webshops or other places",
   "main": "index.js",
   "scripts": {
@@ -22,26 +22,26 @@
   "devDependencies": {
     "mocha": "^5.1.1",
     "mocha-eslint": "^4.1.0",
-    "uuid-validate": "0.0.3"
+    "uuid-validate": "0.0.3",
+    "winston": "^2.2.0"
   },
   "dependencies": {
     "async": "^2.1.2",
-    "check-object-key": "0.1.2",
+    "check-object-key": "0.1.8",
     "elasticdump": "^3.1.0",
     "elasticsearch": "^15.0.0",
     "fast-csv": "^2.3.0",
     "iconv-lite": "^0.4.15",
-    "larvitamintercom": "0.2.14",
+    "larvitamintercom": "0.3.1",
     "larvitamsync": "^0.7.2",
-    "larvitdbmigration": "2.0.6",
+    "larvitdbmigration": "4.0.1",
     "larvitfs": "^2.0.4",
-    "larvitutils": "^1.0.4",
+    "larvitutils": "^2.1.0",
     "left-pad": "^1.1.3",
     "lodash": "^4.17.2",
     "request": "^2.81.0",
     "requestretry": "^2.0.0",
     "strip-bom": "^3.0.0",
-    "uuid": "^3.0.1",
-    "winston": "^2.2.0"
+    "uuid": "^3.0.1"
   }
 }
