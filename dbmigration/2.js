@@ -7,12 +7,12 @@ exports = module.exports = function (cb) {
 	const log = this.log;
 	const reqObj = {};
 
-	reqObj.url	= this.options.url + '/' + this.options.indexName + '/product/_mapping';
+	reqObj.url	= this.options.url + '/' + this.options.productIndexName + '/product/_mapping';
 	reqObj.method	= 'PUT';
 	reqObj.json	= true;
 	reqObj.body	= {
 		'properties': {
-			'name': { 'type': 'text',	'fields': { 'keyword': { 'type': 'keyword' } }  }
+			'name': { 'type': 'text', 'fields': { 'keyword': { 'type': 'keyword' } }  }
 		}
 	};
 

@@ -74,10 +74,10 @@ DataWriter.prototype.checkSettings = function checkSettings(cb) {
 
 	tasks.push(function (cb) {
 		checkKey({
-			'obj':         that,
-			'objectKey':   'mode',
+			'obj': that,
+			'objectKey': 'mode',
 			'validValues': ['master', 'slave', 'noSync'],
-			'default':     'noSync'
+			'default': 'noSync'
 		}, function (err, warning) {
 			if (warning) that.log.warn(logPrefix + warning);
 			cb(err);
@@ -86,9 +86,9 @@ DataWriter.prototype.checkSettings = function checkSettings(cb) {
 
 	tasks.push(function (cb) {
 		checkKey({
-			'obj':          that,
-			'objectKey':    'intercom',
-			'default':      new Intercom('loopback interface'),
+			'obj': that,
+			'objectKey': 'intercom',
+			'default': new Intercom('loopback interface'),
 			'defaultLabel': 'loopback interface'
 		}, function (err, warning) {
 			if (warning) that.log.warn(logPrefix + warning);
@@ -98,7 +98,7 @@ DataWriter.prototype.checkSettings = function checkSettings(cb) {
 
 	tasks.push(function (cb) {
 		checkKey({
-			'obj':       that,
+			'obj': that,
 			'objectKey': 'elasticsearch'
 		}, function (err, warning) {
 			if (warning) that.log.warn(logPrefix + warning);
@@ -236,7 +236,7 @@ DataWriter.prototype.ready = function ready(cb) {
 	// We do this because Elasticsearch does NOT work the same way when speaking to an alias as when speaking to an index. FAKE NEWS ffs!
 	tasks.push(function (cb) {
 		request({
-			'url':  'http://' + that.elasticsearch.transport._config.host + '/_cat/aliases?v',
+			'url': 'http://' + that.elasticsearch.transport._config.host + '/_cat/aliases?v',
 			'json':	true
 		}, function (err, response, result) {
 			if (err) {
@@ -396,8 +396,9 @@ DataWriter.prototype.ready = function ready(cb) {
 
 		options.dbType	= 'elasticsearch';
 		options.url = 'http://' + that.esConf.host;
-		options.indexName = that.esIndexName;
+		options.indexName = that.esIndexName + '_db_version';
 		options.migrationScriptsPath = __dirname + '/dbmigration';
+		options.productIndexName = that.esConf.indexName;
 		options.log = that.log;
 
 		const dbMigration = new DbMigration(options);
@@ -490,7 +491,7 @@ DataWriter.prototype.runDumpServer = function runDumpServer(cb) {
 		const exchangeName = that.exchangeName + '_dataDump';
 		const dataDumpCmd = {
 			'command': elasticdumpPath,
-			'args':    ['--input=http://' + that.esConf.host + '/' + that.esIndexName, '--output=$']
+			'args': ['--input=http://' + that.esConf.host + '/' + that.esIndexName, '--output=$']
 		};
 
 		subTasks.push(function (cb) {
@@ -503,7 +504,7 @@ DataWriter.prototype.runDumpServer = function runDumpServer(cb) {
 			options.intercom = that.intercom;
 			options.dataDumpCmd.args.push('--type=mapping');
 			options.amsync = {
-				'host':	   that.amsync ? that.amsync.host : null,
+				'host': that.amsync ? that.amsync.host : null,
 				'maxPort': that.amsync ? that.amsync.maxPort : null,
 				'minPort': that.amsync ? that.amsync.minPort : null
 			};
@@ -521,7 +522,7 @@ DataWriter.prototype.runDumpServer = function runDumpServer(cb) {
 			options.intercom = that.intercom;
 			options.dataDumpCmd.args.push('--type=data');
 			options.amsync = {
-				'host':	   that.amsync ? that.amsync.host	: null,
+				'host': that.amsync ? that.amsync.host	: null,
 				'maxPort': that.amsync ? that.amsync.maxPort	: null,
 				'minPort': that.amsync ? that.amsync.minPort	: null
 			};
@@ -598,9 +599,9 @@ DataWriter.prototype.writeProduct = function writeProduct(params, deliveryTag, m
 
 		that.elasticsearch.index({
 			'index': that.esIndexName,
-			'id':    productUuid,
-			'type':  'product',
-			'body':  body
+			'id': productUuid,
+			'type': 'product',
+			'body': body
 		}, function (err) {
 			if (err) {
 				that.log.info(logPrefix + 'Could not write product to elasticsearch: ' + err.message);

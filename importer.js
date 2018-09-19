@@ -317,9 +317,9 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 
 						request({
 							'method': 'GET',
-							'url':    'http://' + that.es.transport._config.host + '/' + that.dataWriter.esIndexName + '/product/_search',
-							'json':	  true,
-							'body':   {
+							'url': 'http://' + that.es.transport._config.host + '/' + that.dataWriter.esIndexName + '/product/_search',
+							'json': true,
+							'body': {
 								'query': {
 									'constant_score': {
 										'filter': {
@@ -432,8 +432,8 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 						if (err) {
 							that.log.info(logPrefix + 'Could not save product: ' + err.message);
 							errors.push({
-								'type':	   'save error',
-								'time':	   new Date(),
+								'type': 'save error',
+								'time': new Date(),
 								'message': err.message
 							});
 						} else {
@@ -448,11 +448,11 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 					tasks.push(function (cb) {
 						options.hooks.afterEachCsvRow({
 							'currentRowNr':	currentRowNr,
-							'colHeads':	    colHeads,
-							'product':      product,
-							'csvRow':       csvRow,
-							'fullRow':      fullRow,
-							'csvStream':    csvStream
+							'colHeads': colHeads,
+							'product': product,
+							'csvRow': csvRow,
+							'fullRow': fullRow,
+							'csvStream': csvStream
 						}, cb);
 					});
 				}

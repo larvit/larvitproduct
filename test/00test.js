@@ -21,10 +21,10 @@ let es;
 // Set up winston
 log.remove(log.transports.Console);
 log.add(log.transports.Console, {
-	'level':     'warn',
-	'colorize':	 true,
+	'level': 'warn',
+	'colorize': true,
 	'timestamp': true,
-	'json':      false
+	'json': false
 });
 
 before(function (done) {
@@ -93,16 +93,16 @@ before(function (done) {
 	tasks.push(function (cb) {
 		prodLib.dataWriter.elasticsearch.indices.putMapping({
 			'index': prodLib.dataWriter.esIndexName,
-			'type':	 'product',
-			'body':  {
+			'type': 'product',
+			'body': {
 				'product': {
 					'properties': {
-						'trams':    { 'type': 'text', 'fields': { 'keyword': { 'type': 'keyword' } } },
-						'foo':      { 'type': 'text', 'fields': { 'keyword': { 'type': 'keyword' } } },
-						'artNo':    {	'type': 'keyword'},
-						'supplier':	{ 'type': 'keyword'},
-						'boolTest':	{ 'type': 'boolean'},
-						'ragg':	    { 'type': 'boolean'}
+						'trams': { 'type': 'text', 'fields': { 'keyword': { 'type': 'keyword' } } },
+						'foo': { 'type': 'text', 'fields': { 'keyword': { 'type': 'keyword' } } },
+						'artNo': { 'type': 'keyword'},
+						'supplier': { 'type': 'keyword'},
+						'boolTest': { 'type': 'boolean'},
+						'ragg': { 'type': 'boolean'}
 					}
 				}
 			}
@@ -233,10 +233,10 @@ describe('Product', function () {
 			productUuid = product.uuid;
 
 			product.attributes = {
-				'name':	  'Test product #69',
-				'price':  99,
+				'name': 'Test product #69',
+				'price': 99,
 				'weight': 14,
-				'color':  ['blue', 'green']
+				'color': ['blue', 'green']
 			};
 
 			product.save(cb);
@@ -245,8 +245,8 @@ describe('Product', function () {
 		function checkProduct(cb) {
 			prodLib.dataWriter.elasticsearch.get({
 				'index': prodLib.dataWriter.esIndexName,
-				'type':	 'product',
-				'id':    productUuid
+				'type': 'product',
+				'id': productUuid
 			}, function (err, result) {
 				if (err) throw err;
 
@@ -370,7 +370,7 @@ describe('Product', function () {
 		tasks.push(function (cb) {
 			prodLib.dataWriter.elasticsearch.search({
 				'index': prodLib.dataWriter.esIndexName,
-				'type':	 'product'
+				'type': 'product'
 			}, function (err, result) {
 				if (err) throw err;
 
@@ -396,7 +396,7 @@ describe('Product', function () {
 		tasks.push(function (cb) {
 			prodLib.dataWriter.elasticsearch.search({
 				'index': prodLib.dataWriter.esIndexName,
-				'type':	 'product'
+				'type': 'product'
 			}, function (err, result) {
 				if (err) throw err;
 
@@ -509,8 +509,8 @@ describe('Helpers', function () {
 
 			prodLib.dataWriter.elasticsearch.get({
 				'index': prodLib.dataWriter.esIndexName,
-				'type':	 'product',
-				'id':    product.uuid
+				'type': 'product',
+				'id': product.uuid
 			}, function (err, result) {
 				if (err) throw err;
 

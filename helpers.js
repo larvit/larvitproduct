@@ -158,7 +158,7 @@ Helpers.prototype.getAttributeValues = function getAttributeValues(attributeName
 			'thingie': {
 				'terms': {
 					'field': attributeName,
-					'size':  2147483647
+					'size': 2147483647
 				}
 			}
 		},
@@ -459,7 +459,7 @@ Helpers.prototype.updateByQuery = function updateByQuery(queryBody, updates, cb)
 				if (scrollId !== null) {
 					reqOptions.url = that.esUrl + '/_search/scroll';
 					reqOptions.body = {
-						'scroll':    '60m',
+						'scroll': '60m',
 						'scroll_id': scrollId
 					};
 				}
@@ -503,8 +503,8 @@ Helpers.prototype.updateByQuery = function updateByQuery(queryBody, updates, cb)
 
 					tasks.push(function (cb) {
 						const product = new Product({
-							'uuid':       uuid,
-							'log':        that.log,
+							'uuid': uuid,
+							'log': that.log,
 							'productLib': that.productLib
 						});
 

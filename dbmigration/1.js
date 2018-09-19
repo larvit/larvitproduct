@@ -7,7 +7,7 @@ exports = module.exports = function (cb) {
 	const log = this.log;
 	const reqObj = {};
 
-	reqObj.url	= this.options.url + '/' + this.options.indexName + '/_settings';
+	reqObj.url	= this.options.url + '/' + this.options.productIndexName + '/_settings';
 	reqObj.method	= 'PUT';
 	reqObj.json	= {'index.mapping.total_fields.limit': 2000};
 

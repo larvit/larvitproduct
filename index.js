@@ -32,12 +32,12 @@ function ProductLib(options, cb) {
 
 	tasks.push(function (cb) {
 		that.dataWriter = new DataWriter({
-			'log':           that.log,
-			'mode':          that.mode,
-			'intercom':      that.intercom,
-			'esIndexName':   that.esIndexName,
+			'log': that.log,
+			'mode': that.mode,
+			'intercom': that.intercom,
+			'esIndexName': that.esIndexName,
 			'elasticsearch': that.elasticsearch,
-			'amsync':        that.amsync
+			'amsync': that.amsync
 		}, cb);
 	});
 

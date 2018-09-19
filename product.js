@@ -59,8 +59,8 @@ Product.prototype.loadFromDb = function (cb) {
 	tasks.push(function (cb) {
 		that.es.get({
 			'index': that.dataWriter.esIndexName,
-			'type':	 'product',
-			'id':    that.uuid
+			'type': 'product',
+			'id': that.uuid
 		}, function (err, result) {
 			if (err && err.status === 404) {
 				that.log.debug(logPrefix + 'No product found in database');
