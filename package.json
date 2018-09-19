@@ -33,7 +33,7 @@
     "iconv-lite": "^0.4.15",
     "larvitamintercom": "0.2.14",
     "larvitamsync": "^0.7.2",
-    "larvitdbmigration": "2.0.6",
+    "larvitdbmigration": "4.0.2",
     "larvitfs": "^2.0.4",
     "larvitutils": "^1.0.4",
     "left-pad": "^1.1.3",
