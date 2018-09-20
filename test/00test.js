@@ -4,11 +4,12 @@
 const elasticsearch	= require('elasticsearch');
 const uuidValidate = require('uuid-validate');
 const Intercom	= require('larvitamintercom');
+const LUtils = require('larvitutils');
+const log	= new (new LUtils()).Log();
 const {ProductLib, Product} = require(__dirname + '/../index.js');
 const request	= require('request');
 const assert	= require('assert');
 const async	= require('async');
-const log	= require('winston');
 const fs	= require('fs');
 const os	= require('os');
 
@@ -17,15 +18,6 @@ const testIndexName = 'something';
 let esUrl;
 let prodLib;
 let es;
-
-// Set up winston
-log.remove(log.transports.Console);
-log.add(log.transports.Console, {
-	'level': 'warn',
-	'colorize': true,
-	'timestamp': true,
-	'json': false
-});
 
 before(function (done) {
 	const tasks	= [];
