@@ -24,80 +24,44 @@ npm i --save larvitproduct
 ```
 
 ## Usage
+### Create new instance of the lib
+``` javascript
+const {ProductLib} = require('larvitproduct');
+
+const libOptions = {};
+
+libOptions.log = log; // logging instance (see Log in larvitutils library)
+libOptions.esIndexName  = 'anEsIndexName';
+libOptions.mode = 'noSync'; // see larvitamsync library
+libOptions.intercom = new Intercom('loopback interface');
+libOptions.amsync = {};
+libOptions.amsync.host  = null;
+libOptions.amsync.minPort = null;
+libOptions.amsync.maxPort = null;
+libOptions.elasticsearch = es; // instance of elasticsearch.Client
+
+const prodLib = new ProductLib(libOptions, function (err) {
+	if (err) throw err;
+	// ProductLib instance created!
+});
+```
 
 ### Add a new product
-
 ```javascript
-const	elasticsearch	= require('elasticsearch'),
-	productLib	= require('larvitproduct'),
-	product	= new productLib.Product();
+const {ProductLib, Product} = require('larvitproduct');
 
-productLib.dataWriter.elasticsearch	= new elasticsearch.Client({'host': '127.0.0.1:9200'});
-productLib.dataWriter.esIndexName	= 'theIndexToUse';
+// Create productLib instance of ProductLib
 
-product.attributes = {'name': 'Conductor', 'price': 200, 'available color': ['blue', 'green']};
+const product = new Product({'productLib': productLib, 'log': optionalLoggingInstance});
+// Or, use the factory function in ProductLib:
+const otherProduct = productLib.createProduct(); // will initiate with log instance from productLib
 
-product.save(function (err) {
-	if (err) throw err;
-});
-```
+product.attributes = {
+	'name': 'Test product #69',
+	'price': 99,
+	'weight': 14,
+	'color': ['blue', 'green']
+};
 
-### Get products
-
-```javascript
-const	elasticsearch	= require('elasticsearch'),
-	productLib	= require('larvitproduct'),
-	products	= new productLib.Products();
-
-productLib.dataWriter.elasticsearch	= new elasticsearch.Client({'host': '127.0.0.1:9200'});
-productLib.dataWriter.esIndexName	= 'theIndexToUse';
-
-products.get(function (err, productList) {
-	// productList being an object with productUuid as key
-});
-```
-
-### Highjack datawriter to fill up database before getting data from the queue
-
-__THIS MIGHT BE BROKEN__
-
-
-```javascript
-const	EventEmitter	= require('events').EventEmitter,
-	eventEmitter	= new EventEmitter(),
-	productLib	= require('larvitproduct'),
-	oldReady	= productLib.dataWriter.ready,
-	async	= require('async'); // npm i --save async
-
-let	readyInProgress	= false,
-	isReady	= false;
-
-productLib.dataWriter.ready = function (cb) {
-	const	tasks	= [];
-
-	if (isReady === true) { cb(); return; }
-
-	if (readyInProgress === true) {
-		eventEmitter.on('ready', cb);
-		return;
-	}
-
-	readyInProgress = true;
-
-	// Do async stuff here that have to happend before the first message
-	// from the queue is written to the database
-	tasks.push(function (cb) {
-		// do stuff
-		cb();
-	});
-
-	// Run the original ready function
-	tasks.push(oldReady);
-
-	async.series(tasks, function () {
-		isReady	= true;
-		eventEmitter.emit('ready');
-		cb();
-	});
-}
+product.save(cb);
 ```
