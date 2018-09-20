@@ -40,7 +40,7 @@ libOptions.amsync.minPort = null;
 libOptions.amsync.maxPort = null;
 libOptions.elasticsearch = es; // instance of elasticsearch.Client
 
-const prodLib = new ProductLib(libOptions, function (err) {
+const productLib = new ProductLib(libOptions, function (err) {
 	if (err) throw err;
 	// ProductLib instance created!
 });
@@ -63,5 +63,8 @@ product.attributes = {
 	'color': ['blue', 'green']
 };
 
-product.save(cb);
+product.save(function (err) {
+	if (err) throw err;
+	// Product saved!
+});
 ```
