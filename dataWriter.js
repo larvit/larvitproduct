@@ -171,13 +171,13 @@ DataWriter.prototype.listenToQueue = function listenToQueue(retries, cb) {
 					if (err) {
 						that.log.error(logPrefix + 'intercom.' + listenMethod + '() - ready() returned err: ' + err.message);
 
-						return cb(err);
+						return;
 					}
 
 					if (typeof message !== 'object') {
 						that.log.error(logPrefix + 'intercom.' + listenMethod + '() - Invalid message received, is not an object! deliveryTag: "' + deliveryTag + '"');
 
-						return cb(err);
+						return;
 					}
 
 					if (typeof that[message.action] === 'function') {
