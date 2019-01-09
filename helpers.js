@@ -366,7 +366,7 @@ function updateByQuery(queryBody, updates, cb) {
 				reqOptions.json	= true;
 				reqOptions.body	= queryBody;
 				reqOptions.body.size	= 1000;
-				//reqOptions.body.stored_fields	= []; // Only get ID
+				reqOptions.body._source = false; // Only get ID
 
 				if (scrollId !== null) {
 					reqOptions.url = esUrl + '/_search/scroll';
@@ -430,7 +430,7 @@ function updateByQuery(queryBody, updates, cb) {
 					});
 				}
 
-				async.parallelLimit(tasks, 100, cb);
+				async.parallelLimit(tasks, 25, cb);
 			});
 
 			async.series(tasks, cb);
