@@ -8,7 +8,7 @@ const async = require('async');
 const fs = require('fs');
 
 /**
- * 
+ *
  * @param   {obj}  options - {log, productLib}
  * @param   {func} cb      - callback
  * @returns {*}            - on error, returns cb(err)
@@ -34,6 +34,28 @@ function Importer(options, cb) {
 	that.es = that.dataWriter.elasticsearch;
 
 	cb();
+}
+
+/**
+ *
+ * @param {obj} product - product {uuid, attributes}
+ */
+function fixProductAttributes(product) {
+	for (const attributeName of Object.keys(product.attributes)) {
+		if (product.attributes[attributeName] === undefined) {
+			delete product.attributes[attributeName];
+		}
+
+		if (! Array.isArray(product.attributes[attributeName])) {
+			product.attributes[attributeName] = [product.attributes[attributeName]];
+		}
+
+		for (let i = 0; i < product.attributes[attributeName].length; ++ i) {
+			if (typeof product.attributes[attributeName][i] === 'string') {
+				product.attributes[attributeName][i] = product.attributes[attributeName][i].trim();
+			}
+		}
+	}
 }
 
 /**
@@ -388,7 +410,7 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 					}
 				});
 
-				// Assign product attributes and save
+				// Assign product attributes fix them
 				tasks.push(function (cb) {
 					if (options.updateByCols) {
 						if (! product.attributes) {
@@ -411,22 +433,28 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 						product.attributes	= attributes;
 					}
 
-					// Trim all attributes
-					for (const attributeName of Object.keys(product.attributes)) {
-						if (Array.isArray(product.attributes[attributeName])) {
-							for (let i = 0; product.attributes[attributeName][i] !== undefined; i ++) {
-								if (typeof product.attributes[attributeName][i] === 'string') {
-									product.attributes[attributeName][i]	= product.attributes[attributeName][i].trim();
-								}
-							}
-						} else if (typeof product.attributes[attributeName] === 'string') {
-							product.attributes[attributeName]	= product.attributes[attributeName].trim();
-						}
+					fixProductAttributes(product);
 
-						if (product[attributeName] === undefined) {
-							delete product[attributeName];
-						}
-					}
+					cb();
+				});
+
+				// Call afterEachCsvRow hook, this must be done before save!!!
+				if (typeof options.hooks.afterEachCsvRow === 'function') {
+					tasks.push(function (cb) {
+						options.hooks.afterEachCsvRow({
+							'currentRowNr':	currentRowNr,
+							'colHeads':	colHeads,
+							'product':	product,
+							'csvRow':	csvRow,
+							'fullRow':	fullRow,
+							'csvStream':	csvStream
+						}, cb);
+					});
+				}
+
+				// Save (have to fix attributes again since afterEachCsvRow hook could have modified them)
+				tasks.push(function (cb) {
+					fixProductAttributes(product);
 
 					product.save(function (err) {
 						if (err) {
@@ -443,19 +471,6 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 						cb(err);
 					});
 				});
-
-				if (typeof options.hooks.afterEachCsvRow === 'function') {
-					tasks.push(function (cb) {
-						options.hooks.afterEachCsvRow({
-							'currentRowNr':	currentRowNr,
-							'colHeads': colHeads,
-							'product': product,
-							'csvRow': csvRow,
-							'fullRow': fullRow,
-							'csvStream': csvStream
-						}, cb);
-					});
-				}
 
 				async.series(tasks, function (err) {
 					if (! err) {
