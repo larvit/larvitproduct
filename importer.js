@@ -126,9 +126,9 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 		const colHeads = [];
 		const tasks = [];
 
-		let	currentRowNr,
-			endOfStream = false,
-			processingRows = false;
+		let	currentRowNr;
+		let endOfStream = false;
+		let processingRows = false;
 
 		if (options === undefined) {
 			options	= {};
