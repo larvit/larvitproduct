@@ -126,7 +126,9 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 		const colHeads = [];
 		const tasks = [];
 
-		let	currentRowNr;
+		let	currentRowNr,
+			endOfStream = false,
+			processingRows = false;
 
 		if (options === undefined) {
 			options	= {};
@@ -483,18 +485,28 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 
 			if (tasks.length >= 100) {
 				csvStream.pause();
+				processingRows = true;
 				async.parallel(tasks, function () {
 					tasks.length = 0;
+					processingRows = false;
 					csvStream.resume();
+
+					if (endOfStream) {
+						cb(null, alteredProductUuids, errors);
+					}
 				});
 			}
 		});
 
 		csvStream.on('end', function () {
-			// Run possible remaining tasks
-			async.parallel(tasks, function () {
-				cb(null, alteredProductUuids, errors);
-			});
+			endOfStream = true;
+
+			// Run possible remaining tasks if they are not already running
+			if (! processingRows) {
+				async.parallel(tasks, function () {
+					cb(null, alteredProductUuids, errors);
+				});
+			}
 		});
 
 		csvStream.on('error', function (err) {
