@@ -76,6 +76,7 @@ function fixProductAttributes(product) {
  *		'removeColValsContaining':	['N/A', ''],	// Will remove the column value if it exactly matches one or more options in the array
  *		'removeValWhereEmpty': boolean, // Removes the value on the product if the column value is empty (an empty string or undefined)
  *		'hooks':	{'afterEachCsvRow': func}
+ *		'newPoductCreated':	string // When (and if) a new product is created, that products propery 'created' will be set to this value
  *	}
  * @param {func} cb callback(err, [productUuid1, productUuid2]) the second array is a list of all added/altered products
  */
@@ -377,7 +378,9 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 								return cb(err);
 							} else if (result.hits.total === 0) {
 								product	= new Product({'productLib': that.productLib});
-
+								if (options.newPoductCreated) {
+									product.created = options.newPoductCreated;
+								}
 								return cb();
 							}
 
