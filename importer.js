@@ -381,6 +381,7 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 								if (options.created) {
 									product.created = options.created;
 								}
+
 								return cb();
 							}
 
