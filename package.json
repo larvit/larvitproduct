@@ -40,7 +40,7 @@
     "lodash": "^4.17.2",
     "request": "^2.81.0",
     "requestretry": "^3.0.0",
-    "strip-bom": "^3.0.0",
+    "strip-bom": "^4.0.0",
     "uuid": "^3.0.1"
   }
 }
