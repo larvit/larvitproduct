@@ -72,6 +72,7 @@ function fixProductAttributes(product) {
  *		'replaceByCols':	['col1', 'col2'],	// With erase all previous product data where BOTH these attributes/columns matches
  *		'staticColHeads':	{'4': 'foo', '7': 'bar'},	// Manually set the column names for 4 to "foo" and 7 to "bar". Counting starts at 0
  *		'staticCols':	{'colName': colValues, 'colName2': colValues ...},	// Will extend the columns with this
+ *		'defaultAttributes'	{'colName': colValues, 'colName2': colValues ...},	// Default attributes for new products
  *		'updateByCols':	['col1', 'col2'],	// With update product data where BOTH these attributes/columns matches
  *		'removeColValsContaining':	['N/A', ''],	// Will remove the column value if it exactly matches one or more options in the array
  *		'removeValWhereEmpty': boolean, // Removes the value on the product if the column value is empty (an empty string or undefined)
@@ -378,8 +379,18 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 								return cb(err);
 							} else if (result.hits.total === 0) {
 								product	= new Product({'productLib': that.productLib});
+								product.attributes = {};
+
 								if (options.created) {
 									product.created = options.created;
+								}
+
+								if (options.defaultAttributes) {
+									for (const colName of Object.keys(options.defaultAttributes)) {
+										if (options.defaultAttributes[colName] !== undefined) {
+											product.attributes[colName]	= options.defaultAttributes[colName];
+										}
+									}
 								}
 
 								return cb();
