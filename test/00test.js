@@ -902,6 +902,154 @@ describe('Import', function () {
 		async.series(tasks, done);
 	});
 
+	it('Create a product, and then update the same product using the import function fromFile. Check that visible is not changed on existing products, but set to the entered value in defaultAttributes when creating new ones', function (done) {
+		const productStr = 'name,artNo,size,enabled\nballa,abc123,3,true\nballb,abc124,14,false\nballc,abc125,2,true\nballd,abc126,2,true';
+		const options = {'defaultAttributes': { 'visible': 'true'}, 'updateByCols': 'name' };
+		const tasks = [];
+
+		let productUuid;
+		let	uuids;
+
+		// Remove all previous products
+		tasks.push(function (cb) {
+			deleteAllProducts(cb);
+		});
+
+		// Import
+		tasks.push(function (cb) {
+			importFromStr(productStr, options, function (err, result) {
+				if (err) throw err;
+
+				uuids	= result;
+
+				assert.strictEqual(uuids.length,	4);
+				cb();
+			});
+		});
+
+		// Get and check product data
+		tasks.push(function (cb) {
+			getProductData(uuids, function (err, testProducts) {
+				if (err) throw err;
+
+				assert.strictEqual(testProducts.length,	4);
+
+				for (let i = 0; testProducts[i] !== undefined; i ++) {
+					const	product	= testProducts[i];
+
+					assert.strictEqual(Object.keys(product._source).length,	6);
+
+					if (product._source.name[0] === 'balla') {
+						productUuid = product._id;
+						assert.strictEqual(product._source.artNo[0],	'abc123');
+						assert.strictEqual(product._source.size[0],	'3');
+						assert.strictEqual(product._source.enabled[0],	'true');
+						assert.strictEqual(product._source.visible[0],	'true');
+					} else if (product._source.name[0] === 'ballb') {
+						assert.strictEqual(product._source.artNo[0],	'abc124');
+						assert.strictEqual(product._source.size[0],	'14');
+						assert.strictEqual(product._source.enabled[0],	'false');
+						assert.strictEqual(product._source.visible[0],	'true');
+					} else if (product._source.name[0] === 'ballc') {
+						assert.strictEqual(product._source.artNo[0],	'abc125');
+						assert.strictEqual(product._source.size[0],	'2');
+						assert.strictEqual(product._source.enabled[0],	'true');
+						assert.strictEqual(product._source.visible[0],	'true');
+					} else if (product._source.name[0] === 'balld') {
+						assert.strictEqual(product._source.artNo[0],	'abc126');
+						assert.strictEqual(product._source.size[0],	'2');
+						assert.strictEqual(product._source.enabled[0],	'true');
+						assert.strictEqual(product._source.visible[0],	'true');
+					} else {
+						throw new Error('Unexpected product: ' + JSON.stringify(product));
+					}
+				}
+
+				cb();
+			});
+		});
+
+		// Change attribute visible on one of the products
+		tasks.push(function (cb) {
+			const	product	= prodLib.createProduct(productUuid);
+
+			product.loadFromDb(function (err) {
+				if (err) throw err;
+
+				product.attributes.visible = ['false'];
+
+				product.save(function (err) {
+					if (err) throw err;
+
+					cb();
+				});
+			});
+		});
+
+		// Import the same products again
+		tasks.push(function (cb) {
+			importFromStr(productStr, options, function (err, result) {
+				if (err) throw err;
+
+				uuids	= result;
+
+				assert.strictEqual(uuids.length,	4);
+				cb();
+			});
+		});
+
+		// Get and check product data, product 'balla' should still have visible false.
+		tasks.push(function (cb) {
+			getProductData(uuids, function (err, testProducts) {
+				if (err) throw err;
+
+				assert.strictEqual(testProducts.length,	4);
+
+				for (let i = 0; testProducts[i] !== undefined; i ++) {
+					const	product	= testProducts[i];
+
+					assert.strictEqual(Object.keys(product._source).length,	6);
+
+					if (product._source.name[0] === 'balla') {
+						assert.strictEqual(product._source.artNo[0],	'abc123');
+						assert.strictEqual(product._source.size[0],	'3');
+						assert.strictEqual(product._source.enabled[0],	'true');
+						assert.strictEqual(product._source.visible[0],	'false');
+					} else if (product._source.name[0] === 'ballb') {
+						assert.strictEqual(product._source.artNo[0],	'abc124');
+						assert.strictEqual(product._source.size[0],	'14');
+						assert.strictEqual(product._source.enabled[0],	'false');
+						assert.strictEqual(product._source.visible[0],	'true');
+					} else if (product._source.name[0] === 'ballc') {
+						assert.strictEqual(product._source.artNo[0],	'abc125');
+						assert.strictEqual(product._source.size[0],	'2');
+						assert.strictEqual(product._source.enabled[0],	'true');
+						assert.strictEqual(product._source.visible[0],	'true');
+					} else if (product._source.name[0] === 'balld') {
+						assert.strictEqual(product._source.artNo[0],	'abc126');
+						assert.strictEqual(product._source.size[0],	'2');
+						assert.strictEqual(product._source.enabled[0],	'true');
+						assert.strictEqual(product._source.visible[0],	'true');
+					} else {
+						throw new Error('Unexpected product: ' + JSON.stringify(product));
+					}
+				}
+
+				cb();
+			});
+		});
+
+		// Count products
+		tasks.push(function (cb) {
+			countProducts(function (err, count) {
+				assert.strictEqual(count,	4);
+				cb(err);
+			});
+		});
+
+		async.series(tasks, done);
+	});
+
 	it('Replace by one column', function (done) {
 		const initProductStr = 'name,artNo,size,description\n' +
 				'house,abc01,20,huge\n' +
