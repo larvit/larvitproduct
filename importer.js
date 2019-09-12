@@ -322,8 +322,6 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 
 							if (mapping && mapping[col] && mapping[col].type === 'keyword') {
 								term.term[col]	= String(attributes[col]).trim();
-							} else if (mapping && mapping[col]) {
-								term.term[col]	= String(attributes[col]).trim();
 							} else if (
 								mapping
 								&& mapping[col]
@@ -332,6 +330,8 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 								&& mapping[col].fields.keyword.type === 'keyword'
 							) {
 								term.term[col + '.keyword'] = String(attributes[col]).trim();
+							} else if (mapping && mapping[col]) {
+								term.term[col]	= String(attributes[col]).trim();
 							} else {
 								const err = new Error('No keyword found for column "' + col + '" so it can not be used to find products by');
 
