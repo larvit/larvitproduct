@@ -399,14 +399,14 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 							}
 
 							if (result.hits.total > 1) {
-								const err = new Error('found more than 1 hits (' + result.hits.total + ') for findByCols: ' + terms.map(t => '"' + Object.keys(t.term)[0] + '" : "' + t.term[Object.keys(t.term)[0]] + '"').join(', '));
+								const err = new Error('Ignoring product due to multiple existing hits (' + result.hits.total + ') for findByCols: ' + terms.map(t => '"' + Object.keys(t.term)[0] + '" : "' + t.term[Object.keys(t.term)[0]] + '"').join(', '));
 
-								that.log.info(logPrefix + 'Ignoring product due to multiple target replacements/updatthat.es. ' + err.message);
+								that.log.info(logPrefix + err.message);
 
 								errors.push({
 									'type': 'save error',
 									'time': new Date(),
-									'message': 'Ignoring product due to multiple target replacements/updatthat.es. ' + err.message
+									'message': err.message
 								});
 
 								return cb(err);
