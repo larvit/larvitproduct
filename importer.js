@@ -322,6 +322,8 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 
 							if (mapping && mapping[col] && mapping[col].type === 'keyword') {
 								term.term[col]	= String(attributes[col]).trim();
+							} else if (mapping && mapping[col]) {
+								term.term[col]	= String(attributes[col]).trim();
 							} else if (
 								mapping
 								&& mapping[col]
@@ -397,9 +399,15 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 							}
 
 							if (result.hits.total > 1) {
-								const err = new Error('found more than 1 hits (' + result.hits.total + ') for findByCols: "' + JSON.stringify(options.findByCols) + '"');
+								const err = new Error('found more than 1 hits (' + result.hits.total + ') for findByCols: ' + terms.map(t => '"' + Object.keys(t.term)[0] + '" : "' + t.term[Object.keys(t.term)[0]] + '"').join(', '));
 
 								that.log.info(logPrefix + 'Ignoring product due to multiple target replacements/updatthat.es. ' + err.message);
+
+								errors.push({
+									'type': 'save error',
+									'time': new Date(),
+									'message': 'Ignoring product due to multiple target replacements/updatthat.es. ' + err.message
+								});
 
 								return cb(err);
 							}
@@ -408,6 +416,12 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 								const err = new Error('Invalid response from Elasticsearch. Full response: ' + JSON.stringify(result));
 
 								that.log.warn(logPrefix + err.message);
+
+								errors.push({
+									'type': 'save error',
+									'time': new Date(),
+									'message': err.message
+								});
 
 								return cb(err);
 							}
