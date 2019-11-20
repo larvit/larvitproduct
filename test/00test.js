@@ -690,6 +690,7 @@ describe('Import', function () {
 		const tasks = [];
 
 		let	uuids	= [];
+		let resultErrors = [];
 
 		// First create our test file
 		tasks.push(function (cb) {
@@ -698,10 +699,12 @@ describe('Import', function () {
 
 		// Import file
 		tasks.push(function (cb) {
-			prodLib.importer.fromFile(tmpFile, options, function (err, result) {
+			prodLib.importer.fromFile(tmpFile, options, function (err, result, errors) {
 				uuids	= result;
 
 				if (err) throw err;
+
+				resultErrors = errors;
 
 				cb();
 			});
@@ -718,7 +721,7 @@ describe('Import', function () {
 		});
 
 		async.series(tasks, function (err) {
-			cb(err, uuids);
+			cb(err, uuids, resultErrors);
 		});
 	}
 
@@ -1574,6 +1577,104 @@ describe('Import', function () {
 		tasks.push(function (cb) {
 			countProducts(function (err, count) {
 				assert.strictEqual(count,	4);
+				cb(err);
+			});
+		});
+
+		async.series(tasks, done);
+	});
+
+	it('Create two products, then try to update the products with fields passed in the option: forbiddenUpdateFieldsMultipleHits. Try different combinations to confirm that the wildcards work', function (done) {
+		const tasks = [];
+		const supplierArtNo = '123456789';
+
+		// Remove all previous products
+		tasks.push(function (cb) {
+			deleteAllProducts(cb);
+		});
+
+		tasks.push(function importProduct(cb) {
+			const importStr = `supplierArtNo,name,supplierNBSPrice_SEK,size,sizeType\n${supplierArtNo},First product name,123,7000,Burkar\n${supplierArtNo},Third product name,123,10000,Burkar`;
+
+			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['artno', 'size', 'sizetype', 'sizestr', 'suppliernbsdiscount', 'supplierlistprice_*', 'suppliernbsprice_*', 'manualprice_*'] };
+
+			importFromStr(importStr, importOptions, function (err, result) {
+				if (err) throw err;
+
+				assert.strictEqual(result.length, 2);
+				cb();
+			});
+		});
+
+		// Fail on size (equals): size
+		tasks.push(function importProduct(cb) {
+			const importStr = `supplierArtNo,name,supplierNBSPrice_SEK,size,sizeType\n${supplierArtNo},First product name,123,7000,Burkar\n${supplierArtNo},Third product name,123,10000,Burkar`;
+
+			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['size'], 'updateByCols': ['supplierArtNo'] };
+
+			importFromStr(importStr, importOptions, function (err, result, errors) {
+				if (err) throw err;
+
+				assert.strictEqual(errors.filter(x => x.message === 'Update not possible; multiple products found and "size" is one of the attriblutes').length, 2);
+
+				assert.strictEqual(errors.length, 2);
+				assert.strictEqual(result.length, 0);
+				cb();
+			});
+		});
+
+		// Fail on suppliernbsprice_* (startsWith): supplierNBSPrice_SEK
+		tasks.push(function importProduct(cb) {
+			const importStr = `supplierArtNo,name,supplierNBSPrice_SEK,size,sizeType\n${supplierArtNo},First product name,123,7000,Burkar\n${supplierArtNo},Third product name,123,10000,Burkar`;
+
+			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['artno', 'suppliernbsprice_*'], 'updateByCols': ['supplierArtNo'] };
+
+			importFromStr(importStr, importOptions, function (err, result, errors) {
+				if (err) throw err;
+
+				assert.strictEqual(errors.filter(x => x.message === 'Update not possible; multiple products found and "supplierNBSPrice_SEK" is one of the attriblutes').length, 2);
+				assert.strictEqual(errors.length, 2);
+				assert.strictEqual(result.length, 0);
+				cb();
+			});
+		});
+
+		// Fail on *Type (endsWith): sizeType
+		tasks.push(function importProduct(cb) {
+			const importStr = `supplierArtNo,name,supplierNBSPrice_SEK,size,sizeType\n${supplierArtNo},First product name,123,7000,Burkar\n${supplierArtNo},Third product name,123,10000,Burkar`;
+
+			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['artno', '*Type'], 'updateByCols': ['supplierArtNo'] };
+
+			importFromStr(importStr, importOptions, function (err, result, errors) {
+				if (err) throw err;
+
+				assert.strictEqual(errors.filter(x => x.message === 'Update not possible; multiple products found and "sizeType" is one of the attriblutes').length, 2);
+				assert.strictEqual(errors.length, 2);
+				assert.strictEqual(result.length, 0);
+				cb();
+			});
+		});
+
+		// Fail on *NBSPrice* (contains): supplierNBSPrice_SEK
+		tasks.push(function importProduct(cb) {
+			const importStr = `supplierArtNo,name,supplierNBSPrice_SEK,size,sizeType\n${supplierArtNo},First product name,123,7000,Burkar\n${supplierArtNo},Third product name,123,10000,Burkar`;
+
+			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['artno', '*NBSPrice*'], 'updateByCols': ['supplierArtNo'] };
+
+			importFromStr(importStr, importOptions, function (err, result, errors) {
+				if (err) throw err;
+
+				assert.strictEqual(errors.filter(x => x.message === 'Update not possible; multiple products found and "supplierNBSPrice_SEK" is one of the attriblutes').length, 2);
+				assert.strictEqual(errors.length, 2);
+				assert.strictEqual(result.length, 0);
+				cb();
+			});
+		});
+
+		// Count products
+		tasks.push(function (cb) {
+			countProducts(function (err, count) {
+				assert.strictEqual(count, 2);
 				cb(err);
 			});
 		});

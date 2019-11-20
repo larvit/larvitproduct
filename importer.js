@@ -78,6 +78,7 @@ function fixProductAttributes(product) {
  *		'removeValWhereEmpty': boolean, // Removes the value on the product if the column value is empty (an empty string or undefined)
  *		'hooks':	{'afterEachCsvRow': func}
  *		'created':	string // When (and if) a new product is created, that products propery 'created' will be set to this value
+ *		'forbiddenUpdateFieldsMultipleHits':	Array containing fields not allowed to be present in attributes if multiple products are to be updated (* is used as a wildcard)
  *	}
  * @param {func} cb callback(err, [productUuid1, productUuid2]) the second array is a list of all added/altered products
  */
@@ -184,7 +185,7 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 				const attributes = {};
 				const tasks = [];
 
-				let	product;
+				let	products = [];
 
 				if (currentRowNr === undefined) {
 					currentRowNr	= 0;
@@ -373,6 +374,20 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 								return cb(err);
 							}
 
+							if (! result || ! result.hits) {
+								const err = new Error('Invalid response from Elasticsearch. Full response: ' + JSON.stringify(result));
+
+								that.log.warn(logPrefix + err.message);
+
+								errors.push({
+									'type': 'save error',
+									'time': new Date(),
+									'message': err.message
+								});
+
+								return cb(err);
+							}
+
 							if (result.hits.total === 0 && options.noNew === true) {
 								const err = new Error('No matching product found and options.noNew === true');
 
@@ -380,7 +395,8 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 
 								return cb(err);
 							} else if (result.hits.total === 0) {
-								product	= new Product({'productLib': that.productLib});
+								let product = new Product({'productLib': that.productLib});
+
 								product.attributes = {};
 
 								if (options.created) {
@@ -395,42 +411,66 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 									}
 								}
 
+								products.push(product);
+
 								return cb();
 							}
 
-							if (result.hits.total > 1) {
-								const err = new Error('Ignoring product due to multiple existing hits (' + result.hits.total + ') for findByCols: ' + terms.map(t => '"' + Object.keys(t.term)[0] + '" : "' + t.term[Object.keys(t.term)[0]] + '"').join(', '));
+							if (result.hits.total > 1 && options.forbiddenUpdateFieldsMultipleHits) {
+								const forbiddenAttributes = options.forbiddenUpdateFieldsMultipleHits.filter(x => x.indexOf('*') === - 1);
+								const wildCardAttributes = options.forbiddenUpdateFieldsMultipleHits.filter(x => x.indexOf('*') !== - 1);
+								const wildCardContains = wildCardAttributes.filter(x => x.startsWith('*') && x.endsWith('*'));
+								const wildCartEndsWith = wildCardAttributes.filter(x => wildCardContains.indexOf(x) === - 1 && x.startsWith('*'));
+								const wildCardStartsWith = wildCardAttributes.filter(x => wildCardContains.indexOf(x) === - 1 && x.endsWith('*'));
 
-								that.log.info(logPrefix + err.message);
+								for (const attr of Object.keys(attributes)) {
+									let lowerAttr = attr.toLowerCase();
+									let forbiddenAttributeFound = (forbiddenAttributes.map(x => x.toLowerCase()).indexOf(lowerAttr) > - 1);
 
-								errors.push({
-									'type': 'save error',
-									'time': new Date(),
-									'message': err.message
-								});
+									forbiddenAttributeFound = forbiddenAttributeFound || wildCardStartsWith.map(x => x.replace(/\*/g, '')).some(x => lowerAttr.startsWith(x.toLowerCase()));
+									forbiddenAttributeFound = forbiddenAttributeFound || wildCartEndsWith.map(x => x.replace(/\*/g, '')).some(x => lowerAttr.endsWith(x.toLowerCase()));
+									forbiddenAttributeFound = forbiddenAttributeFound || wildCardContains.map(x => x.replace(/\*/g, '')).some(x => lowerAttr.indexOf(x.toLowerCase()) !== - 1);
 
-								return cb(err);
+									if (forbiddenAttributeFound) {
+										const err = new Error('Update not possible; multiple products found and "' + attr + '" is one of the attriblutes');
+
+										that.log.warn(logPrefix + err.message);
+
+										errors.push({
+											'type': 'save error',
+											'time': new Date(),
+											'message': err.message
+										});
+
+										return cb(err);
+									}
+								}
 							}
 
-							if (! result || ! result.hits || ! result.hits.hits || ! result.hits.hits[0]) {
-								const err = new Error('Invalid response from Elasticsearch. Full response: ' + JSON.stringify(result));
+							const subTasks = [];
 
-								that.log.warn(logPrefix + err.message);
+							for (const hit in result.hits.hits) {
+								let product = new Product({'productLib': that.productLib, 'uuid': result.hits.hits[hit]._id});
 
-								errors.push({
-									'type': 'save error',
-									'time': new Date(),
-									'message': err.message
+								products.push(product);
+
+								subTasks.push(function (cb) {
+									product.loadFromDb(function (err) {
+										if (err) {
+											log.warn(logPrefix + 'Import failed, failed to load product with uuid "' + hit._id + '": ' + err.message);
+
+											return cb(err);
+										}
+
+										cb();
+									});
 								});
-
-								return cb(err);
 							}
 
-							product	= new Product({'productLib': that.productLib, 'uuid': result.hits.hits[0]._id});
-							product.loadFromDb(cb);
+							async.series(subTasks, (err) => cb(err));
 						});
 					} else if (options.noNew !== true) {
-						product	= new Product({'productLib': that.productLib});
+						products.push(new Product({'productLib': that.productLib}));
 						cb();
 					} else {
 						const err = new Error('No product found to be updated or replaced and no new products should be created due to noNew !== true');
@@ -443,28 +483,30 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 
 				// Assign product attributes fix them
 				tasks.push(function (cb) {
-					if (options.updateByCols) {
-						if (! product.attributes) {
-							product.attributes	= {};
-						}
-
-						for (const colName of Object.keys(attributes)) {
-							if (options.removeValWhereEmpty) {
-								// This attribute will exist but will be set to undefined when the value is empty in the csv
-								if (attributes[colName] === '' || attributes[colName] === undefined) {
-									delete product.attributes[colName];
-								} else if (attributes[colName] !== undefined) {
-									product.attributes[colName]	= attributes[colName];
-								}
-							} else if (attributes[colName] !== undefined) {
-								product.attributes[colName]	= attributes[colName];
+					for (let i = 0; i < products.length; i ++) {
+						if (options.updateByCols) {
+							if (! products[i].attributes) {
+								products[i].attributes	= {};
 							}
-						}
-					} else {
-						product.attributes	= attributes;
-					}
 
-					fixProductAttributes(product);
+							for (const colName of Object.keys(attributes)) {
+								if (options.removeValWhereEmpty) {
+									// This attribute will exist but will be set to undefined when the value is empty in the csv
+									if (attributes[colName] === '' || attributes[colName] === undefined) {
+										delete products[i].attributes[colName];
+									} else if (attributes[colName] !== undefined) {
+										products[i].attributes[colName]	= attributes[colName];
+									}
+								} else if (attributes[colName] !== undefined) {
+									products[i].attributes[colName]	= attributes[colName];
+								}
+							}
+						} else {
+							products[i].attributes	= attributes;
+						}
+
+						fixProductAttributes(products[i]);
+					}
 
 					cb();
 				});
@@ -472,40 +514,56 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 				// Call afterEachCsvRow hook, this must be done before save!!!
 				if (typeof options.hooks.afterEachCsvRow === 'function') {
 					tasks.push(function (cb) {
-						options.hooks.afterEachCsvRow({
-							'currentRowNr':	currentRowNr,
-							'colHeads':	colHeads,
-							'product':	product,
-							'csvRow':	csvRow,
-							'fullRow':	fullRow,
-							'csvStream':	csvStream
-						}, cb);
+						const subTasks = [];
+
+						for (let i = 0; i < products.length; i ++) {
+							subTasks.push(function (cb) {
+								options.hooks.afterEachCsvRow({
+									'currentRowNr':	currentRowNr,
+									'colHeads':	colHeads,
+									'product':	products[i],
+									'csvRow':	csvRow,
+									'fullRow':	fullRow,
+									'csvStream':	csvStream
+								}, cb);
+							});
+						}
+
+						async.series(subTasks, (err) => cb(err));
 					});
 				}
 
 				// Save (have to fix attributes again since afterEachCsvRow hook could have modified them)
 				tasks.push(function (cb) {
-					fixProductAttributes(product);
+					const subTasks = [];
 
-					product.save(function (err) {
-						if (err) {
-							that.log.info(logPrefix + 'Could not save product: ' + err.message);
-							errors.push({
-								'type': 'save error',
-								'time': new Date(),
-								'message': err.message
+					for (let i = 0; i < products.length; i ++) {
+						subTasks.push(function (cb) {
+							fixProductAttributes(products[i]);
+
+							products[i].save(function (err) {
+								if (err) {
+									that.log.info(logPrefix + 'Could not save product: ' + err.message);
+									errors.push({
+										'type': 'save error',
+										'time': new Date(),
+										'message': err.message
+									});
+								} else {
+									alteredProductUuids.push(products[i].uuid);
+								}
+
+								cb(err);
 							});
-						} else {
-							alteredProductUuids.push(product.uuid);
-						}
+						});
+					}
 
-						cb(err);
-					});
+					async.series(subTasks, (err) => cb(err));
 				});
 
 				async.series(tasks, function (err) {
 					if (! err) {
-						that.log.verbose(logPrefix + 'Imported product uuid: ' + product.uuid);
+						that.log.verbose(logPrefix + 'Imported product(s) uuid: ' + products.map(x => x.uuid).join(', '));
 					}
 
 					cb(); // Never report back an error, since that will break the import of the other products
