@@ -907,7 +907,7 @@ describe('Import', function () {
 
 	it('Create a product, and then update the same product using the import function fromFile. Check that visible is not changed on existing products, but set to the entered value in defaultAttributes when creating new ones', function (done) {
 		const productStr = 'name,artNo,size,enabled\nballa,abc123,3,true\nballb,abc124,14,false\nballc,abc125,2,true\nballd,abc126,2,true';
-		const options = {'defaultAttributes': { 'visible': 'true'}, 'updateByCols': 'name' };
+		const options = {'defaultAttributes': { 'visible': 'true'}, 'findByCols': ['name'] };
 		const tasks = [];
 
 		let productUuid;
@@ -1086,7 +1086,7 @@ describe('Import', function () {
 
 		// Run replacement import
 		tasks.push(function (cb) {
-			importFromStr(replProductStr, {'replaceByCols': 'artNo'}, function (err, result) {
+			importFromStr(replProductStr, {'findByCols': ['artNo'], 'removeOldAttributes': true}, function (err, result) {
 				if (err) throw err;
 				uuids	= uuids.concat(result);
 				cb();
@@ -1151,7 +1151,7 @@ describe('Import', function () {
 	it('Replace by two columns', function (done) {
 		const productStr1 = 'supplier,artNo,name\nurkus ab,bb1,foo\nurkus ab,bb2,bar\nbleff ab,bb1,elk';
 		const productStr2 = 'supplier,artNo,name\nurkus ab,bb1,MUU\nblimp 18,bb2,tefflon\nbleff ab,bb1,bolk';
-		const options = {'replaceByCols': ['artNo', 'supplier']};
+		const options = {'findByCols': ['artNo', 'supplier']};
 		const tasks = [];
 
 		let	preNoProducts;
@@ -1246,7 +1246,7 @@ describe('Import', function () {
 	it('Update by two columns', function (done) {
 		const productStr1 = 'supplier,artNo,name,size\nslam ab,rd1,foo,100\nslam ab,rd2,bar,200\nbang ab,hhv4,elk,300';
 		const productStr2 = 'supplier,artNo,name\nslam ab,rd1,MUU\npaow,bb2,tefflon\nbang ab,hhv4,bolk';
-		const options = {'updateByCols': ['artNo', 'supplier']};
+		const options = {'findByCols': ['artNo', 'supplier']};
 		const tasks = [];
 
 		let	preNoProducts;
@@ -1482,7 +1482,7 @@ describe('Import', function () {
 							 'soffa,1200,n/a,\n' +
 							 'bord,20,,n/a';
 
-			importFromStr(prodStr2, {'removeValWhereEmpty': true, 'updateByCols': ['name'], 'removeColValsContaining': ['N/A', 'n/a']}, function (err, result) {
+			importFromStr(prodStr2, {'removeValWhereEmpty': true, 'findByCols': ['name'], 'removeColValsContaining': ['N/A', 'n/a']}, function (err, result) {
 				if (err) throw err;
 
 				uuids	= result;
@@ -1610,7 +1610,7 @@ describe('Import', function () {
 		tasks.push(function importProduct(cb) {
 			const importStr = `supplierArtNo,name,supplierNBSPrice_SEK,size,sizeType\n${supplierArtNo},First product name,123,7000,Burkar\n${supplierArtNo},Third product name,123,10000,Burkar`;
 
-			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['size'], 'updateByCols': ['supplierArtNo'] };
+			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['size'], 'findByCols': ['supplierArtNo'] };
 
 			importFromStr(importStr, importOptions, function (err, result, errors) {
 				if (err) throw err;
@@ -1627,7 +1627,7 @@ describe('Import', function () {
 		tasks.push(function importProduct(cb) {
 			const importStr = `supplierArtNo,name,supplierNBSPrice_SEK,size,sizeType\n${supplierArtNo},First product name,123,7000,Burkar\n${supplierArtNo},Third product name,123,10000,Burkar`;
 
-			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['artno', 'suppliernbsprice_*'], 'updateByCols': ['supplierArtNo'] };
+			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['artno', 'suppliernbsprice_*'], 'findByCols': ['supplierArtNo'] };
 
 			importFromStr(importStr, importOptions, function (err, result, errors) {
 				if (err) throw err;
@@ -1643,7 +1643,7 @@ describe('Import', function () {
 		tasks.push(function importProduct(cb) {
 			const importStr = `supplierArtNo,name,supplierNBSPrice_SEK,size,sizeType\n${supplierArtNo},First product name,123,7000,Burkar\n${supplierArtNo},Third product name,123,10000,Burkar`;
 
-			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['artno', '*Type'], 'updateByCols': ['supplierArtNo'] };
+			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['artno', '*Type'], 'findByCols': ['supplierArtNo'] };
 
 			importFromStr(importStr, importOptions, function (err, result, errors) {
 				if (err) throw err;
@@ -1659,7 +1659,7 @@ describe('Import', function () {
 		tasks.push(function importProduct(cb) {
 			const importStr = `supplierArtNo,name,supplierNBSPrice_SEK,size,sizeType\n${supplierArtNo},First product name,123,7000,Burkar\n${supplierArtNo},Third product name,123,10000,Burkar`;
 
-			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['artno', '*NBSPrice*'], 'updateByCols': ['supplierArtNo'] };
+			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['artno', '*NBSPrice*'], 'findByCols': ['supplierArtNo'] };
 
 			importFromStr(importStr, importOptions, function (err, result, errors) {
 				if (err) throw err;

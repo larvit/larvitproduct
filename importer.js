@@ -69,16 +69,17 @@ function fixProductAttributes(product) {
  *		'noNew':	boolean	// Option to create products that did not exist before
  *		'parserOptions':	obj	// Will be forwarded to fast-csv
  *		'renameCols':	{'oldName': 'newName'},	// Rename columns, using first row as names
- *		'replaceByCols':	['col1', 'col2'],	// With erase all previous product data where BOTH these attributes/columns matches
+ *		'findByCols':	['col1', 'col2'],	// columns used to find products
  *		'staticColHeads':	{'4': 'foo', '7': 'bar'},	// Manually set the column names for 4 to "foo" and 7 to "bar". Counting starts at 0
  *		'staticCols':	{'colName': colValues, 'colName2': colValues ...},	// Will extend the columns with this
  *		'defaultAttributes'	{'colName': colValues, 'colName2': colValues ...},	// Default attributes for new products
- *		'updateByCols':	['col1', 'col2'],	// With update product data where BOTH these attributes/columns matches
  *		'removeColValsContaining':	['N/A', ''],	// Will remove the column value if it exactly matches one or more options in the array
  *		'removeValWhereEmpty': boolean, // Removes the value on the product if the column value is empty (an empty string or undefined)
  *		'hooks':	{'afterEachCsvRow': func}
  *		'created':	string // When (and if) a new product is created, that products propery 'created' will be set to this value
  *		'forbiddenUpdateFieldsMultipleHits':	Array containing fields not allowed to be present in attributes if multiple products are to be updated (* is used as a wildcard)
+ *		'filterMatchedProducts':	func
+ *		'removeOldAttributes':	boolean, // Removes attributes that are not provided from a product
  *	}
  * @param {func} cb callback(err, [productUuid1, productUuid2]) the second array is a list of all added/altered products
  */
@@ -161,20 +162,6 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 
 		if (! Array.isArray(options.removeColValsContaining)) {
 			options.removeColValsContaining	= [options.removeColValsContaining];
-		}
-
-		if (options.replaceByCols) {
-			if (! Array.isArray(options.replaceByCols)) {
-				options.replaceByCols	= [options.replaceByCols];
-			}
-			options.findByCols	= options.replaceByCols;
-		}
-
-		if (options.updateByCols) {
-			if (! Array.isArray(options.updateByCols)) {
-				options.updateByCols	= [options.updateByCols];
-			}
-			options.findByCols	= options.updateByCols;
 		}
 
 		fileStream.pipe(csvStream);
@@ -289,6 +276,12 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 
 							that.log.verbose(logPrefix + err.message);
 
+							errors.push({
+								'type': 'save error',
+								'time': new Date(),
+								'message': err.message
+							});
+
 							return cb(err);
 						}
 					}
@@ -360,6 +353,8 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 								}
 							}
 						}, function (err, response, result) {
+							const subTasks = [];
+
 							if (err) {
 								that.log.warn(logPrefix + 'findByCols that.es.search err: ' + err.message);
 
@@ -388,67 +383,6 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 								return cb(err);
 							}
 
-							if (result.hits.total === 0 && options.noNew === true) {
-								const err = new Error('No matching product found and options.noNew === true');
-
-								that.log.verbose(logPrefix + err.message);
-
-								return cb(err);
-							} else if (result.hits.total === 0) {
-								let product = new Product({'productLib': that.productLib});
-
-								product.attributes = {};
-
-								if (options.created) {
-									product.created = options.created;
-								}
-
-								if (options.defaultAttributes) {
-									for (const colName of Object.keys(options.defaultAttributes)) {
-										if (options.defaultAttributes[colName] !== undefined) {
-											product.attributes[colName]	= options.defaultAttributes[colName];
-										}
-									}
-								}
-
-								products.push(product);
-
-								return cb();
-							}
-
-							if (result.hits.total > 1 && options.forbiddenUpdateFieldsMultipleHits) {
-								const forbiddenAttributes = options.forbiddenUpdateFieldsMultipleHits.filter(x => x.indexOf('*') === - 1);
-								const wildCardAttributes = options.forbiddenUpdateFieldsMultipleHits.filter(x => x.indexOf('*') !== - 1);
-								const wildCardContains = wildCardAttributes.filter(x => x.startsWith('*') && x.endsWith('*'));
-								const wildCartEndsWith = wildCardAttributes.filter(x => wildCardContains.indexOf(x) === - 1 && x.startsWith('*'));
-								const wildCardStartsWith = wildCardAttributes.filter(x => wildCardContains.indexOf(x) === - 1 && x.endsWith('*'));
-
-								for (const attr of Object.keys(attributes)) {
-									let lowerAttr = attr.toLowerCase();
-									let forbiddenAttributeFound = (forbiddenAttributes.map(x => x.toLowerCase()).indexOf(lowerAttr) > - 1);
-
-									forbiddenAttributeFound = forbiddenAttributeFound || wildCardStartsWith.map(x => x.replace(/\*/g, '')).some(x => lowerAttr.startsWith(x.toLowerCase()));
-									forbiddenAttributeFound = forbiddenAttributeFound || wildCartEndsWith.map(x => x.replace(/\*/g, '')).some(x => lowerAttr.endsWith(x.toLowerCase()));
-									forbiddenAttributeFound = forbiddenAttributeFound || wildCardContains.map(x => x.replace(/\*/g, '')).some(x => lowerAttr.indexOf(x.toLowerCase()) !== - 1);
-
-									if (forbiddenAttributeFound) {
-										const err = new Error('Update not possible; multiple products found and "' + attr + '" is one of the attriblutes');
-
-										that.log.warn(logPrefix + err.message);
-
-										errors.push({
-											'type': 'save error',
-											'time': new Date(),
-											'message': err.message
-										});
-
-										return cb(err);
-									}
-								}
-							}
-
-							const subTasks = [];
-
 							for (const hit in result.hits.hits) {
 								let product = new Product({'productLib': that.productLib, 'uuid': result.hits.hits[hit]._id});
 
@@ -461,7 +395,6 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 
 											return cb(err);
 										}
-
 										cb();
 									});
 								});
@@ -481,10 +414,85 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 					}
 				});
 
+				tasks.push(function (cb) {
+					if (typeof options.filterMatchedProducts === 'function') {
+						products = options.filterMatchedProducts({'products': products, 'findByCols': options.findByCols, 'attributes': attributes}, cb);
+					}
+
+					if (products.length === 0 && options.noNew === true) {
+						const err = new Error('No matching product found and options.noNew === true');
+						const attributeString = attributes && Object.keys(attributes).length ? Object.entries(attributes).map(x => x[0] + ': "' + x[1] + '"')
+							.join(', ') : undefined;
+
+						that.log.verbose(logPrefix + err.message);
+
+						errors.push({
+							'type': 'save error',
+							'time': new Date(),
+							'message': 'No products found to update - ' + (attributeString ? 'attributes: ' + attributeString + ' | ' : '') + 'action: "' + options.action + '" | findByCols: "' + options.findByCols.join('", "') + '"'
+						});
+
+						return cb(err);
+					} else if (products.length === 0) {
+						let product = new Product({'productLib': that.productLib});
+
+						product.attributes = {};
+
+						if (options.created) {
+							product.created = options.created;
+						}
+
+						if (options.defaultAttributes) {
+							for (const colName of Object.keys(options.defaultAttributes)) {
+								if (options.defaultAttributes[colName] !== undefined) {
+									product.attributes[colName]	= options.defaultAttributes[colName];
+								}
+							}
+						}
+
+						products.push(product);
+					}
+
+					if (products.length > 1 && options.forbiddenUpdateFieldsMultipleHits) {
+						const forbiddenAttributes = options.forbiddenUpdateFieldsMultipleHits.filter(x => x.indexOf('*') === - 1);
+						const wildCardAttributes = options.forbiddenUpdateFieldsMultipleHits.filter(x => x.indexOf('*') !== - 1);
+						const wildCardContains = wildCardAttributes.filter(x => x.startsWith('*') && x.endsWith('*'));
+						const wildCartEndsWith = wildCardAttributes.filter(x => wildCardContains.indexOf(x) === - 1 && x.startsWith('*'));
+						const wildCardStartsWith = wildCardAttributes.filter(x => wildCardContains.indexOf(x) === - 1 && x.endsWith('*'));
+
+						for (const attr of Object.keys(attributes)) {
+							let lowerAttr = attr.toLowerCase();
+							let forbiddenAttributeFound = (forbiddenAttributes.map(x => x.toLowerCase()).indexOf(lowerAttr) > - 1);
+
+							forbiddenAttributeFound = forbiddenAttributeFound || wildCardStartsWith.map(x => x.replace(/\*/g, '')).some(x => lowerAttr.startsWith(x.toLowerCase()));
+							forbiddenAttributeFound = forbiddenAttributeFound || wildCartEndsWith.map(x => x.replace(/\*/g, '')).some(x => lowerAttr.endsWith(x.toLowerCase()));
+							forbiddenAttributeFound = forbiddenAttributeFound || wildCardContains.map(x => x.replace(/\*/g, '')).some(x => lowerAttr.indexOf(x.toLowerCase()) !== - 1);
+
+							if (forbiddenAttributeFound) {
+								const err = new Error('Update not possible; multiple products found and "' + attr + '" is one of the attriblutes');
+
+								that.log.warn(logPrefix + err.message);
+
+								errors.push({
+									'type': 'save error',
+									'time': new Date(),
+									'message': err.message
+								});
+
+								return cb(err);
+							}
+						}
+					}
+
+					cb();
+				});
+
 				// Assign product attributes fix them
 				tasks.push(function (cb) {
 					for (let i = 0; i < products.length; i ++) {
-						if (options.updateByCols) {
+						if (options.removeOldAttributes) {
+							products[i].attributes	= attributes;
+						} else {
 							if (! products[i].attributes) {
 								products[i].attributes	= {};
 							}
@@ -501,8 +509,6 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 									products[i].attributes[colName]	= attributes[colName];
 								}
 							}
-						} else {
-							products[i].attributes	= attributes;
 						}
 
 						fixProductAttributes(products[i]);
