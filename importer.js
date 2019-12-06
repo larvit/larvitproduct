@@ -59,6 +59,51 @@ function fixProductAttributes(product) {
 }
 
 /**
+ *
+ * @param   {array} cols       - columns to loop through
+ * @param   {obj} attributes   - column values
+ * @param   {array} mapping    - mapping columns
+ * @returns {obj}              - {'err': Error(), 'missingAttributes': [], 'missingMapping': [], 'terms': [] }
+ *
+ */
+function colsToESTerms(cols, attributes, mapping) {
+	const returnObj = {'err': undefined, 'missingAttributes': [], 'missingMapping': [], 'terms': [] };
+
+	for (let i = 0; cols[i] !== undefined; i ++) {
+		const term = {'term': {}};
+		const col = cols[i];
+
+		if (! attributes[col]) {
+			returnObj.missingAttributes.push(col);
+
+			continue;
+		}
+
+		if (mapping && mapping[col] && mapping[col].type === 'keyword') {
+			term.term[col]	= String(attributes[col]).trim();
+		} else if (
+			mapping
+			&& mapping[col]
+			&& mapping[col].fields
+			&& mapping[col].fields.keyword
+			&& mapping[col].fields.keyword.type === 'keyword'
+		) {
+			term.term[col + '.keyword'] = String(attributes[col]).trim();
+		} else if (mapping && mapping[col]) {
+			term.term[col]	= String(attributes[col]).trim();
+		} else {
+			returnObj.missingMapping.push(col);
+
+			continue;
+		}
+
+		returnObj.terms.push(term);
+	}
+
+	return returnObj;
+}
+
+/**
  * Import from file
  *
  * @param {str} filePath path to file
@@ -78,8 +123,9 @@ function fixProductAttributes(product) {
  *		'hooks':	{'afterEachCsvRow': func}
  *		'created':	string // When (and if) a new product is created, that products propery 'created' will be set to this value
  *		'forbiddenUpdateFieldsMultipleHits':	Array containing fields not allowed to be present in attributes if multiple products are to be updated (* is used as a wildcard)
- *		'filterMatchedProducts':	func
+ *		'filterMatchedProducts':	func. return: {products: [], err: Error(), errors: ['error1', 'error2']}
  *		'removeOldAttributes':	boolean, // Removes attributes that are not provided from a product
+ *		'findByAdditionalCols': ['col1', 'col2'],	// additional columns used to find products. (findByCols OR findByAdditionalCols)
  *	}
  * @param {func} cb callback(err, [productUuid1, productUuid2]) the second array is a list of all added/altered products
  */
@@ -173,6 +219,7 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 				const tasks = [];
 
 				let	products = [];
+				let	additionalProductIds = [];
 
 				if (currentRowNr === undefined) {
 					currentRowNr	= 0;
@@ -300,74 +347,102 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 					}
 
 					if (options.findByCols) {
-						const	terms	= [];
+						const returnObj = colsToESTerms(options.findByCols, attributes, mapping);
+						let additionalReturnObj;
 
-						for (let i = 0; options.findByCols[i] !== undefined; i ++) {
-							const term = {'term': {}};
-							const col = options.findByCols[i];
+						if (returnObj.missingAttributes && returnObj.missingAttributes.length !== 0) {
+							const err = new Error('findByCols: "' + returnObj.missingAttributes.join(', ') + '" entered, but product does not have this col');
 
-							if (! attributes[col]) {
-								const err = new Error('findByCols: "' + col + '" is entered, but product does not have this col');
+							return cb(err);
+						} else if (returnObj.missingMapping && returnObj.missingMapping.length !== 0) {
+							const err = new Error('No mapping found for column(s) "' + returnObj.missingMapping.join(', ') + '" so it/they can not be used to find products by');
 
-								that.log.info(logPrefix + 'Ignoring product since replaceByCol "' + col + '" is missing on rowNr: ' + currentRowNr);
-
-								return cb(err);
-							}
-
-							if (mapping && mapping[col] && mapping[col].type === 'keyword') {
-								term.term[col]	= String(attributes[col]).trim();
-							} else if (
-								mapping
-								&& mapping[col]
-								&& mapping[col].fields
-								&& mapping[col].fields.keyword
-								&& mapping[col].fields.keyword.type === 'keyword'
-							) {
-								term.term[col + '.keyword'] = String(attributes[col]).trim();
-							} else if (mapping && mapping[col]) {
-								term.term[col]	= String(attributes[col]).trim();
-							} else {
-								const err = new Error('No keyword found for column "' + col + '" so it can not be used to find products by');
-
-								that.log.warn(logPrefix + err.message);
-
-								return cb(err);
-							}
-
-							terms.push(term);
+							return cb(err);
 						}
 
-						request({
-							'method': 'GET',
-							'url': 'http://' + that.es.transport._config.host + '/' + that.dataWriter.esIndexName + '/product/_search',
-							'json': true,
-							'body': {
-								'query': {
-									'constant_score': {
-										'filter': {
-											'bool': {
-												'must': terms
-											}
-										}
-									}
-								}
-							}
-						}, function (err, response, result) {
-							const subTasks = [];
+						if (returnObj && returnObj.err) {
+							that.log.verbose(logPrefix + returnObj.err.message);
 
-							if (err) {
-								that.log.warn(logPrefix + 'findByCols that.es.search err: ' + err.message);
+							return cb(returnObj.err);
+						}
+						if (! returnObj.terms) {
+							const err = new Error('No terms, can not search ES');
+
+							return cb(err);
+						}
+
+						if (options.findByAdditionalCols) {
+							additionalReturnObj = colsToESTerms(options.findByAdditionalCols, attributes, mapping);
+
+							if (additionalReturnObj.missingAttributes && additionalReturnObj.missingAttributes.length !== 0) {
+								const err = new Error('findByAdditionalCols: "' + additionalReturnObj.missingAttributes.join(', ') + '" entered, but product does not have this col');
 
 								return cb(err);
+							} else if (additionalReturnObj.missingMapping && additionalReturnObj.missingMapping.length !== 0) {
+								const err = new Error('No mapping found for column(s) "' + additionalReturnObj.missingMapping.join(', ') + '" so it/they can not be used to find products by');
+
+								return cb(err);
+							}
+
+							if (additionalReturnObj && additionalReturnObj.err) {
+								that.log.verbose(logPrefix + additionalReturnObj.err.message);
+
+								return cb(additionalReturnObj.err);
+							}
+						}
+
+						const esQueryObject = {
+							'method': 'POST',
+							'url': 'http://' + that.es.transport._config.host + '/' + that.dataWriter.esIndexName + '/product/_msearch'
+						};
+
+						esQueryObject.headers = {};
+						esQueryObject.headers['Content-Type'] = 'application/json';
+						esQueryObject.body = '{}\n{"query": {"constant_score": {"filter": {"bool": {"must": ' + JSON.stringify(returnObj.terms) + '}}}}}';
+
+						if (additionalReturnObj && additionalReturnObj.terms) {
+							esQueryObject.body += '\n{}\n{"query": {"constant_score": {"filter": {"bool": {"must": ' + JSON.stringify(additionalReturnObj.terms) + '}}}}}';
+						}
+
+						esQueryObject.body += '\n';
+						request(esQueryObject, function (err, response, resultStr) {
+							const subTasks = [];
+
+							let resultJson;
+							let result;
+							let additionalResult;
+
+							if (err) {
+								that.log.warn(logPrefix + 'es.search err: ' + err.message);
+
+								return cb(err);
+							}
+
+							try {
+								resultJson = JSON.parse(resultStr);
+							// eslint-disable-next-line no-unused-vars
+							} catch (err) {
+								resultJson = undefined;
 							}
 
 							if (response.statusCode !== 200) {
-								const err = new Error('ES returned non-200 status code: "' + response.statusCode + '", reason: "' + result.error ? result.error.reason : '' + '"');
+								const reason = (resultJson && resultJson.error && resultJson.error.reason) ? resultJson.error.reason : 'unknown reason';
+								const err = new Error('ES returned non-200 status code: "' + response.statusCode + '", reason: "' + reason + '"');
 
 								that.log.warn(logPrefix + err.message);
 
 								return cb(err);
 							}
+
+							if (! resultJson || ! resultJson.responses || ! resultJson.responses.length) {
+								err = new Error('Failed to parse ES result to json. result: ' + resultStr);
+								that.log.warn(logPrefix + 'es.search err: ' + err.message);
+
+								return cb(err);
+							}
+
+							result = resultJson.responses[0];
+							additionalResult = resultJson.responses.length > 1 ? resultJson.responses[1] : undefined;
 
 							if (! result || ! result.hits) {
 								const err = new Error('Invalid response from Elasticsearch. Full response: ' + JSON.stringify(result));
@@ -381,6 +456,10 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 								});
 
 								return cb(err);
+							}
+
+							if (additionalResult && additionalResult.hits && additionalResult.hits.hits && additionalResult.hits.hits.length) {
+								additionalProductIds = additionalResult.hits.hits.map(x => x._id);
 							}
 
 							for (const hit in result.hits.hits) {
@@ -400,7 +479,9 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 								});
 							}
 
-							async.series(subTasks, (err) => cb(err));
+							async.series(subTasks, (err) => {
+								return cb(err);
+							});
 						});
 					} else if (options.noNew !== true) {
 						products.push(new Product({'productLib': that.productLib}));
@@ -416,7 +497,25 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 
 				tasks.push(function (cb) {
 					if (typeof options.filterMatchedProducts === 'function') {
-						products = options.filterMatchedProducts({'products': products, 'findByCols': options.findByCols, 'attributes': attributes}, cb);
+						const returnObject = options.filterMatchedProducts({'products': products, 'additionalProductIds': additionalProductIds, 'findByCols': options.findByCols, 'attributes': attributes});
+
+						if (returnObject.errors !== undefined) {
+							for (const error of returnObject.errors) {
+								errors.push({
+									'type': 'row error',
+									'time': new Date(),
+									'message': error + ' - rowNr: ' + currentRowNr
+								});
+							}
+						}
+
+						if (returnObject.err) {
+							that.log.warn(logPrefix + returnObject.err.message);
+
+							return cb(returnObject.err);
+						}
+
+						products = returnObject.products;
 					}
 
 					if (products.length === 0 && options.noNew === true) {

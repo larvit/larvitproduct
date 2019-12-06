@@ -1681,6 +1681,123 @@ describe('Import', function () {
 
 		async.series(tasks, done);
 	});
+
+	it('Check that the import can find products by "findByCols" and "findByAdditionalCols" - Should be handled as two different queries, but in one request. "beforeProductLoadFunction" can then be used to handle results', function (done) {
+		const tasks = [];
+		const supplierArtNo1 = '123456781';
+		const supplierArtNo2 = '123456782';
+		const supplierArtNo3 = '123456783';
+		const supplierArtNo4 = '123456784';
+
+		// Remove all previous products
+		tasks.push(function (cb) {
+			deleteAllProducts(cb);
+		});
+
+		// Import two products
+		tasks.push(function importProduct(cb) {
+			const importStr = `supplierArtNo,name,supplierNBSPrice_SEK,size,sizeType\n${supplierArtNo1},First product name,123,7000,Burkar\n${supplierArtNo2},Third product name,123,10000,Burkar`;
+
+			const importOptions = {};
+
+			importFromStr(importStr, importOptions, function (err, result) {
+				if (err) throw err;
+
+				assert.strictEqual(result.length, 2);
+				cb();
+			});
+		});
+
+		// Fail to import two new products with taken names
+		tasks.push(function importProduct(cb) {
+			const importStr = `supplierArtNo,name,supplierNBSPrice_SEK,size,sizeType\n${supplierArtNo3},First product name,123,7000,Burkar\n${supplierArtNo4},Third product name,123,10000,Burkar`;
+
+			const importOptions = {'findByAdditionalCols': ['name'], 'findByCols': ['supplierArtNo']};
+
+			importOptions.filterMatchedProducts = function filterMatchedProducts(options) {
+				const returnObject = {'products': [], 'err': undefined, 'errors': []};
+
+				if (! options) returnObject.err = new Error('filterMatchedProducts got no options!');
+				else if (! options.products) returnObject.err = new Error('filterMatchedProducts got no options.products!');
+
+				if (returnObject.err) {
+					return returnObject;
+				}
+
+				if (options.attributes.name) {
+					if ((returnObject.products.length === 0 && options.additionalProductIds.length !== 0)
+					|| (options.additionalProductIds.length && ! returnObject.products.every(x => options.additionalProductIds.includes(String(x.uuid))))) {
+						returnObject.err = new Error('Import would create a product with duplicated name, stopping. name: ' + options.attributes.name);
+						returnObject.errors.push(returnObject.err.message);
+						returnObject.products = [];
+
+						return returnObject;
+					}
+				}
+
+				return returnObject;
+			};
+
+			importFromStr(importStr, importOptions, function (err, result, errors) {
+				if (err) throw err;
+
+				assert.strictEqual(result.length, 0);
+				assert.strictEqual(errors.length, 2);
+				cb();
+			});
+		});
+
+		// Try to import two products, one with a taken name and one with a free name. Stop the one with a taken name from beeing imported
+		tasks.push(function importProduct(cb) {
+			const importStr = `supplierArtNo,name,supplierNBSPrice_SEK,size,sizeType\n${supplierArtNo1},name one,123,7000,Burkar\n${supplierArtNo2},Third product name,123,10000,Burkar`;
+
+			const importOptions = {'findByAdditionalCols': ['name'], 'findByCols': ['supplierArtNo']};
+
+			importOptions.filterMatchedProducts = function filterMatchedProducts(options) {
+				const returnObject = {'products': [], 'err': undefined, 'errors': []};
+
+				if (! options) returnObject.err = new Error('filterMatchedProducts got no options!');
+				else if (! options.products) returnObject.err = new Error('filterMatchedProducts got no options.products!');
+
+				if (returnObject.err) {
+					return returnObject;
+				}
+
+				if (options.attributes.name) {
+					if ((returnObject.products.length === 0 && options.additionalProductIds.length !== 0)
+					|| (options.additionalProductIds.length && ! returnObject.products.every(x => options.additionalProductIds.includes(String(x.uuid))))) {
+						returnObject.err = new Error('Import would create a product with duplicated name, stopping. name: ' + options.attributes.name);
+						returnObject.errors.push(returnObject.err.message);
+						returnObject.products = [];
+
+						return returnObject;
+					}
+				}
+
+				return returnObject;
+			};
+
+			importFromStr(importStr, importOptions, function (err, result, errors) {
+				if (err) throw err;
+
+				assert.strictEqual(result.length, 1);
+				assert.strictEqual(errors.length, 1);
+				assert.strictEqual(errors[0].message, 'Import would create a product with duplicated name, stopping. name: Third product name - rowNr: 2');
+
+				cb();
+			});
+		});
+
+		// Count products
+		tasks.push(function (cb) {
+			countProducts(function (err, count) {
+				assert.strictEqual(count, 3);
+				cb(err);
+			});
+		});
+
+		async.series(tasks, done);
+	});
 });
 
 after(function (done) {
