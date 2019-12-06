@@ -1586,7 +1586,7 @@ describe('Import', function () {
 
 	it('Create two products, then try to update the products with fields passed in the option: forbiddenUpdateFieldsMultipleHits. Try different combinations to confirm that the wildcards work', function (done) {
 		const tasks = [];
-		const supplierArtNo = '123456789';
+		const sArtNo = '123456789';
 
 		// Remove all previous products
 		tasks.push(function (cb) {
@@ -1594,9 +1594,9 @@ describe('Import', function () {
 		});
 
 		tasks.push(function importProduct(cb) {
-			const importStr = `supplierArtNo,name,supplierNBSPrice_SEK,size,sizeType\n${supplierArtNo},First product name,123,7000,Burkar\n${supplierArtNo},Third product name,123,10000,Burkar`;
+			const importStr = `sArtNo,name,sPrice_SEK,size,sizeType\n${sArtNo},First product name,123,7000,Burkar\n${sArtNo},Third product name,123,10000,Burkar`;
 
-			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['artno', 'size', 'sizetype', 'sizestr', 'suppliernbsdiscount', 'supplierlistprice_*', 'suppliernbsprice_*', 'manualprice_*'] };
+			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['artno', 'size', 'sizetype', 'sizestr', 'supplierdiscount', 'supplierlistprice_*', 'sPrice_*', 'manualprice_*'] };
 
 			importFromStr(importStr, importOptions, function (err, result) {
 				if (err) throw err;
@@ -1608,9 +1608,9 @@ describe('Import', function () {
 
 		// Fail on size (equals): size
 		tasks.push(function importProduct(cb) {
-			const importStr = `supplierArtNo,name,supplierNBSPrice_SEK,size,sizeType\n${supplierArtNo},First product name,123,7000,Burkar\n${supplierArtNo},Third product name,123,10000,Burkar`;
+			const importStr = `sArtNo,name,sPrice_SEK,size,sizeType\n${sArtNo},First product name,123,7000,Burkar\n${sArtNo},Third product name,123,10000,Burkar`;
 
-			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['size'], 'findByCols': ['supplierArtNo'] };
+			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['size'], 'findByCols': ['sArtNo'] };
 
 			importFromStr(importStr, importOptions, function (err, result, errors) {
 				if (err) throw err;
@@ -1623,16 +1623,16 @@ describe('Import', function () {
 			});
 		});
 
-		// Fail on suppliernbsprice_* (startsWith): supplierNBSPrice_SEK
+		// Fail on sPrice_* (startsWith): sPrice_SEK
 		tasks.push(function importProduct(cb) {
-			const importStr = `supplierArtNo,name,supplierNBSPrice_SEK,size,sizeType\n${supplierArtNo},First product name,123,7000,Burkar\n${supplierArtNo},Third product name,123,10000,Burkar`;
+			const importStr = `sArtNo,name,sPrice_SEK,size,sizeType\n${sArtNo},First product name,123,7000,Burkar\n${sArtNo},Third product name,123,10000,Burkar`;
 
-			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['artno', 'suppliernbsprice_*'], 'findByCols': ['supplierArtNo'] };
+			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['artno', 'sPrice_*'], 'findByCols': ['sArtNo'] };
 
 			importFromStr(importStr, importOptions, function (err, result, errors) {
 				if (err) throw err;
 
-				assert.strictEqual(errors.filter(x => x.message === 'Update not possible; multiple products found and "supplierNBSPrice_SEK" is one of the attriblutes').length, 2);
+				assert.strictEqual(errors.filter(x => x.message === 'Update not possible; multiple products found and "sPrice_SEK" is one of the attriblutes').length, 2);
 				assert.strictEqual(errors.length, 2);
 				assert.strictEqual(result.length, 0);
 				cb();
@@ -1641,9 +1641,9 @@ describe('Import', function () {
 
 		// Fail on *Type (endsWith): sizeType
 		tasks.push(function importProduct(cb) {
-			const importStr = `supplierArtNo,name,supplierNBSPrice_SEK,size,sizeType\n${supplierArtNo},First product name,123,7000,Burkar\n${supplierArtNo},Third product name,123,10000,Burkar`;
+			const importStr = `sArtNo,name,sPrice_SEK,size,sizeType\n${sArtNo},First product name,123,7000,Burkar\n${sArtNo},Third product name,123,10000,Burkar`;
 
-			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['artno', '*Type'], 'findByCols': ['supplierArtNo'] };
+			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['artno', '*Type'], 'findByCols': ['sArtNo'] };
 
 			importFromStr(importStr, importOptions, function (err, result, errors) {
 				if (err) throw err;
@@ -1655,16 +1655,16 @@ describe('Import', function () {
 			});
 		});
 
-		// Fail on *NBSPrice* (contains): supplierNBSPrice_SEK
+		// Fail on *Price_* (contains): sPrice_SEK
 		tasks.push(function importProduct(cb) {
-			const importStr = `supplierArtNo,name,supplierNBSPrice_SEK,size,sizeType\n${supplierArtNo},First product name,123,7000,Burkar\n${supplierArtNo},Third product name,123,10000,Burkar`;
+			const importStr = `sArtNo,name,testPrice_SEK,size,sizeType\n${sArtNo},First product name,123,7000,Burkar\n${sArtNo},Third product name,123,10000,Burkar`;
 
-			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['artno', '*NBSPrice*'], 'findByCols': ['supplierArtNo'] };
+			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['artno', '*tprice*'], 'findByCols': ['sArtNo'] };
 
 			importFromStr(importStr, importOptions, function (err, result, errors) {
 				if (err) throw err;
 
-				assert.strictEqual(errors.filter(x => x.message === 'Update not possible; multiple products found and "supplierNBSPrice_SEK" is one of the attriblutes').length, 2);
+				assert.strictEqual(errors.filter(x => x.message === 'Update not possible; multiple products found and "testPrice_SEK" is one of the attriblutes').length, 2);
 				assert.strictEqual(errors.length, 2);
 				assert.strictEqual(result.length, 0);
 				cb();
@@ -1684,10 +1684,10 @@ describe('Import', function () {
 
 	it('Check that the import can find products by "findByCols" and "findByAdditionalCols" - Should be handled as two different queries, but in one request. "beforeProductLoadFunction" can then be used to handle results', function (done) {
 		const tasks = [];
-		const supplierArtNo1 = '123456781';
-		const supplierArtNo2 = '123456782';
-		const supplierArtNo3 = '123456783';
-		const supplierArtNo4 = '123456784';
+		const sArtNo1 = '123456781';
+		const sArtNo2 = '123456782';
+		const sArtNo3 = '123456783';
+		const sArtNo4 = '123456784';
 
 		// Remove all previous products
 		tasks.push(function (cb) {
@@ -1696,7 +1696,7 @@ describe('Import', function () {
 
 		// Import two products
 		tasks.push(function importProduct(cb) {
-			const importStr = `supplierArtNo,name,supplierNBSPrice_SEK,size,sizeType\n${supplierArtNo1},First product name,123,7000,Burkar\n${supplierArtNo2},Third product name,123,10000,Burkar`;
+			const importStr = `sArtNo,name,sPrice_SEK,size,sizeType\n${sArtNo1},First product name,123,7000,Burkar\n${sArtNo2},Third product name,123,10000,Burkar`;
 
 			const importOptions = {};
 
@@ -1710,9 +1710,9 @@ describe('Import', function () {
 
 		// Fail to import two new products with taken names
 		tasks.push(function importProduct(cb) {
-			const importStr = `supplierArtNo,name,supplierNBSPrice_SEK,size,sizeType\n${supplierArtNo3},First product name,123,7000,Burkar\n${supplierArtNo4},Third product name,123,10000,Burkar`;
+			const importStr = `sArtNo,name,sPrice_SEK,size,sizeType\n${sArtNo3},First product name,123,7000,Burkar\n${sArtNo4},Third product name,123,10000,Burkar`;
 
-			const importOptions = {'findByAdditionalCols': ['name'], 'findByCols': ['supplierArtNo']};
+			const importOptions = {'findByAdditionalCols': ['name'], 'findByCols': ['sArtNo']};
 
 			importOptions.filterMatchedProducts = function filterMatchedProducts(options) {
 				const returnObject = {'products': [], 'err': undefined, 'errors': []};
@@ -1749,9 +1749,9 @@ describe('Import', function () {
 
 		// Try to import two products, one with a taken name and one with a free name. Stop the one with a taken name from beeing imported
 		tasks.push(function importProduct(cb) {
-			const importStr = `supplierArtNo,name,supplierNBSPrice_SEK,size,sizeType\n${supplierArtNo1},name one,123,7000,Burkar\n${supplierArtNo2},Third product name,123,10000,Burkar`;
+			const importStr = `sArtNo,name,sPrice_SEK,size,sizeType\n${sArtNo1},name one,123,7000,Burkar\n${sArtNo2},Third product name,123,10000,Burkar`;
 
-			const importOptions = {'findByAdditionalCols': ['name'], 'findByCols': ['supplierArtNo']};
+			const importOptions = {'findByAdditionalCols': ['name'], 'findByCols': ['sArtNo']};
 
 			importOptions.filterMatchedProducts = function filterMatchedProducts(options) {
 				const returnObject = {'products': [], 'err': undefined, 'errors': []};
