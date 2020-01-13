@@ -29,7 +29,7 @@
     "check-object-key": "0.1.11",
     "elasticdump": "^4.0.0",
     "elasticsearch": "^15.0.0",
-    "fast-csv": "^2.3.0",
+    "fast-csv": "^4.0.0",
     "iconv-lite": "^0.5.0",
     "larvitamintercom": "^0.3.7",
     "larvitamsync": "^0.7.2",
