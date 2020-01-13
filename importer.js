@@ -519,17 +519,11 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 					}
 
 					if (products.length === 0 && options.noNew === true) {
-						const err = new Error('No matching product found and options.noNew === true');
 						const attributeString = attributes && Object.keys(attributes).length ? Object.entries(attributes).map(x => x[0] + ': "' + x[1] + '"')
 							.join(', ') : undefined;
+						const err = new Error('No products found to update - ' + (attributeString ? 'attributes: ' + attributeString + ' | ' : '') + 'action: "' + options.action + '" | findByCols: "' + options.findByCols.join('", "') + '"');
 
 						that.log.verbose(logPrefix + err.message);
-
-						errors.push({
-							'type': 'save error',
-							'time': new Date(),
-							'message': 'No products found to update - ' + (attributeString ? 'attributes: ' + attributeString + ' | ' : '') + 'action: "' + options.action + '" | findByCols: "' + options.findByCols.join('", "') + '"'
-						});
 
 						return cb(err);
 					} else if (products.length === 0) {
