@@ -123,6 +123,7 @@ function colsToESTerms(cols, attributes, mapping) {
  *		'hooks':	{'afterEachCsvRow': func}
  *		'created':	string // When (and if) a new product is created, that products propery 'created' will be set to this value
  *		'forbiddenUpdateFieldsMultipleHits':	Array containing fields not allowed to be present in attributes if multiple products are to be updated (* is used as a wildcard)
+ *		'multipleHitsErrorProductDisplayAttributes':	Array containing product attributers to be shown in the message if forbiddenUpdateFieldsMultipleHits triggers an error
  *		'filterMatchedProducts':	func. return: {products: [], err: Error(), errors: ['error1', 'error2']}
  *		'removeOldAttributes':	boolean, // Removes attributes that are not provided from a product
  *		'findByAdditionalCols': ['col1', 'col2'],	// additional columns used to find products. (findByCols OR findByAdditionalCols)
@@ -568,7 +569,9 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 							forbiddenAttributeFound = forbiddenAttributeFound || wildCardContains.map(x => x.replace(/\*/g, '')).some(x => lowerAttr.indexOf(x.toLowerCase()) !== - 1);
 
 							if (forbiddenAttributeFound) {
-								const err = new Error('Update not possible; multiple products found and "' + attr + '" is one of the attriblutes');
+								const productAttributes = options.multipleHitsErrorProductDisplayAttributes ? ' (' + options.multipleHitsErrorProductDisplayAttributes.map(function (e) { return String(e) + ': ' + products.map(x => x.attributes[e]).join(', '); }).join(' | ') + ')' : '';
+
+								const err = new Error('Update not possible; multiple products found and "' + attr + '" is one of the attriblutes.' + productAttributes);
 
 								that.log.warn(logPrefix + err.message);
 

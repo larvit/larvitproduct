@@ -1615,7 +1615,7 @@ describe('Import', function () {
 			importFromStr(importStr, importOptions, function (err, result, errors) {
 				if (err) throw err;
 
-				assert.strictEqual(errors.filter(x => x.message === 'Update not possible; multiple products found and "size" is one of the attriblutes').length, 2);
+				assert.strictEqual(errors.filter(x => x.message === 'Update not possible; multiple products found and "size" is one of the attriblutes.').length, 2);
 
 				assert.strictEqual(errors.length, 2);
 				assert.strictEqual(result.length, 0);
@@ -1632,7 +1632,7 @@ describe('Import', function () {
 			importFromStr(importStr, importOptions, function (err, result, errors) {
 				if (err) throw err;
 
-				assert.strictEqual(errors.filter(x => x.message === 'Update not possible; multiple products found and "sPrice_SEK" is one of the attriblutes').length, 2);
+				assert.strictEqual(errors.filter(x => x.message === 'Update not possible; multiple products found and "sPrice_SEK" is one of the attriblutes.').length, 2);
 				assert.strictEqual(errors.length, 2);
 				assert.strictEqual(result.length, 0);
 				cb();
@@ -1648,7 +1648,7 @@ describe('Import', function () {
 			importFromStr(importStr, importOptions, function (err, result, errors) {
 				if (err) throw err;
 
-				assert.strictEqual(errors.filter(x => x.message === 'Update not possible; multiple products found and "sizeType" is one of the attriblutes').length, 2);
+				assert.strictEqual(errors.filter(x => x.message === 'Update not possible; multiple products found and "sizeType" is one of the attriblutes.').length, 2);
 				assert.strictEqual(errors.length, 2);
 				assert.strictEqual(result.length, 0);
 				cb();
@@ -1664,7 +1664,26 @@ describe('Import', function () {
 			importFromStr(importStr, importOptions, function (err, result, errors) {
 				if (err) throw err;
 
-				assert.strictEqual(errors.filter(x => x.message === 'Update not possible; multiple products found and "testPrice_SEK" is one of the attriblutes').length, 2);
+				assert.strictEqual(errors.filter(x => x.message === 'Update not possible; multiple products found and "testPrice_SEK" is one of the attriblutes.').length, 2);
+				assert.strictEqual(errors.length, 2);
+				assert.strictEqual(result.length, 0);
+				cb();
+			});
+		});
+
+		// Fail on size (equals): size and show the hit products sArtNo and name in the error message
+		tasks.push(function importProduct(cb) {
+			const importStr = `sArtNo,name,sPrice_SEK,size,sizeType\n${sArtNo},First product name,123,7000,Burkar\n${sArtNo},Third product name,123,10000,Burkar`;
+
+			const importOptions = {'forbiddenUpdateFieldsMultipleHits': ['size'], 'findByCols': ['sArtNo'], 'multipleHitsErrorProductDisplayAttributes': ['sArtNo'] };
+
+			importFromStr(importStr, importOptions, function (err, result, errors) {
+				if (err) throw err;
+
+				assert.equal(errors[0].message, 'Update not possible; multiple products found and "size" is one of the attriblutes. (sArtNo: 123456789, 123456789)');
+
+				assert.strictEqual(errors.filter(x => x.message === 'Update not possible; multiple products found and "size" is one of the attriblutes. (sArtNo: 123456789, 123456789)').length, 2);
+
 				assert.strictEqual(errors.length, 2);
 				assert.strictEqual(result.length, 0);
 				cb();
