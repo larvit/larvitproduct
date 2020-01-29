@@ -471,7 +471,7 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 								subTasks.push(function (cb) {
 									product.loadFromDb(function (err) {
 										if (err) {
-											log.warn(logPrefix + 'Import failed, failed to load product with uuid "' + hit._id + '": ' + err.message);
+											that.log.warn(logPrefix + 'Import failed, failed to load product with uuid "' + hit._id + '": ' + err.message);
 
 											return cb(err);
 										}
