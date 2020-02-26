@@ -583,6 +583,12 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 					cb();
 				});
 
+				if (typeof options.beforeAssigningAttributes === 'function') {
+					tasks.push(function (cb) {
+						options.beforeAssigningAttributes({'products': products, 'attributes': attributes}, cb);
+					});
+				}
+
 				// Assign product attributes fix them
 				tasks.push(function (cb) {
 					for (let i = 0; i < products.length; i ++) {
