@@ -1817,6 +1817,109 @@ describe('Import', function () {
 
 		async.series(tasks, done);
 	});
+
+	it('Check that beforeAssigningAttributes is called and does not crash if something else than a function is passed to options.beforeAssigningAttributes', function (done) {
+		const tasks = [];
+		const productStr = 'name,artNo,size,enabled\nballa,abc123,3,true\nballb,abc124,14,false';
+		const options = {'defaultAttributes': { 'visible': 'true'}, 'findByCols': ['name'] };
+		const testAttrValue = 'test';
+
+		let uuids;
+
+		// Set beforeAssigningAttributes to a string - Should not fail
+		tasks.push(function (cb) {
+			options.beforeAssigningAttributes = 'hello';
+			importFromStr(productStr, options, function (err, result) {
+				if (err) throw err;
+
+				uuids = result;
+
+				assert.strictEqual(uuids.length, 2);
+				cb();
+			});
+		});
+
+		// Get and check product data
+		tasks.push(function (cb) {
+			getProductData(uuids, function (err, testProducts) {
+				if (err) throw err;
+
+				assert.strictEqual(testProducts.length, 2);
+
+				for (let i = 0; testProducts[i] !== undefined; i ++) {
+					const product = testProducts[i];
+
+					assert.strictEqual(Object.keys(product._source).length, 6);
+
+					assert.strictEqual(product._source.test, undefined);
+
+					if (product._source.name[0] === 'balla') {
+						assert.strictEqual(product._source.artNo[0], 'abc123');
+						assert.strictEqual(product._source.size[0], '3');
+						assert.strictEqual(product._source.enabled[0], 'true');
+					} else if (product._source.name[0] === 'ballb') {
+						assert.strictEqual(product._source.artNo[0], 'abc124');
+						assert.strictEqual(product._source.size[0], '14');
+						assert.strictEqual(product._source.enabled[0], 'false');
+					} else {
+						throw new Error('Unexpected product: ' + JSON.stringify(product));
+					}
+				}
+
+				cb();
+			});
+		});
+
+		// Import with beforeAssigningAttributes as a function
+		tasks.push(function (cb) {
+			options.beforeAssigningAttributes = function beforeAssigningAttributes(options, cb) {
+				options.products[0].attributes['test'] = testAttrValue + options.attributes.name;
+				cb();
+			};
+
+			importFromStr(productStr, options, function (err, result) {
+				if (err) throw err;
+
+				uuids = result;
+
+				assert.strictEqual(uuids.length, 2);
+				cb();
+			});
+		});
+
+		// Get and check product data
+		tasks.push(function (cb) {
+			getProductData(uuids, function (err, testProducts) {
+				if (err) throw err;
+
+				assert.strictEqual(testProducts.length, 2);
+
+				for (let i = 0; testProducts[i] !== undefined; i ++) {
+					const product = testProducts[i];
+
+					assert.strictEqual(Object.keys(product._source).length, 7);
+
+					if (product._source.name[0] === 'balla') {
+						assert.strictEqual(product._source.artNo[0], 'abc123');
+						assert.strictEqual(product._source.size[0], '3');
+						assert.strictEqual(product._source.enabled[0], 'true');
+						assert.strictEqual(product._source.test[0], testAttrValue + product._source.name[0]);
+					} else if (product._source.name[0] === 'ballb') {
+						assert.strictEqual(product._source.artNo[0], 'abc124');
+						assert.strictEqual(product._source.size[0], '14');
+						assert.strictEqual(product._source.enabled[0], 'false');
+						assert.strictEqual(product._source.test[0], testAttrValue + product._source.name[0]);
+					} else {
+						throw new Error('Unexpected product: ' + JSON.stringify(product));
+					}
+				}
+
+				cb();
+			});
+		});
+
+		async.series(tasks, done);
+	});
 });
 
 after(function (done) {
