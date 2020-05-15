@@ -1801,7 +1801,8 @@ describe('Import', function () {
 
 				assert.strictEqual(result.length, 1);
 				assert.strictEqual(errors.length, 1);
-				assert.strictEqual(errors[0].message, 'Import would create a product with duplicated name, stopping. name: Third product name - rowNr: 2');
+				assert.strictEqual(errors[0].message, 'Import would create a product with duplicated name, stopping. name: Third product name');
+				assert.strictEqual(errors[0].rowNr, 2);
 
 				cb();
 			});

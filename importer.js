@@ -299,6 +299,7 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 									rowError.time	= new Date();
 									rowError.column	= colName;
 									rowError.message	= err.message;
+									rowError.rowNr	= currentRowNr;
 
 									errors.push(rowError);
 
@@ -327,7 +328,8 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 							errors.push({
 								'type': 'save error',
 								'time': new Date(),
-								'message': err.message
+								'message': 'Missing attribute value for "' + options.findByCols[i] + '"',
+								'rowNr': currentRowNr
 							});
 
 							return cb(err);
@@ -505,7 +507,8 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 								errors.push({
 									'type': 'row error',
 									'time': new Date(),
-									'message': error + ' - rowNr: ' + currentRowNr
+									'message': error,
+									'rowNr': currentRowNr
 								});
 							}
 						}
