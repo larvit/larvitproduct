@@ -175,6 +175,7 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 		const logPrefix = topLogPrefix + 'fromFile() - ';
 		const csvStream = fastCsv(options.parserOptions);
 		const colHeads = [];
+		const originalColHeads = [];
 		const tasks = [];
 
 		let	currentRowNr;
@@ -242,6 +243,7 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 						}
 
 						colHeads.push(colName);
+						originalColHeads.push(colName);
 					}
 
 					// Manually add the static column heads
@@ -300,6 +302,11 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 									rowError.column	= colName;
 									rowError.message	= err.message;
 									rowError.rowNr	= currentRowNr;
+
+									rowError.importAttributes = {};
+									for (const colHead of originalColHeads) {
+										rowError.importAttributes[colHead] = attributes[colHead] || '';
+									}
 
 									errors.push(rowError);
 
@@ -504,11 +511,18 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 
 						if (returnObject.errors !== undefined) {
 							for (const error of returnObject.errors) {
+								const importAttributes = {};
+
+								for (const colHead of originalColHeads) {
+									importAttributes[colHead] = attributes[colHead] || '';
+								}
+
 								errors.push({
 									'type': 'row error',
 									'time': new Date(),
 									'message': error,
-									'rowNr': currentRowNr
+									'rowNr': currentRowNr,
+									'importAttributes': importAttributes
 								});
 							}
 						}
