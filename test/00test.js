@@ -1932,59 +1932,21 @@ describe('Import', function () {
 			deleteAllProducts(cb);
 		});
 
-		// Import two products
+		// Try to import two products, one that has everything needed and one with a missing 'findByCols' value. Stop the one with a missing 'findByCols' from beeing imported and save the import data in the report error
 		tasks.push(function importProduct(cb) {
-			const importStr = `sArtNo,name,sPrice_SEK,size,sizeType\n${sArtNo1},First product name,123,7000,Burkar\n${sArtNo2},Third product name,123,10000,Burkar`;
+			const importStr = `sArtNo,name,sPrice_SEK,size,sizeType\n${sArtNo1},name one,123,7000,Burkar\n${sArtNo2},Third product name,123,10000,`;
 
-			const importOptions = {};
-
-			importFromStr(importStr, importOptions, function (err, result) {
-				if (err) throw err;
-
-				assert.strictEqual(result.length, 2);
-				cb();
-			});
-		});
-
-		// Try to import two products, one with a taken name and one with a free name. Stop the one with a taken name from beeing imported and save the import data in the report error
-		tasks.push(function importProduct(cb) {
-			const importStr = `sArtNo,name,sPrice_SEK,size,sizeType\n${sArtNo1},name one,123,7000,Burkar\n${sArtNo2},Third product name,123,10000,Burkar`;
-
-			const importOptions = {'findByAdditionalCols': ['name'], 'findByCols': ['sArtNo']};
-
-			importOptions.filterMatchedProducts = function filterMatchedProducts(options) {
-				const returnObject = {'products': [], 'err': undefined, 'errors': []};
-
-				if (! options) returnObject.err = new Error('filterMatchedProducts got no options!');
-				else if (! options.products) returnObject.err = new Error('filterMatchedProducts got no options.products!');
-
-				if (returnObject.err) {
-					return returnObject;
-				}
-
-				if (options.attributes.name) {
-					if ((returnObject.products.length === 0 && options.additionalProductIds.length !== 0)
-					|| (options.additionalProductIds.length && ! returnObject.products.every(x => options.additionalProductIds.includes(String(x.uuid))))) {
-						returnObject.err = new Error('Import would create a product with duplicated name, stopping. name: ' + options.attributes.name);
-						returnObject.errors.push(returnObject.err.message);
-						returnObject.products = [];
-
-						return returnObject;
-					}
-				}
-
-				return returnObject;
-			};
+			const importOptions = {'findByAdditionalCols': ['name'], 'findByCols': ['sArtNo', 'sizeType']};
 
 			importFromStr(importStr, importOptions, function (err, result, errors) {
 				if (err) throw err;
 
 				assert.strictEqual(result.length, 1);
 				assert.strictEqual(errors.length, 1);
-				assert.strictEqual(errors[0].message, 'Import would create a product with duplicated name, stopping. name: Third product name');
+				assert.strictEqual(errors[0].message, 'Missing attribute value for "sizeType"');
 				assert.strictEqual(errors[0].rowNr, 2);
 
-				assert.strictEqual(JSON.stringify(errors[0].importAttributes), '{"sArtNo":"' + sArtNo2 + '","name":"Third product name","sPrice_SEK":"123","size":"10000","sizeType":"Burkar"}');
+				assert.strictEqual(JSON.stringify(errors[0].importAttributes), '{"sArtNo":"' + sArtNo2 + '","name":"Third product name","sPrice_SEK":"123","size":"10000","sizeType":""}');
 
 				cb();
 			});
@@ -1993,7 +1955,7 @@ describe('Import', function () {
 		// Count products
 		tasks.push(function (cb) {
 			countProducts(function (err, count) {
-				assert.strictEqual(count, 3);
+				assert.strictEqual(count, 1);
 				cb(err);
 			});
 		});

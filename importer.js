@@ -332,11 +332,18 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 
 							that.log.verbose(logPrefix + err.message);
 
+							const importAttributes = {};
+
+							for (const colHead of originalColHeads) {
+								importAttributes[colHead] = attributes[colHead] || '';
+							}
+
 							errors.push({
 								'type': 'save error',
 								'time': new Date(),
 								'message': 'Missing attribute value for "' + options.findByCols[i] + '"',
-								'rowNr': currentRowNr
+								'rowNr': currentRowNr,
+								'importAttributes': importAttributes
 							});
 
 							return cb(err);
@@ -511,18 +518,11 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 
 						if (returnObject.errors !== undefined) {
 							for (const error of returnObject.errors) {
-								const importAttributes = {};
-
-								for (const colHead of originalColHeads) {
-									importAttributes[colHead] = attributes[colHead] || '';
-								}
-
 								errors.push({
 									'type': 'row error',
 									'time': new Date(),
 									'message': error,
-									'rowNr': currentRowNr,
-									'importAttributes': importAttributes
+									'rowNr': currentRowNr
 								});
 							}
 						}
