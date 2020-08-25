@@ -1962,6 +1962,87 @@ describe('Import', function () {
 
 		async.series(tasks, done);
 	});
+
+	it('Check that keepAttributes is working', function (done) {
+		const tasks = [];
+		const options = {'defaultAttributes': { 'visible': 'true'}, 'findByCols': ['name'], 'keepAttributes': ['artNo'] };
+
+		let productStr = 'name,artNo,size,enabled\nballa,abc123,3,true\nballb,abc124,14,false';
+		let uuids;
+
+		// Create/import products
+		tasks.push(function (cb) {
+			importFromStr(productStr, options, function (err, result) {
+				if (err) throw err;
+
+				uuids = result;
+
+				assert.strictEqual(uuids.length, 2);
+				cb();
+			});
+		});
+
+		// Get and check product data
+		tasks.push(function (cb) {
+			getProductData(uuids, function (err, testProducts) {
+				if (err) throw err;
+
+				assert.strictEqual(testProducts.length, 2);
+
+				for (let i = 0; testProducts[i] !== undefined; i ++) {
+					const product = testProducts[i];
+
+					if (product._source.name[0] === 'balla') {
+						assert.strictEqual(product._source.artNo[0], 'abc123');
+					} else if (product._source.name[0] === 'ballb') {
+						assert.strictEqual(product._source.artNo[0], 'abc124');
+					} else {
+						throw new Error('Unexpected product: ' + JSON.stringify(product));
+					}
+				}
+
+				cb();
+			});
+		});
+
+		// Update products
+		tasks.push(function (cb) {
+			productStr = 'name,artNo,size,enabled\nballa,123abc,3,true\nballb,124abc,14,false';
+			importFromStr(productStr, options, function (err, result) {
+				if (err) throw err;
+
+				uuids = result;
+
+				assert.strictEqual(uuids.length, 2);
+				cb();
+			});
+		});
+
+		// Get and check product data
+		tasks.push(function (cb) {
+			getProductData(uuids, function (err, testProducts) {
+				if (err) throw err;
+
+				assert.strictEqual(testProducts.length, 2);
+
+				for (let i = 0; testProducts[i] !== undefined; i ++) {
+					const product = testProducts[i];
+
+					if (product._source.name[0] === 'balla') {
+						assert.strictEqual(product._source.artNo[0], 'abc123');
+					} else if (product._source.name[0] === 'ballb') {
+						assert.strictEqual(product._source.artNo[0], 'abc124');
+					} else {
+						throw new Error('Unexpected product: ' + JSON.stringify(product));
+					}
+				}
+
+				cb();
+			});
+		});
+
+		async.series(tasks, done);
+	});
 });
 
 after(function (done) {

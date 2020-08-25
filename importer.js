@@ -127,6 +127,7 @@ function colsToESTerms(cols, attributes, mapping) {
  *		'filterMatchedProducts':	func. return: {products: [], err: Error(), errors: ['error1', 'error2']}
  *		'removeOldAttributes':	boolean, // Removes attributes that are not provided from a product
  *		'findByAdditionalCols': ['col1', 'col2'],	// additional columns used to find products. (findByCols OR findByAdditionalCols)
+ *		'keepAttributes': ['name', 'productType']	// attributes to keep as is (do not update)
  *	}
  * @param {func} cb callback(err, [productUuid1, productUuid2]) the second array is a list of all added/altered products
  */
@@ -203,6 +204,8 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 		if (options.staticColHeads	=== undefined) { options.staticColHeads	= {};	}
 		if (options.hooks	=== undefined) { options.hooks	= {};	}
 		if (options.removeValWhereEmpty !== true) { options.removeValWhereEmpty = false;	}
+
+		if (options.keepAttributes) { options.keepAttributes = options.keepAttributes.map(v => v.toLowerCase()); }
 
 		if (! Array.isArray(options.ignoreCols)) {
 			options.ignoreCols	= [options.ignoreCols];
@@ -549,9 +552,11 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 
 						product.attributes = {};
 
-						if (options.created) {
-							product.created = options.created;
+						if (! options.created) {
+							options.created = Date.now;
 						}
+
+						product.created = options.created;
 
 						if (options.defaultAttributes) {
 							for (const colName of Object.keys(options.defaultAttributes)) {
@@ -617,6 +622,9 @@ Importer.prototype.fromFile = function fromFile(filePath, options, cb) {
 							}
 
 							for (const colName of Object.keys(attributes)) {
+								if (options.keepAttributes && products[i].created && products[i].created !== options.created && options.keepAttributes.includes(colName.toLowerCase())) {
+									continue; // Do not update attribute
+								}
 								if (options.removeValWhereEmpty) {
 									// This attribute will exist but will be set to undefined when the value is empty in the csv
 									if (attributes[colName] === '' || attributes[colName] === undefined) {
